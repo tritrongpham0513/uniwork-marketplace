@@ -1,0 +1,87 @@
+server:
+  port: 8080
+  address: 0.0.0.0
+
+spring:
+  application:
+    name: uniwork-backend
+  profiles:
+    active: ${SPRING_PROFILES_ACTIVE:dev}
+    
+  # Cấu hình kết nối Cơ sở dữ liệu MySQL 8.x
+  datasource:
+    url: ${DB_URL:jdbc:mysql://localhost:3306/parttime_marketplace?createDatabaseIfNotExist=true&useSSL=false&serverTimezone=UTC&characterEncoding=UTF-8&allowPublicKeyRetrieval=true}
+    username: ${DB_USERNAME:root}
+    password: ${DB_PASSWORD:root}
+    driver-class-name: com.mysql.cj.jdbc.Driver
+
+  # Cấu hình Flyway Database Migration: Tự động khởi tạo và cập nhật schema CSDL
+  flyway:
+    enabled: true
+    baseline-on-migrate: true
+    baseline-version: 0
+    locations: classpath:db/migration
+    validate-on-migrate: true
+
+  # Cấu hình Hibernate JPA: strictly validate theo schema_parttime_marketplace_mysql.sql
+  jpa:
+    hibernate:
+      ddl-auto: validate
+    show-sql: false
+    open-in-view: false
+    properties:
+      hibernate:
+        format_sql: false
+        dialect: org.hibernate.dialect.MySQLDialect
+        jdbc:
+          time_zone: UTC
+
+  # Cấu hình JavaMailSender gửi email kích hoạt qua Gmail SMTP
+  mail:
+    host: ${MAIL_HOST:smtp.gmail.com}
+    port: ${MAIL_PORT:587}
+    username: ${MAIL_USERNAME:}
+    password: ${MAIL_PASSWORD:}
+    properties:
+      mail:
+        smtp:
+          auth: true
+          starttls:
+            enable: true
+            required: true
+          connectiontimeout: 5000
+          timeout: 5000
+          writetimeout: 5000
+
+# Cấu hình tham số nghiệp vụ ứng dụng
+app:
+  jwt:
+    secret: ${JWT_SECRET:404E635266556A586E3272357538782F413F4428472B4B6250645367566B5970}
+    expiration-ms: ${JWT_EXPIRATION_MS:86400000} # 24 giờ
+  mail:
+    from: ${APP_MAIL_FROM:UniWork Marketplace <no-reply@uniwork.vn>}
+  google:
+    client-id: ${GOOGLE_CLIENT_ID:your-google-client-id.apps.googleusercontent.com}
+  base-url: ${APP_BASE_URL:http://localhost:8080}
+  cors:
+    allowed-origins: ${CORS_ALLOWED_ORIGINS:http://localhost:3000,http://localhost:5173,http://localhost:5500,http://127.0.0.1:5500,http://localhost:8080}
+  # Cấu hình tài khoản Quản trị viên khởi tạo qua biến môi trường (không hardcode)
+  admin:
+    initial-email: ${ADMIN_INITIAL_EMAIL:admin@uniwork.vn}
+    initial-password: ${ADMIN_INITIAL_PASSWORD:admin123456}
+
+# Cấu hình ghi log
+logging:
+  level:
+    root: INFO
+    com.uniwork: DEBUG
+    org.springframework.security: INFO
+
+# Cấu hình Swagger / OpenAPI Documentation
+springdoc:
+  api-docs:
+    path: /v3/api-docs
+  swagger-ui:
+    path: /swagger-ui.html
+    tags-sorter: alpha
+    operations-sorter: method
