@@ -21,3 +21,7 @@ backend/.mvn/wrapper/maven-wrapper.jar
 .env.local
 backend/.env
 
+# Local SQL scripts
+schema_parttime_marketplace_mysql.sql
+
+
