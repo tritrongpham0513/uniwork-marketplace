@@ -1,0 +1,230 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>UniWork - Kiểm thử Đăng nhập Google OAuth2</title>
+  <!-- Google Identity Services SDK -->
+  <script src="https://accounts.google.com/gsi/client" async defer></script>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      background: #f8fafc;
+      color: #1e293b;
+      padding: 40px 15px;
+      display: flex;
+      justify-content: center;
+    }
+    .card {
+      background: #ffffff;
+      max-width: 650px;
+      width: 100%;
+      border-radius: 12px;
+      box-shadow: 0 4px 20px rgba(0,0,0,0.06);
+      border: 1px solid #e2e8f0;
+      padding: 32px;
+    }
+    h1 { font-size: 1.5rem; margin-bottom: 8px; color: #0284c7; }
+    p.desc { font-size: 0.95rem; color: #64748b; margin-bottom: 24px; line-height: 1.5; }
+    .google-btn-wrapper {
+      margin: 24px 0;
+      display: flex;
+      justify-content: center;
+      padding: 20px;
+      background: #f1f5f9;
+      border-radius: 8px;
+    }
+    .role-selection {
+      display: none;
+      background: #eff6ff;
+      border: 1px solid #bfdbfe;
+      border-radius: 8px;
+      padding: 20px;
+      margin-top: 20px;
+    }
+    .role-options {
+      display: flex;
+      gap: 12px;
+      margin: 15px 0;
+    }
+    .role-card {
+      flex: 1;
+      border: 2px solid #cbd5e1;
+      background: #ffffff;
+      border-radius: 8px;
+      padding: 14px;
+      text-align: center;
+      cursor: pointer;
+      font-weight: 600;
+      transition: all 0.2s;
+    }
+    .role-card.selected {
+      border-color: #0284c7;
+      background: #e0f2fe;
+      color: #0369a1;
+    }
+    button.btn-primary {
+      background: #0284c7;
+      color: white;
+      border: none;
+      padding: 10px 18px;
+      border-radius: 6px;
+      cursor: pointer;
+      font-weight: 600;
+      font-size: 0.95rem;
+    }
+    button.btn-primary:hover { background: #0369a1; }
+    pre.log-box {
+      background: #0f172a;
+      color: #38bdf8;
+      padding: 16px;
+      border-radius: 8px;
+      font-size: 0.82rem;
+      max-height: 280px;
+      overflow-y: auto;
+      margin-top: 15px;
+      white-space: pre-wrap;
+      word-break: break-all;
+    }
+    .status-badge {
+      display: inline-block;
+      padding: 4px 8px;
+      border-radius: 4px;
+      font-size: 0.75rem;
+      font-weight: 700;
+      background: #dcfce7;
+      color: #15803d;
+      margin-bottom: 12px;
+    }
+  </style>
+</head>
+<body>
+
+<div class="card">
+  <span class="status-badge">Backend Ready • OAuth 2.0</span>
+  <h1>🎓 UniWork - Test Google Sign-In</h1>
+  <p class="desc">
+    Trang kiểm thử đăng nhập Google trực quan. Khi bạn bấm nút bên dưới, Google sẽ mở popup xác thực và cấp mã ID Token gửi về Backend xử lý.
+  </p>
+
+  <div class="google-btn-wrapper">
+    <div id="g_id_signin"></div>
+  </div>
+
+  <div id="roleSelection" class="role-selection">
+    <h3 style="color: #1e3a8a;">Tài khoản mới: Chọn vai trò của bạn</h3>
+    <p id="userPreview" style="font-size: 0.9rem; color: #475569; margin-top: 6px;"></p>
+    <div class="role-options">
+      <div class="role-card selected" id="roleStudent" onclick="selectRole('STUDENT')">
+        👨‍🎓 Sinh viên (STUDENT)
+      </div>
+      <div class="role-card" id="roleEmployer" onclick="selectRole('EMPLOYER')">
+        🏢 Nhà tuyển dụng (EMPLOYER)
+      </div>
+    </div>
+    <div style="text-align: right;">
+      <button class="btn-primary" onclick="submitGoogleWithRole()">Hoàn tất đăng ký & Đăng nhập</button>
+    </div>
+  </div>
+
+  <div style="margin-top: 24px;">
+    <label style="font-weight: 600; font-size: 0.9rem;">Nhật ký phản hồi từ Backend:</label>
+    <pre id="logOutput" class="log-box">Đang khởi tạo nút Google Sign-In...</pre>
+  </div>
+</div>
+
+<script>
+  const CLIENT_ID = '453610447705-f8tsl8tu5psji76slhhupkj02o5m81uc.apps.googleusercontent.com';
+  const BACKEND_URL = '/api/v1/auth/google';
+  let currentIdToken = null;
+  let selectedRole = 'STUDENT';
+
+  function log(msg, data) {
+    const el = document.getElementById('logOutput');
+    const timestamp = new Date().toLocaleTimeString();
+    if (data) {
+      el.textContent = `[${timestamp}] ${msg}\n` + JSON.stringify(data, null, 2);
+    } else {
+      el.textContent = `[${timestamp}] ${msg}`;
+    }
+  }
+
+  window.onload = function() {
+    try {
+      google.accounts.id.initialize({
+        client_id: CLIENT_ID,
+        callback: handleGoogleCredentialResponse
+      });
+
+      google.accounts.id.renderButton(
+        document.getElementById('g_id_signin'),
+        { theme: 'filled_blue', size: 'large', text: 'signin_with', shape: 'rectangular', width: 280 }
+      );
+
+      log('Đã nạp Google SDK thành công với Client ID: ' + CLIENT_ID + '\nSẵn sàng bấm nút đăng nhập!');
+    } catch (e) {
+      log('Lỗi khi nạp Google SDK: ' + e.message);
+    }
+  };
+
+  async function handleGoogleCredentialResponse(response) {
+    currentIdToken = response.credential;
+    log('Đã nhận Google ID Token từ popup! Đang gửi lên Backend /api/v1/auth/google để xác minh...');
+
+    await sendToBackend(null);
+  }
+
+  function selectRole(role) {
+    selectedRole = role;
+    document.getElementById('roleStudent').classList.toggle('selected', role === 'STUDENT');
+    document.getElementById('roleEmployer').classList.toggle('selected', role === 'EMPLOYER');
+  }
+
+  async function submitGoogleWithRole() {
+    if (!currentIdToken) {
+      alert('Không tìm thấy token Google, vui lòng đăng nhập lại.');
+      return;
+    }
+    await sendToBackend(selectedRole);
+  }
+
+  async function sendToBackend(role) {
+    try {
+      const payload = { idToken: currentIdToken };
+      if (role) {
+        payload.role = role;
+      }
+
+      const res = await fetch(BACKEND_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      });
+
+      const json = await res.json();
+      log('Phản hồi từ Backend:', json);
+
+      if (json.success && json.data) {
+        if (json.data.needsRole) {
+          // Người dùng mới, backend yêu cầu chọn vai trò
+          document.getElementById('roleSelection').style.display = 'block';
+          document.getElementById('userPreview').textContent = 
+            `Chào mừng ${json.data.fullName || ''} (${json.data.email})! Hãy chọn vai trò của bạn trên UniWork:`;
+        } else {
+          // Đăng nhập thành công, có Access Token
+          document.getElementById('roleSelection').style.display = 'none';
+          alert('🎉 ĐĂNG NHẬP GOOGLE THÀNH CÔNG!\nJWT Token đã được Backend cấp phát: ' + json.data.accessToken.substring(0, 25) + '...');
+        }
+      } else {
+        alert('Lỗi từ Backend: ' + (json.message || 'Xác thực thất bại'));
+      }
+    } catch (err) {
+      log('Lỗi kết nối tới Backend: ' + err.message);
+    }
+  }
+</script>
+
+</body>
+</html>
+
