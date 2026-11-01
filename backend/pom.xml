@@ -1,0 +1,158 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0" 
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+    
+    <parent>
+        <groupId>org.springframework.boot</groupId>
+        <artifactId>spring-boot-starter-parent</artifactId>
+        <version>3.3.5</version>
+        <relativePath/>
+    </parent>
+    
+    <groupId>com.uniwork</groupId>
+    <artifactId>uniwork-backend</artifactId>
+    <version>0.0.1-SNAPSHOT</version>
+    <name>uniwork-backend</name>
+    <description>UniWork Marketplace - Nền tảng quản lý freelance và việc làm part-time cho sinh viên</description>
+
+    <properties>
+        <java.version>17</java.version>
+        <jjwt.version>0.12.5</jjwt.version>
+        <junit-jupiter.version>5.10.2</junit-jupiter.version>
+        <maven-surefire-plugin.version>3.1.2</maven-surefire-plugin.version>
+    </properties>
+
+    <dependencies>
+        <!-- 1. Web RESTful API -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-web</artifactId>
+        </dependency>
+
+        <!-- 2. Spring Security (Bảo mật & Phân quyền RBAC) -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-security</artifactId>
+        </dependency>
+
+        <!-- 3. Validation dữ liệu đầu vào (@NotBlank, @Email, @Size) -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-validation</artifactId>
+        </dependency>
+
+        <!-- 4. Spring Data JPA (Hibernate ORM) -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-data-jpa</artifactId>
+        </dependency>
+
+        <!-- 5. MySQL Connector -->
+        <dependency>
+            <groupId>com.mysql</groupId>
+            <artifactId>mysql-connector-j</artifactId>
+            <scope>runtime</scope>
+        </dependency>
+
+        <!-- 6. JWT Library (JJWT: HMAC-SHA256, chuẩn RFC 7519) -->
+        <dependency>
+            <groupId>io.jsonwebtoken</groupId>
+            <artifactId>jjwt-api</artifactId>
+            <version>${jjwt.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>io.jsonwebtoken</groupId>
+            <artifactId>jjwt-impl</artifactId>
+            <version>${jjwt.version}</version>
+            <scope>runtime</scope>
+        </dependency>
+        <dependency>
+            <groupId>io.jsonwebtoken</groupId>
+            <artifactId>jjwt-jackson</artifactId>
+            <version>${jjwt.version}</version>
+            <scope>runtime</scope>
+        </dependency>
+
+        <!-- 7. Lombok (Tự động sinh getter, setter, builder, constructor) -->
+        <dependency>
+            <groupId>org.projectlombok</groupId>
+            <artifactId>lombok</artifactId>
+            <optional>true</optional>
+        </dependency>
+
+        <!-- 8. Testing (Unit Test & Security Test) -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-test</artifactId>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.springframework.security</groupId>
+            <artifactId>spring-security-test</artifactId>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.junit.platform</groupId>
+            <artifactId>junit-platform-launcher</artifactId>
+            <version>1.10.2</version>
+            <scope>test</scope>
+        </dependency>
+
+        <!-- 9. Swagger UI / SpringDoc OpenAPI (Tài liệu API & Test trực quan) -->
+        <dependency>
+            <groupId>org.springdoc</groupId>
+            <artifactId>springdoc-openapi-starter-webmvc-ui</artifactId>
+            <version>2.6.0</version>
+        </dependency>
+
+        <!-- 10. JavaMailSender (Gửi email kích hoạt tài khoản qua Gmail SMTP) -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-mail</artifactId>
+        </dependency>
+
+        <!-- 11. Google API Client (Xác minh Google OAuth2 ID Token phía Server) -->
+        <dependency>
+            <groupId>com.google.api-client</groupId>
+            <artifactId>google-api-client</artifactId>
+            <version>2.7.0</version>
+        </dependency>
+
+        <!-- 12. Flyway Database Migration (Tự động khởi tạo & đồng bộ bảng CSDL) -->
+        <dependency>
+            <groupId>org.flywaydb</groupId>
+            <artifactId>flyway-core</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>org.flywaydb</groupId>
+            <artifactId>flyway-mysql</artifactId>
+        </dependency>
+    </dependencies>
+
+    <build>
+        <plugins>
+            <plugin>
+                <groupId>org.springframework.boot</groupId>
+                <artifactId>spring-boot-maven-plugin</artifactId>
+                <configuration>
+                    <excludes>
+                        <exclude>
+                            <groupId>org.projectlombok</groupId>
+                            <artifactId>lombok</artifactId>
+                        </exclude>
+                    </excludes>
+                </configuration>
+            </plugin>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-surefire-plugin</artifactId>
+                <configuration>
+                    <useManifestOnlyJar>false</useManifestOnlyJar>
+                </configuration>
+            </plugin>
+        </plugins>
+    </build>
+</project>
+

@@ -1,0 +1,23 @@
+# Root .gitignore
+.idea/
+.vscode/
+*.iml
+.DS_Store
+Thumbs.db
+node_modules/
+tools/node_modules/
+
+# Backend
+backend/target/
+backend/.mvn/wrapper/maven-wrapper.jar
+*.log
+
+# Sensitive / Local configuration files
+**/application-dev.yml
+**/application-dev.yaml
+**/application-local.yml
+**/application-local.yaml
+.env
+.env.local
+backend/.env
+
