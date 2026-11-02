@@ -1,5 +1,6 @@
 import { Outlet } from "react-router";
 import { Header } from "./header";
+import { Footer } from "./footer";
 
 export function MainLayout() {
   return (
@@ -12,15 +13,10 @@ export function MainLayout() {
         <Outlet />
       </main>
 
-      {/* Footer tối giản */}
-      <footer className="border-t border-border/60 py-6 text-center text-xs text-muted-foreground">
-        <div className="mx-auto max-w-7xl px-4">
-          <p>© {new Date().getFullYear()} UniWork Marketplace. Nền tảng việc làm linh hoạt cho sinh viên.</p>
-        </div>
-      </footer>
+      {/* Footer đầy đủ uy tín */}
+      <Footer />
     </div>
   );
 }
 
 export default MainLayout;
-
