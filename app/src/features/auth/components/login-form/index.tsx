@@ -21,6 +21,7 @@ import {
   type LoginSchema,
 } from "@/features/auth/schema/auth.schema";
 import { useLogin } from "@/features/auth/hooks";
+import { saveAuthSession } from "@/utils/authStorage";
 
 interface LoginFormProps extends React.ComponentProps<"form"> {
   onSubmitSuccess?: (data: LoginSchema) => void;
@@ -48,7 +49,11 @@ function LoginForm({ className, onSubmitSuccess, ...props }: LoginFormProps) {
         password: data.password,
       },
       {
-        onSuccess: () => {
+        onSuccess: (res) => {
+          // 🔐 Lưu Access Token và User Profile vào localStorage
+          if (res.data) {
+            saveAuthSession(res.data);
+          }
           onSubmitSuccess?.(data);
           // Điều hướng về trang chủ sau khi đăng nhập thành công
           navigate(PATHS.HOME);
