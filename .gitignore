@@ -24,4 +24,17 @@ backend/.env
 # Local SQL scripts
 schema_parttime_marketplace_mysql.sql
 
+# Frontend build/test artifacts
+app/dist/
+app/.tmp-verify/
 
+# Backend runtime uploads (file lưu ở local, không commit)
+backend/uploads/
+backend/src/main/resources/static/uploads/
+
+de-tai.txt
+
+.agents/
+skills-lock.json
+chotca
+Viecoday

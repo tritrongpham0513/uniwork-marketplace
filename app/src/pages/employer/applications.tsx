@@ -1,0 +1,362 @@
+import { useMemo, useState } from "react";
+import { Link } from "react-router";
+import {
+  Briefcase,
+  CheckCircle2,
+  FileText,
+  Search,
+  ThumbsDown,
+  ThumbsUp,
+  Users,
+} from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { DashboardLayout, navItem } from "@/components/layout/dashboard-layout";
+import { StatusBadge } from "@/components/shared/status-badge";
+import { EmptyState, ErrorState } from "@/components/shared/empty-state";
+import {
+  useEmployerApplications,
+  useUpdateApplicationStatus,
+} from "@/features/applications/hooks";
+import { useEmployerJobs } from "@/features/employer/hooks";
+import {
+  APPLICATION_STATUS_LABELS,
+  type ApplicationStatus,
+} from "@/features/shared/types";
+import { PATHS } from "@/config/paths";
+import { formatPostedAgo } from "@/features/jobs/lib/format";
+import { showApiError, toast } from "@/lib/toast";
+
+const STATUS_FILTERS: Array<{
+  value: ApplicationStatus | "ALL";
+  label: string;
+}> = [
+  { value: "ALL", label: "Tất cả" },
+  { value: "PENDING", label: "Đang chờ" },
+  { value: "VIEWED", label: "Đã xem" },
+  { value: "SHORTLISTED", label: "Duyệt sơ bộ" },
+  { value: "ACCEPTED", label: "Đã nhận" },
+  { value: "COMPLETED", label: "Hoàn thành" },
+  { value: "REJECTED", label: "Không phù hợp" },
+];
+
+export default function EmployerApplicationsPage() {
+  const [status, setStatus] = useState<ApplicationStatus | "ALL">("ALL");
+  const [jobId, setJobId] = useState("ALL");
+  const [keyword, setKeyword] = useState("");
+
+  const { data: applications = [], isPending, isError, refetch } =
+    useEmployerApplications();
+  const { data: jobs = [] } = useEmployerJobs();
+  const updateStatus = useUpdateApplicationStatus();
+
+  const visible = useMemo(() => {
+    const query = keyword.trim().toLowerCase();
+    return applications.filter((application) => {
+      if (status !== "ALL" && application.status !== status) return false;
+      if (jobId !== "ALL" && application.jobId !== jobId) return false;
+      if (!query) return true;
+      return (
+        application.studentName.toLowerCase().includes(query) ||
+        application.jobTitle.toLowerCase().includes(query)
+      );
+    });
+  }, [applications, status, jobId, keyword]);
+
+  const handleStatus = async (
+    id: string,
+    nextStatus: ApplicationStatus,
+    note?: string
+  ) => {
+    try {
+      await updateStatus.mutateAsync({ id, status: nextStatus, note });
+      toast.success(
+        nextStatus === "SHORTLISTED"
+          ? "Đã duyệt sơ bộ ứng viên."
+          : nextStatus === "ACCEPTED"
+            ? "Đã nhận ứng viên."
+            : "Đã từ chối ứng viên.",
+        { description: "Ứng viên đã nhận được thông báo về thay đổi này." }
+      );
+    } catch (error) {
+      showApiError(error);
+    }
+  };
+
+  const navItems = [
+    navItem("Bảng điều khiển", PATHS.EMPLOYER.ROOT, FileText),
+    navItem("Tin tuyển dụng", PATHS.EMPLOYER.JOBS, Briefcase),
+    navItem("Ứng viên", PATHS.EMPLOYER.APPLICATIONS, Users),
+    navItem("Đánh giá", PATHS.EMPLOYER.REVIEWS, FileText),
+    navItem("Thông tin tổ chức", PATHS.EMPLOYER.ORGANIZATION, FileText),
+  ];
+
+  return (
+    <DashboardLayout
+      role="EMPLOYER"
+      title="Ứng viên"
+      description="Duyệt hồ sơ, phỏng vấn và cập nhật trạng thái ứng tuyển."
+      navItems={navItems}
+    >
+      <Card className="border-border/60">
+        <CardHeader>
+          <CardTitle className="font-heading text-base">Bộ lọc</CardTitle>
+          <CardDescription>
+            {applications.length > 0
+              ? `Tổng cộng ${applications.length} hồ sơ ứng tuyển`
+              : "Chưa có ứng viên nào"}
+          </CardDescription>
+        </CardHeader>
+
+        <CardContent className="space-y-4">
+          <div className="grid gap-3 sm:grid-cols-2">
+            <div className="relative">
+              <Search className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground" />
+              <Input
+                value={keyword}
+                onChange={(event) => setKeyword(event.target.value)}
+                placeholder="Tìm theo tên ứng viên hoặc vị trí"
+                className="pl-9"
+              />
+            </div>
+
+            <Select
+              value={jobId}
+              onValueChange={(value) => value && setJobId(value)}
+              items={[
+                { value: "ALL", label: "Tất cả tin tuyển dụng" },
+                ...jobs.map((job) => ({
+                  value: job.id,
+                  label: job.title,
+                })),
+              ]}
+            >
+              <SelectTrigger className="w-full">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="ALL">Tất cả tin tuyển dụng</SelectItem>
+                {jobs.map((job) => (
+                  <SelectItem key={job.id} value={job.id}>
+                    {job.title}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+
+          <Tabs
+            value={status}
+            onValueChange={(value) =>
+              setStatus(value as ApplicationStatus | "ALL")
+            }
+          >
+            <TabsList className="flex w-full flex-nowrap justify-start gap-1 overflow-x-auto rounded-2xl p-1 [scrollbar-width:thin] group-data-horizontal/tabs:h-auto">
+              {STATUS_FILTERS.map((item) => (
+                <TabsTrigger
+                  key={item.value}
+                  value={item.value}
+                  className="h-8 flex-none"
+                >
+                  {item.label}
+                </TabsTrigger>
+              ))}
+            </TabsList>
+          </Tabs>
+        </CardContent>
+      </Card>
+
+      <div className="mt-4">
+        {isPending && (
+          <div className="space-y-3">
+            {Array.from({ length: 4 }).map((_, index) => (
+              <div key={index} className="h-24 animate-pulse rounded-xl bg-muted/60" />
+            ))}
+          </div>
+        )}
+
+        {isError && (
+          <ErrorState
+            title="Không tải được danh sách ứng viên"
+            onRetry={() => void refetch()}
+          />
+        )}
+
+        {!isPending && !isError && visible.length === 0 && (
+          <EmptyState
+            icon="inbox"
+            title={
+              applications.length === 0
+                ? "Chưa có ứng viên nào"
+                : "Không có ứng viên phù hợp"
+            }
+            description={
+              applications.length === 0
+                ? "Ứng viên sẽ xuất hiện ở đây khi họ ứng tuyển vào tin của bạn."
+                : "Thử đổi bộ lọc để xem thêm kết quả."
+            }
+            action={
+              applications.length === 0 ? (
+                <Button
+                  size="sm"
+                  nativeButton={false}
+                  render={<Link to={PATHS.EMPLOYER.JOB_NEW} />}
+                >
+                  Đăng tin tuyển dụng
+                </Button>
+              ) : undefined
+            }
+          />
+        )}
+
+        {!isPending && !isError && visible.length > 0 && (
+          <ul className="space-y-3">
+            {visible.map((application) => (
+              <li key={application.id}>
+                <Card className="border-border/60 transition-colors hover:bg-muted/30">
+                  <CardContent className="p-4">
+                    <div className="flex flex-col gap-4 lg:flex-row lg:items-center">
+                      <div className="flex min-w-0 flex-1 items-center gap-3">
+                        <div className="flex size-11 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-sm font-semibold text-primary">
+                          {application.studentName.slice(0, 2).toUpperCase()}
+                        </div>
+
+                        <div className="min-w-0">
+                          <Link
+                            to={PATHS.EMPLOYER.APPLICATION_DETAIL(application.id)}
+                            className="truncate text-sm font-semibold text-foreground transition-colors hover:text-primary"
+                          >
+                            {application.studentName}
+                          </Link>
+                          <p className="truncate text-xs text-muted-foreground">
+                            {application.studentUniversity} ·{" "}
+                            {application.studentMajor}
+                          </p>
+                          <p className="mt-0.5 truncate text-xs text-muted-foreground">
+                            Ứng tuyển: {application.jobTitle} ·{" "}
+                            {formatPostedAgo(application.createdAt)}
+                          </p>
+                        </div>
+                      </div>
+
+                      <div className="flex shrink-0 flex-wrap items-center gap-2">
+                        {application.expectedSalary && (
+                          <span className="text-xs text-muted-foreground">
+                            Mong muốn:{" "}
+                            <span className="font-semibold text-foreground">
+                              {application.expectedSalary.toLocaleString(
+                                "vi-VN"
+                              )}
+                              {application.expectedSalary > 100000
+                                ? "đ/tháng"
+                                : "đ/giờ"}
+                            </span>
+                          </span>
+                        )}
+
+                        <StatusBadge
+                          status={application.status}
+                          label={APPLICATION_STATUS_LABELS[application.status]}
+                        />
+
+                        <div className="flex items-center gap-1">
+                          {application.status === "PENDING" && (
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() =>
+                                handleStatus(
+                                  application.id,
+                                  "SHORTLISTED",
+                                  "Hồ sơ phù hợp, đã duyệt sơ bộ"
+                                )
+                              }
+                              disabled={updateStatus.isPending}
+                            >
+                              <ThumbsUp className="size-4" />
+                              Duyệt sơ bộ
+                            </Button>
+                          )}
+
+                          {application.status === "SHORTLISTED" && (
+                            <Button
+                              size="sm"
+                              onClick={() =>
+                                handleStatus(
+                                  application.id,
+                                  "ACCEPTED",
+                                  "Đã nhận ứng viên"
+                                )
+                              }
+                              disabled={updateStatus.isPending}
+                            >
+                              <CheckCircle2 className="size-4" />
+                              Nhận
+                            </Button>
+                          )}
+
+                          {(
+                            application.status === "PENDING" ||
+                            application.status === "VIEWED" ||
+                            application.status === "SHORTLISTED"
+                          ) && (
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className="text-destructive"
+                              onClick={() =>
+                                handleStatus(
+                                  application.id,
+                                  "REJECTED",
+                                  "Hồ sơ không phù hợp với vị trí"
+                                )
+                              }
+                              disabled={updateStatus.isPending}
+                            >
+                              <ThumbsDown className="size-4" />
+                              Từ chối
+                            </Button>
+                          )}
+
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            nativeButton={false}
+                            render={
+                              <Link
+                                to={PATHS.EMPLOYER.APPLICATION_DETAIL(
+                                  application.id
+                                )}
+                              />
+                            }
+                          >
+                            Xem hồ sơ
+                          </Button>
+                        </div>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+              </li>
+            ))}
+          </ul>
+        )}
+      </div>
+    </DashboardLayout>
+  );
+}

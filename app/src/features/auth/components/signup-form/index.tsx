@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { Link, useNavigate } from "react-router";
-import { Controller, useForm } from "react-hook-form";
+import { Controller, useForm, useWatch } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import {
   GraduationCap,
@@ -11,7 +11,6 @@ import {
   Eye,
   EyeOff,
   CheckCircle2,
-  AlertCircle,
   RefreshCw,
   ArrowRight,
   Send,
@@ -35,6 +34,8 @@ import {
   type SignupSchema,
 } from "@/features/auth/schema/auth.schema";
 import { useRegister, useResendVerification } from "@/features/auth/hooks";
+import { normalizeApiError } from "@/lib/api-error";
+import { toast } from "@/lib/toast";
 
 interface SignupFormProps extends React.ComponentProps<"div"> {
   onSubmitSuccess?: (data: SignupSchema) => void;
@@ -72,8 +73,12 @@ function SignupForm({ className, onSubmitSuccess }: SignupFormProps) {
     mode: "onTouched",
   });
 
-  const selectedRole = form.watch("role");
-  const watchPassword = form.watch("password") || "";
+  const selectedRole = useWatch({ control: form.control, name: "role" });
+  const watchPassword = useWatch({ control: form.control, name: "password" }) || "";
+  const selectedEmployerType = useWatch({
+    control: form.control,
+    name: "employerType",
+  });
 
   // Tính toán độ mạnh mật khẩu (Password Strength Meter)
   const getPasswordStrength = (pass: string) => {
@@ -84,9 +89,10 @@ function SignupForm({ className, onSubmitSuccess }: SignupFormProps) {
     if (/[0-9]/.test(pass)) score++;
     if (/[^a-zA-Z0-9]/.test(pass)) score++;
 
-    if (score <= 2) return { label: "Yếu", color: "bg-red-500", percent: 30 };
-    if (score <= 4) return { label: "Trung bình", color: "bg-amber-500", percent: 70 };
-    return { label: "Mạnh", color: "bg-emerald-500", percent: 100 };
+    if (score <= 2) return { label: "Yếu", color: "bg-destructive", percent: 30 };
+    if (score <= 4)
+      return { label: "Trung bình", color: "bg-muted-foreground", percent: 70 };
+    return { label: "Mạnh", color: "bg-primary", percent: 100 };
   };
 
   const passwordStrength = getPasswordStrength(watchPassword);
@@ -116,7 +122,23 @@ function SignupForm({ className, onSubmitSuccess }: SignupFormProps) {
         setRegisteredEmail(payload.email);
         setIsSubmittedSuccess(true);
         setCountdown(60);
+        toast.success("Đăng ký tài khoản thành công!", {
+          description:
+            "Vui lòng kiểm tra hộp thư để kích hoạt tài khoản của bạn.",
+        });
         onSubmitSuccess?.(data);
+      },
+      onError: (error) => {
+        // Lỗi validation từ backend: hiển thị inline tại đúng field bị lỗi
+        const fieldErrors = normalizeApiError(error).fieldErrors;
+        if (fieldErrors.length === 0) return;
+
+        for (const fieldError of fieldErrors) {
+          form.setError(fieldError.field as keyof SignupSchema, {
+            type: "server",
+            message: fieldError.message,
+          });
+        }
       },
     });
   };
@@ -134,19 +156,11 @@ function SignupForm({ className, onSubmitSuccess }: SignupFormProps) {
             "Đã gửi lại liên kết kích hoạt. Vui lòng kiểm tra hộp thư!"
           );
           setCountdown(60);
+          toast.success("Đã gửi lại email kích hoạt!");
         },
       }
     );
   };
-
-  // Trích xuất thông báo lỗi từ TanStack Query Error Object
-  const registerErrorMessage =
-    registerMutation.error?.response?.data?.message ||
-    registerMutation.error?.message;
-
-  const resendErrorMessage =
-    resendMutation.error?.response?.data?.message ||
-    resendMutation.error?.message;
 
   // ==========================================================
   // TRẠNG THÁI 2: MÀN HÌNH CHỜ KÍCH HOẠT EMAIL SAU KHI ĐĂNG KÝ
@@ -189,12 +203,6 @@ function SignupForm({ className, onSubmitSuccess }: SignupFormProps) {
         {resendNotification && (
           <div className="w-full rounded-xl bg-emerald-500/10 border border-emerald-500/20 p-2.5 text-xs text-emerald-700 dark:text-emerald-300">
             {resendNotification}
-          </div>
-        )}
-
-        {resendErrorMessage && (
-          <div className="w-full rounded-xl bg-destructive/10 border border-destructive/20 p-2.5 text-xs text-destructive">
-            {resendErrorMessage}
           </div>
         )}
 
@@ -253,30 +261,12 @@ function SignupForm({ className, onSubmitSuccess }: SignupFormProps) {
       {/* Header Form */}
       <div className="flex flex-col items-center gap-1 text-center">
         <h1 className="text-2xl font-bold tracking-tight text-foreground">
-          Tạo tài khoản UniWork
+          Tạo tài khoản VieJob
         </h1>
         <p className="text-xs sm:text-sm text-balance text-muted-foreground">
           Bắt đầu tìm kiếm cơ hội hoặc kết nối ứng viên tài năng
         </p>
       </div>
-
-      {/* Hiển thị lỗi từ TanStack Query Error State (ví dụ 409 Email đã tồn tại) */}
-      {registerErrorMessage && (
-        <div className="flex items-start gap-2.5 rounded-2xl border border-destructive/20 bg-destructive/10 p-3 text-xs text-destructive">
-          <AlertCircle className="size-4 shrink-0 mt-0.5" />
-          <div className="space-y-1">
-            <p className="font-semibold">{registerErrorMessage}</p>
-            {registerErrorMessage.toLowerCase().includes("đăng nhập") && (
-              <Link
-                to={PATHS.AUTH.LOGIN}
-                className="inline-block font-bold underline underline-offset-2 hover:opacity-80"
-              >
-                Nhấn vào đây để Đăng nhập ngay
-              </Link>
-            )}
-          </div>
-        </div>
-      )}
 
       <form
         onSubmit={form.handleSubmit(onSubmit)}
@@ -345,7 +335,7 @@ function SignupForm({ className, onSubmitSuccess }: SignupFormProps) {
                   onClick={() => form.setValue("employerType", "COMPANY")}
                   className={cn(
                     "flex items-center justify-center gap-1.5 rounded-xl border py-1.5 px-2 text-xs font-medium cursor-pointer transition-colors",
-                    form.watch("employerType") === "COMPANY"
+                    selectedEmployerType === "COMPANY"
                       ? "border-primary bg-background text-primary shadow-2xs font-semibold"
                       : "border-transparent bg-muted/60 text-muted-foreground hover:bg-muted"
                   )}
@@ -358,7 +348,7 @@ function SignupForm({ className, onSubmitSuccess }: SignupFormProps) {
                   onClick={() => form.setValue("employerType", "INDIVIDUAL")}
                   className={cn(
                     "flex items-center justify-center gap-1.5 rounded-xl border py-1.5 px-2 text-xs font-medium cursor-pointer transition-colors",
-                    form.watch("employerType") === "INDIVIDUAL"
+                    selectedEmployerType === "INDIVIDUAL"
                       ? "border-primary bg-background text-primary shadow-2xs font-semibold"
                       : "border-transparent bg-muted/60 text-muted-foreground hover:bg-muted"
                   )}
@@ -555,7 +545,7 @@ function SignupForm({ className, onSubmitSuccess }: SignupFormProps) {
             </Button>
 
             <FieldDescription className="text-center pt-1 text-xs">
-              Đã có tài khoản UniWork?{" "}
+              Đã có tài khoản VieJob?{" "}
               <Link
                 to={PATHS.AUTH.LOGIN}
                 className="font-semibold text-primary underline underline-offset-4 hover:opacity-85"

@@ -15,6 +15,14 @@ import type {
   Method,
 } from "axios";
 import axios from "axios";
+import {
+  markApiErrorHandled,
+  markApiErrorSilent,
+  normalizeApiError,
+  type ApiError,
+} from "@/lib/api-error";
+import { toast } from "@/lib/toast";
+import { mockAdapter } from "@/lib/mock/adapter";
 
 // ============================================
 // TYPES & INTERFACES
@@ -22,6 +30,8 @@ import axios from "axios";
 
 export interface CustomAxiosRequestConfig extends InternalAxiosRequestConfig {
   _retry?: boolean;
+  /** Request này không được sinh toast khi lỗi (mặc định false). */
+  skipErrorToast?: boolean;
 }
 
 interface FailedQueueItem {
@@ -48,6 +58,9 @@ const baseURL: string = env.API_URL_DEV;
 
 export const axiosInstance: AxiosInstance = axios.create({
   baseURL,
+  // Khi bật mock, mọi request được xử lý bởi mock adapter thay vì gọi
+  // mạng thật. Tắt bằng VITE_USE_MOCK_API=false khi backend sẵn sàng.
+  adapter: env.USE_MOCK_API ? mockAdapter : undefined,
 });
 
 // ============================================
@@ -71,6 +84,19 @@ axiosInstance.interceptors.request.use(
     return Promise.reject(error);
   }
 );
+
+/**
+ * Instance riêng cho luồng refresh token.
+ *
+ * Tách khỏi `axiosInstance` chính để:
+ *   - không bị interceptor response của `axiosInstance` xử lý lại
+ *     (tránh vòng lặp refresh vô hạn khi token hết hạn),
+ *   - vẫn dùng mock adapter khi `VITE_USE_MOCK_API=true`.
+ */
+const refreshClient: AxiosInstance = axios.create({
+  baseURL,
+  adapter: env.USE_MOCK_API ? mockAdapter : undefined,
+});
 
 // ============================================
 // PHẦN 3: XỬ LÝ LÀM MỚI TOKEN TỰ ĐỘNG
@@ -96,25 +122,19 @@ const processQueue = (error: unknown = null): void => {
 const refreshToken = async (): Promise<void> => {
   try {
     const refresh_token = getLocalRefreshToken();
-    console.log("refresh_token", refresh_token);
 
     if (!refresh_token) {
       throw new Error("No refresh token available");
     }
 
     // Gọi API làm mới token bằng refreshToken hiện có
-    const response = await axios.post<RefreshTokenResponse>(
-      `${baseURL}auth/refresh`,
+    const response = await refreshClient.post<RefreshTokenResponse>(
+      "/api/v1/auth/refresh",
       { refresh_token }
     );
 
     const { access_token, refresh_token: new_refresh_token } =
       response.data.data;
-
-    console.log("New access & refresh token", {
-      access_token,
-      new_refresh_token,
-    });
 
     // Lưu cặp token mới vào localStorage
     saveLocalAccessToken(access_token);
@@ -152,17 +172,85 @@ const getNewToken = async (): Promise<void> => {
 // PHẦN 4: XỬ LÝ RESPONSE VÀ LÀM MỚI TOKEN
 // ============================================
 
+/** Đường dẫn trang đăng nhập — dùng để điều hướng khi phiên hết hạn. */
+const LOGIN_PATH = "/login";
+
+/** Đánh dấu đã điều hướng để không redirect lặp nhiều lần. */
+let isRedirectingToLogin = false;
+
+/**
+ * Đặt lại cờ chuyển hướng. Gọi khi người dùng đăng nhập lại thành công
+ * để các lỗi hết phiên sau này vẫn có thể chuyển hướng bình thường.
+ */
+export const resetSessionRedirectFlag = (): void => {
+  isRedirectingToLogin = false;
+};
+
+/**
+ * Xử lý khi phiên đăng nhập không còn hợp lệ:
+ * - Xoá token khỏi localStorage
+ * - Hiển thị 1 toast thông báo
+ * - Điều hướng về trang đăng nhập
+ *
+ * Trả về `ApiError` đã đánh dấu `handled = true` để tầng dưới (TanStack Query)
+ * KHÔNG bắn toast lần nữa.
+ */
+const handleSessionExpired = (): ApiError => {
+  clearTokens();
+
+  toast.error("Phiên đăng nhập đã hết hạn", {
+    description: "Vui lòng đăng nhập lại để tiếp tục.",
+    id: "auth:session-expired",
+  });
+
+  if (!isRedirectingToLogin) {
+    isRedirectingToLogin = true;
+    if (typeof window !== "undefined") {
+      const currentPath = window.location.pathname;
+      if (!currentPath.startsWith(LOGIN_PATH)) {
+        window.location.assign(LOGIN_PATH);
+      }
+    }
+  }
+
+  return markApiErrorHandled(
+    normalizeApiError({
+      response: {
+        status: 401,
+        data: {
+          status: 401,
+          code: "SESSION_EXPIRED",
+          message: "Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại.",
+        },
+      },
+    })
+  );
+};
+
+/**
+ * Chuẩn hoá lỗi, đồng thời tôn trọng cờ `skipErrorToast` trên config của request.
+ * Request được đánh dấu im lặng sẽ không sinh toast ở tầng global.
+ */
+const applySilentFlag = (
+  error: AxiosError,
+  config?: CustomAxiosRequestConfig
+): ApiError => {
+  const normalized = normalizeApiError(error);
+  return config?.skipErrorToast ? markApiErrorSilent(normalized) : normalized;
+};
+
 axiosInstance.interceptors.response.use(
   (response: AxiosResponse) => response,
 
   async (error: AxiosError) => {
     const originalRequest = error.config as
-      CustomAxiosRequestConfig | undefined;
+      | CustomAxiosRequestConfig
+      | undefined;
 
     // Skip nếu không có originalRequest hoặc không có refresh token (user chưa login)
     const userRefreshToken = getLocalRefreshToken();
     if (!originalRequest || !userRefreshToken) {
-      return Promise.reject(error);
+      return Promise.reject(applySilentFlag(error, originalRequest));
     }
 
     // Kiểm tra xem có nên làm mới token không: lỗi 401 và chưa từng retry
@@ -176,12 +264,13 @@ axiosInstance.interceptors.response.use(
         await getNewToken();
         // Thử lại request ban đầu với token mới (interceptor request sẽ gắn token mới)
         return axiosInstance(originalRequest);
-      } catch (refreshError) {
-        return Promise.reject(refreshError);
+      } catch {
+        // Refresh token hỏng -> phiên hết hạn -> xử lý ở tầng global
+        return Promise.reject(handleSessionExpired());
       }
     }
 
-    return Promise.reject(error);
+    return Promise.reject(applySilentFlag(error, originalRequest));
   }
 );
 

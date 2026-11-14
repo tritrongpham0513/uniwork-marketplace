@@ -1,25 +1,66 @@
-import { useState, useRef, useEffect } from "react";
-import { Link } from "react-router";
+import { useEffect, useRef, useState } from "react";
+import { Link, NavLink, useNavigate } from "react-router";
 import {
-  Briefcase,
-  User,
-  LogOut,
-  ChevronDown,
-  GraduationCap,
-  Building2,
-  ShieldCheck,
+  Bell,
   BookmarkCheck,
+  Briefcase,
+  Building2,
+  ChevronDown,
   FileText,
+  GraduationCap,
+  LayoutDashboard,
+  LogOut,
+  Menu,
+  ShieldCheck,
+  User,
+  X,
 } from "lucide-react";
 import { buttonVariants } from "@/components/ui/button";
-import { PATHS } from "@/config/paths";
+import { Badge } from "@/components/ui/badge";
+import { PATHS, ROLE_HOME } from "@/config/paths";
 import { useAuth } from "@/features/auth/hooks";
+import { useNotificationCount } from "@/features/notifications/hooks";
 import { cn } from "cn";
+
+/** Lấy 2 chữ cái đầu của tên để làm Avatar */
+const getInitials = (name?: string) => {
+  if (!name) return "U";
+  const parts = name.trim().split(/\s+/);
+  if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase();
+  return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
+};
+
+const ROLE_LABELS: Record<string, string> = {
+  STUDENT: "Sinh viên",
+  EMPLOYER: "Nhà tuyển dụng",
+  ADMIN: "Quản trị viên",
+};
+
+interface HeaderNavItem {
+  label: string;
+  to: string;
+  /** Chỉ active khi khớp đúng path (dùng cho mục gốc) */
+  end?: boolean;
+}
+
+/**
+ * Điều hướng cấp site — chỉ chứa các khu vực dùng chung.
+ * Các mục con của không gian làm việc (đơn ứng tuyển, việc đã lưu, hồ sơ…)
+ * đã nằm trong sidebar của DashboardLayout nên không lặp lại ở header.
+ */
+const SITE_NAV: HeaderNavItem[] = [
+  { label: "Tìm việc làm", to: PATHS.JOBS.ROOT },
+  { label: "Về chúng tôi", to: PATHS.ABOUT },
+];
 
 export function Header() {
   const { user, isAuthenticated, logout } = useAuth();
+  const navigate = useNavigate();
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
+  const [isMobileOpen, setIsMobileOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
+
+  const { data: unreadCount = 0 } = useNotificationCount();
 
   // Đóng dropdown khi click ra ngoài
   useEffect(() => {
@@ -38,174 +79,264 @@ export function Header() {
     };
   }, []);
 
-  // Lấy 2 chữ cái đầu của tên để làm Avatar
-  const getInitials = (name?: string) => {
-    if (!name) return "U";
-    const parts = name.trim().split(" ");
-    if (parts.length === 1) return parts[0].substring(0, 2).toUpperCase();
-    return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
-  };
+  const role = user?.role ?? "";
+  const isStudent = role === "STUDENT";
+  const isEmployer = role === "EMPLOYER";
+  const isAdmin = role === "ADMIN";
 
-  const isStudent = user?.role === "STUDENT";
-  const isEmployer = user?.role === "EMPLOYER";
+  const navItems: HeaderNavItem[] = isAuthenticated
+    ? [
+        {
+          label: "Bảng điều khiển",
+          to: ROLE_HOME[role] ?? PATHS.HOME,
+          end: true,
+        },
+        ...SITE_NAV,
+      ]
+    : [{ label: "Trang chủ", to: PATHS.HOME, end: true }, ...SITE_NAV];
+
+  /** Đường dẫn hồ sơ theo vai trò */
+  const profilePath = isEmployer
+    ? PATHS.EMPLOYER.ORGANIZATION
+    : isAdmin
+      ? PATHS.ADMIN.USERS
+      : PATHS.STUDENT.PROFILE;
+
+  const handleLogout = () => {
+    logout();
+    navigate(PATHS.HOME);
+  };
 
   return (
     <header className="sticky top-0 z-50 w-full border-b border-border/60 bg-background/80 backdrop-blur-md">
+      {/* Skip link — hỗ trợ bàn phím & screen reader */}
+      <a
+        href="#main-content"
+        className="sr-only focus:not-sr-only focus:absolute focus:top-2 focus:left-2 focus:z-[60] focus:rounded-lg focus:bg-primary focus:px-4 focus:py-2 focus:text-sm focus:font-medium focus:text-primary-foreground"
+      >
+        Bỏ qua điều hướng, tới nội dung chính
+      </a>
       <div className="mx-auto flex h-16 max-w-7xl items-center justify-between px-4 sm:px-6 lg:px-8">
         {/* LOGO BRAND */}
         <div className="flex items-center gap-8">
-          <Link to={PATHS.HOME} className="flex items-center gap-2.5 group">
-            <div className="flex size-9 items-center justify-center rounded-xl bg-amber-500 text-white shadow-xs transition-transform group-hover:scale-105">
+          <Link to={PATHS.HOME} className="group flex items-center gap-2.5">
+            <div className="flex size-9 items-center justify-center rounded-xl bg-primary text-primary-foreground shadow-xs transition-transform group-hover:scale-105">
               <Briefcase className="size-5" />
             </div>
             <div className="flex flex-col">
               <span className="text-lg font-bold tracking-tight text-foreground">
-                Uni<span className="text-amber-500">Work</span>
+                Vie<span className="text-primary">Job</span>
               </span>
-              <span className="text-[10px] font-medium text-muted-foreground -mt-1 hidden sm:block">
+              <span className="-mt-1 hidden text-[10px] font-medium text-muted-foreground sm:block">
                 Việc làm sinh viên
               </span>
             </div>
           </Link>
 
           {/* MENU ĐIỀU HƯỚNG CHÍNH */}
-          <nav className="hidden md:flex items-center gap-6 text-sm font-medium">
-            <Link
-              to={PATHS.HOME}
-              className="text-foreground transition-colors hover:text-primary font-semibold"
-            >
-              Trang chủ
-            </Link>
-            <Link
-              to={PATHS.JOBS.ROOT}
-              className="text-muted-foreground transition-colors hover:text-foreground"
-            >
-              Tìm việc làm
-            </Link>
-            <Link
-              to={PATHS.ABOUT}
-              className="text-muted-foreground transition-colors hover:text-foreground"
-            >
-              Về chúng tôi
-            </Link>
+          <nav className="hidden items-center gap-6 text-sm font-medium md:flex">
+            {navItems.map((item) => (
+              <NavLink
+                key={item.to}
+                to={item.to}
+                end={item.end}
+                className={({ isActive }) =>
+                  cn(
+                    "transition-colors",
+                    isActive
+                      ? "font-semibold text-primary"
+                      : "text-muted-foreground hover:text-foreground"
+                  )
+                }
+              >
+                {item.label}
+              </NavLink>
+            ))}
           </nav>
         </div>
 
         {/* KHU VỰC TÀI KHOẢN (BÊN PHẢI) */}
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-2">
           {isAuthenticated && user ? (
-            /* TRẠNG THÁI: ĐÃ ĐĂNG NHẬP -> USER DROPDOWN */
-            <div className="relative" ref={dropdownRef}>
-              <button
-                type="button"
-                onClick={() => setIsDropdownOpen((prev) => !prev)}
-                className="flex items-center gap-2.5 rounded-full border border-border/80 bg-background/80 p-1.5 pr-3 text-left transition-all hover:border-border hover:bg-muted/60 cursor-pointer focus:outline-none focus:ring-2 focus:ring-primary/20"
-                aria-expanded={isDropdownOpen}
+            <>
+              {/* Chuông thông báo */}
+              <Link
+                to={PATHS.NOTIFICATIONS}
+                className="relative hidden size-9 items-center justify-center rounded-full text-muted-foreground transition-colors hover:bg-muted hover:text-foreground sm:inline-flex"
+                aria-label={`Thông báo${unreadCount > 0 ? ` (${unreadCount} chưa đọc)` : ""}`}
               >
-                {/* Avatar */}
-                <div className="flex size-8 items-center justify-center rounded-full bg-gradient-to-tr from-amber-500 to-orange-400 font-bold text-xs text-white shadow-xs">
-                  {getInitials(user.fullName)}
-                </div>
-
-                {/* Tên & Role */}
-                <div className="hidden sm:flex flex-col text-xs leading-tight">
-                  <span className="font-semibold text-foreground max-w-[120px] truncate">
-                    {user.fullName || user.email}
+                <Bell className="size-4.5" />
+                {unreadCount > 0 && (
+                  <span className="text-destructive-foreground absolute -top-0.5 -right-0.5 flex size-4 items-center justify-center rounded-full bg-destructive text-[10px] font-bold">
+                    {unreadCount > 9 ? "9+" : unreadCount}
                   </span>
-                  <span className="text-[10px] text-muted-foreground flex items-center gap-1">
-                    {isStudent && <GraduationCap className="size-2.5 text-primary" />}
-                    {isEmployer && <Building2 className="size-2.5 text-amber-500" />}
-                    {isStudent ? "Sinh viên" : isEmployer ? "Nhà tuyển dụng" : user.role}
-                  </span>
-                </div>
+                )}
+              </Link>
 
-                <ChevronDown
-                  className={cn(
-                    "size-4 text-muted-foreground transition-transform duration-200",
-                    isDropdownOpen && "rotate-180"
-                  )}
-                />
-              </button>
+              {/* USER DROPDOWN */}
+              <div className="relative" ref={dropdownRef}>
+                <button
+                  type="button"
+                  onClick={() => setIsDropdownOpen((prev) => !prev)}
+                  className="flex cursor-pointer items-center gap-2.5 rounded-full border border-border/80 bg-background/80 p-1.5 pr-3 text-left transition-all hover:border-border hover:bg-muted/60 focus:ring-2 focus:ring-primary/20 focus:outline-none"
+                  aria-expanded={isDropdownOpen}
+                >
+                  <div className="flex size-8 items-center justify-center rounded-full bg-primary text-xs font-bold text-primary-foreground shadow-xs">
+                    {getInitials(user.fullName)}
+                  </div>
 
-              {/* DROPDOWN MENU */}
-              {isDropdownOpen && (
-                <div className="absolute right-0 mt-2 w-64 origin-top-right rounded-2xl border border-border/80 bg-card p-1.5 text-card-foreground shadow-xl ring-1 ring-black/5 animate-in fade-in-0 zoom-in-95 duration-150 z-50">
-                  {/* Header Thông tin User trong Dropdown */}
-                  <div className="border-b border-border/60 px-3 py-2.5 mb-1">
-                    <p className="text-xs font-semibold text-foreground truncate">
-                      {user.fullName}
-                    </p>
-                    <p className="text-[11px] text-muted-foreground truncate">
-                      {user.email}
-                    </p>
-                    <div className="mt-2 flex items-center gap-1.5">
-                      <span className="inline-flex items-center gap-1 rounded-md bg-primary/10 px-2 py-0.5 text-[10px] font-semibold text-primary">
-                        {isStudent && <GraduationCap className="size-3" />}
-                        {isEmployer && <Building2 className="size-3" />}
-                        {isStudent ? "Sinh viên" : isEmployer ? "Nhà tuyển dụng" : user.role}
-                      </span>
-                      {user.status === "ACTIVE" && (
-                        <span className="inline-flex items-center gap-0.5 rounded-md bg-emerald-500/10 px-1.5 py-0.5 text-[10px] font-medium text-emerald-600 dark:text-emerald-400">
-                          <ShieldCheck className="size-2.5" />
-                          Đã xác minh
-                        </span>
+                  <div className="hidden flex-col text-xs leading-tight sm:flex">
+                    <span className="max-w-[120px] truncate font-semibold text-foreground">
+                      {user.fullName || user.email}
+                    </span>
+                    <span className="flex items-center gap-1 text-[10px] text-muted-foreground">
+                      {isStudent && (
+                        <GraduationCap className="size-2.5 text-primary" />
                       )}
+                      {isEmployer && (
+                        <Building2 className="size-2.5 text-primary" />
+                      )}
+                      {isAdmin && (
+                        <ShieldCheck className="size-2.5 text-primary" />
+                      )}
+                      {ROLE_LABELS[role] ?? role}
+                    </span>
+                  </div>
+
+                  <ChevronDown
+                    className={cn(
+                      "size-4 text-muted-foreground transition-transform duration-200",
+                      isDropdownOpen && "rotate-180"
+                    )}
+                  />
+                </button>
+
+                {isDropdownOpen && (
+                  <div className="absolute right-0 z-50 mt-2 w-64 origin-top-right animate-in rounded-2xl border border-border/80 bg-card p-1.5 text-card-foreground shadow-xl duration-150 fade-in-0 zoom-in-95">
+                    {/* Header thông tin user */}
+                    <div className="mb-1 border-b border-border/60 px-3 py-2.5">
+                      <p className="truncate text-xs font-semibold text-foreground">
+                        {user.fullName}
+                      </p>
+                      <p className="truncate text-[11px] text-muted-foreground">
+                        {user.email}
+                      </p>
+                      <div className="mt-2 flex flex-wrap items-center gap-1.5">
+                        <Badge
+                          variant="secondary"
+                          className="gap-1 text-[10px]"
+                        >
+                          {isStudent && <GraduationCap className="size-3" />}
+                          {isEmployer && <Building2 className="size-3" />}
+                          {isAdmin && <ShieldCheck className="size-3" />}
+                          {ROLE_LABELS[role] ?? role}
+                        </Badge>
+                        {user.status === "ACTIVE" && (
+                          <Badge
+                            variant="outline"
+                            className="gap-0.5 border-border text-[10px] text-muted-foreground"
+                          >
+                            <ShieldCheck className="size-2.5" />
+                            Đã xác minh
+                          </Badge>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Action items */}
+                    <div className="space-y-0.5">
+                      <Link
+                        to={profilePath}
+                        onClick={() => setIsDropdownOpen(false)}
+                        className="flex w-full items-center gap-2.5 rounded-xl px-2.5 py-2 text-xs font-medium text-foreground transition-colors hover:bg-muted"
+                      >
+                        <User className="size-4 text-muted-foreground" />
+                        {isEmployer ? "Thông tin tổ chức" : "Hồ sơ cá nhân"}
+                      </Link>
+
+                      <Link
+                        to={ROLE_HOME[role] ?? PATHS.HOME}
+                        onClick={() => setIsDropdownOpen(false)}
+                        className="flex w-full items-center gap-2.5 rounded-xl px-2.5 py-2 text-xs font-medium text-foreground transition-colors hover:bg-muted"
+                      >
+                        <LayoutDashboard className="size-4 text-muted-foreground" />
+                        Bảng điều khiển
+                      </Link>
+
+                      {isStudent && (
+                        <>
+                          <Link
+                            to={PATHS.STUDENT.APPLICATIONS}
+                            onClick={() => setIsDropdownOpen(false)}
+                            className="flex w-full items-center gap-2.5 rounded-xl px-2.5 py-2 text-xs font-medium text-foreground transition-colors hover:bg-muted"
+                          >
+                            <BookmarkCheck className="size-4 text-muted-foreground" />
+                            Việc làm đã ứng tuyển
+                          </Link>
+                          <Link
+                            to={PATHS.SAVED}
+                            onClick={() => setIsDropdownOpen(false)}
+                            className="flex w-full items-center gap-2.5 rounded-xl px-2.5 py-2 text-xs font-medium text-foreground transition-colors hover:bg-muted"
+                          >
+                            <Briefcase className="size-4 text-muted-foreground" />
+                            Việc làm đã lưu
+                          </Link>
+                        </>
+                      )}
+
+                      {isEmployer && (
+                        <>
+                          <Link
+                            to={PATHS.EMPLOYER.JOBS}
+                            onClick={() => setIsDropdownOpen(false)}
+                            className="flex w-full items-center gap-2.5 rounded-xl px-2.5 py-2 text-xs font-medium text-foreground transition-colors hover:bg-muted"
+                          >
+                            <FileText className="size-4 text-muted-foreground" />
+                            Quản lý tin đăng
+                          </Link>
+                          <Link
+                            to={PATHS.EMPLOYER.APPLICATIONS}
+                            onClick={() => setIsDropdownOpen(false)}
+                            className="flex w-full items-center gap-2.5 rounded-xl px-2.5 py-2 text-xs font-medium text-foreground transition-colors hover:bg-muted"
+                          >
+                            <BookmarkCheck className="size-4 text-muted-foreground" />
+                            Ứng viên
+                          </Link>
+                        </>
+                      )}
+
+                      <Link
+                        to={PATHS.NOTIFICATIONS}
+                        onClick={() => setIsDropdownOpen(false)}
+                        className="flex w-full items-center gap-2.5 rounded-xl px-2.5 py-2 text-xs font-medium text-foreground transition-colors hover:bg-muted"
+                      >
+                        <Bell className="size-4 text-muted-foreground" />
+                        Thông báo
+                        {unreadCount > 0 && (
+                          <span className="ml-auto rounded-md bg-destructive/10 px-1.5 py-0.5 text-[10px] font-semibold text-destructive">
+                            {unreadCount}
+                          </span>
+                        )}
+                      </Link>
+                    </div>
+
+                    {/* Đăng xuất */}
+                    <div className="my-1 border-t border-border/60 pt-1">
+                      <button
+                        type="button"
+                        onClick={handleLogout}
+                        className="flex w-full cursor-pointer items-center gap-2.5 rounded-xl px-2.5 py-2 text-xs font-medium text-destructive transition-colors hover:bg-destructive/10"
+                      >
+                        <LogOut className="size-4" />
+                        Đăng xuất tài khoản
+                      </button>
                     </div>
                   </div>
-
-                  {/* Các Action Items */}
-                  <div className="space-y-0.5">
-                    <Link
-                      to="/profile"
-                      onClick={() => setIsDropdownOpen(false)}
-                      className="flex w-full items-center gap-2.5 rounded-xl px-2.5 py-2 text-xs font-medium text-foreground hover:bg-muted transition-colors"
-                    >
-                      <User className="size-4 text-muted-foreground" />
-                      Hồ sơ cá nhân
-                    </Link>
-
-                    {isStudent && (
-                      <Link
-                        to="/applications"
-                        onClick={() => setIsDropdownOpen(false)}
-                        className="flex w-full items-center gap-2.5 rounded-xl px-2.5 py-2 text-xs font-medium text-foreground hover:bg-muted transition-colors"
-                      >
-                        <BookmarkCheck className="size-4 text-muted-foreground" />
-                        Việc làm đã ứng tuyển
-                      </Link>
-                    )}
-
-                    {isEmployer && (
-                      <Link
-                        to="/employer/jobs"
-                        onClick={() => setIsDropdownOpen(false)}
-                        className="flex w-full items-center gap-2.5 rounded-xl px-2.5 py-2 text-xs font-medium text-foreground hover:bg-muted transition-colors"
-                      >
-                        <FileText className="size-4 text-muted-foreground" />
-                        Quản lý tin đăng
-                      </Link>
-                    )}
-                  </div>
-
-                  {/* Phân cách & Đăng xuất */}
-                  <div className="border-t border-border/60 my-1 pt-1">
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setIsDropdownOpen(false);
-                        logout();
-                      }}
-                      className="flex w-full items-center gap-2.5 rounded-xl px-2.5 py-2 text-xs font-medium text-destructive hover:bg-destructive/10 transition-colors cursor-pointer"
-                    >
-                      <LogOut className="size-4" />
-                      Đăng xuất tài khoản
-                    </button>
-                  </div>
-                </div>
-              )}
-            </div>
+                )}
+              </div>
+            </>
           ) : (
-            /* TRẠNG THÁI: CHƯA ĐĂNG NHẬP -> NÚT ĐĂNG NHẬP / ĐĂNG KÝ */
+            /* CHƯA ĐĂNG NHẬP */
             <div className="flex items-center gap-2">
               <Link
                 to={PATHS.AUTH.LOGIN}
@@ -228,8 +359,65 @@ export function Header() {
               </Link>
             </div>
           )}
+
+          {/* Nút menu mobile */}
+          <button
+            type="button"
+            onClick={() => setIsMobileOpen((prev) => !prev)}
+            className="inline-flex size-9 items-center justify-center rounded-full text-muted-foreground transition-colors hover:bg-muted hover:text-foreground md:hidden"
+            aria-label="Mở menu"
+            aria-expanded={isMobileOpen}
+          >
+            {isMobileOpen ? (
+              <X className="size-5" />
+            ) : (
+              <Menu className="size-5" />
+            )}
+          </button>
         </div>
       </div>
+
+      {/* MENU MOBILE */}
+      {isMobileOpen && (
+        <div className="border-t border-border/60 bg-background md:hidden">
+          <nav className="mx-auto flex max-w-7xl flex-col gap-1 px-4 py-3 sm:px-6">
+            {navItems.map((item) => (
+              <NavLink
+                key={item.to}
+                to={item.to}
+                end={item.end}
+                onClick={() => setIsMobileOpen(false)}
+                className={({ isActive }) =>
+                  cn(
+                    "rounded-lg px-3 py-2.5 text-sm font-medium transition-colors",
+                    isActive
+                      ? "bg-primary/10 text-primary"
+                      : "text-muted-foreground hover:bg-muted hover:text-foreground"
+                  )
+                }
+              >
+                {item.label}
+              </NavLink>
+            ))}
+
+            {isAuthenticated && (
+              <NavLink
+                to={PATHS.NOTIFICATIONS}
+                onClick={() => setIsMobileOpen(false)}
+                className="flex items-center gap-2 rounded-lg px-3 py-2.5 text-sm font-medium text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+              >
+                <Bell className="size-4" />
+                Thông báo
+                {unreadCount > 0 && (
+                  <span className="rounded-md bg-destructive/10 px-1.5 py-0.5 text-[10px] font-semibold text-destructive">
+                    {unreadCount}
+                  </span>
+                )}
+              </NavLink>
+            )}
+          </nav>
+        </div>
+      )}
     </header>
   );
 }

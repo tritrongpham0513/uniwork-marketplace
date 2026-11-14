@@ -1,0 +1,483 @@
+// ============================================
+// DOMAIN TYPES — nguồn sự thật duy nhất cho toàn bộ app
+// Nguồn: entity JPA của backend (com.uniwork.entity.*)
+// Lưu ý: file này KHÔNG import từ features/jobs để tránh vòng tròn phụ thuộc.
+//        features/jobs/types sẽ re-export lại từ đây.
+// ============================================
+
+export type {
+  ApiError,
+  ApiErrorKind,
+  ApiResponse,
+  ErrorResponse,
+  FieldErrorDetail,
+} from "@/features/auth/types";
+
+// ============================================
+// ENUMS — mirror trực tiếp giá trị trong DB
+// ============================================
+
+export type RoleType = "STUDENT" | "EMPLOYER" | "ADMIN";
+export type EmployerType = "COMPANY" | "INDIVIDUAL";
+export type UserStatus = "ACTIVE" | "PENDING_VERIFY" | "LOCKED";
+export type AuthProvider = "LOCAL" | "GOOGLE";
+export type GenderType = "MALE" | "FEMALE" | "OTHER";
+
+/** Hình thức làm việc */
+export type WorkMode = "ONSITE" | "REMOTE" | "HYBRID";
+
+/** Kiểu trả lương */
+export type SalaryType =
+  | "HOURLY"
+  | "DAILY"
+  | "WEEKLY"
+  | "MONTHLY"
+  | "PER_TASK"
+  | "NEGOTIABLE";
+
+/** Loại hình làm việc */
+export type EmploymentType =
+  | "FULL_TIME"
+  | "PART_TIME"
+  | "FLEXIBLE"
+  | "CASUAL";
+
+/** Trạng thái tin tuyển dụng */
+export type JobStatus =
+  | "DRAFT"
+  | "PENDING_REVIEW"
+  | "REJECTED"
+  | "OPEN"
+  | "FILLED"
+  | "IN_PROGRESS"
+  | "COMPLETED"
+  | "CLOSED"
+  | "CANCELLED";
+
+/** Trạng thái đơn ứng tuyển */
+export type ApplicationStatus =
+  | "PENDING"
+  | "VIEWED"
+  | "SHORTLISTED"
+  | "ACCEPTED"
+  | "COMPLETED"
+  | "REJECTED"
+  | "WITHDRAWN";
+
+/** Ca làm trong tuần — 1: Thứ 2 ... 7: Chủ nhật */
+export type DayOfWeek = 1 | 2 | 3 | 4 | 5 | 6 | 7;
+
+export type ReviewTargetType = "EMPLOYER" | "STUDENT";
+
+export type NotificationType =
+  | "APPLICATION"
+  | "APPLICATION_STATUS"
+  | "JOB"
+  | "REVIEW"
+  | "SYSTEM";
+
+// ============================================
+// MASTER DATA
+// ============================================
+
+/** Nhóm việc (ngành nghề) — mirror bảng `job_categories` */
+export interface JobCategory {
+  id: string;
+  name: string;
+  slug: string;
+  description: string;
+  /** Icon lucide dùng để hiển thị (tên component) */
+  icon: string;
+  jobCount: number;
+  isActive: boolean;
+  sortOrder: number;
+}
+
+/** Vị trí công việc — chi tiết hơn nhóm việc (mô phỏng bảng `job_positions`) */
+export interface JobPosition {
+  id: string;
+  categoryId: string;
+  name: string;
+  slug: string;
+  jobCount: number;
+}
+
+export interface Province {
+  id: string;
+  name: string;
+}
+
+export interface District {
+  id: string;
+  provinceId: string;
+  name: string;
+}
+
+export interface Skill {
+  id: string;
+  name: string;
+}
+
+// ============================================
+// ENTITY — JOB
+// ============================================
+
+export interface JobSchedule {
+  dayOfWeek: DayOfWeek;
+  startTime: string;
+  endTime: string;
+}
+
+export interface JobLocation {
+  provinceId: string;
+  province: string;
+  districtId: string;
+  district: string;
+  address: string;
+  /** Tên chi nhánh / địa điểm cụ thể (Chốt Ca: "Chi nhánh chính") */
+  branchName: string | null;
+}
+
+export interface Job {
+  id: string;
+  title: string;
+  description: string;
+  requirements: string[];
+  benefits: string[];
+  category: JobCategory;
+  /** Vị trí công việc chi tiết (lồng trong nhóm việc) */
+  position: JobPosition | null;
+  employer: EmployerSummary;
+  employmentType: EmploymentType;
+  workMode: WorkMode;
+  salaryType: SalaryType;
+  salaryMin: number;
+  salaryMax: number | null;
+  location: JobLocation;
+  positionsCount: number;
+  positionsFilled: number;
+  schedules: JobSchedule[];
+  skills: Skill[];
+  status: JobStatus;
+  postedAt: string;
+  deadline: string | null;
+  applicantCount: number;
+  isUrgent: boolean;
+  /** Số lượt xem tin (Viecoday hiển thị "Địa điểm · Báo cáo") */
+  viewCount: number;
+  /** Người đăng — dùng cho phân quyền NTD */
+  employerId: string;
+}
+
+// ============================================
+// EMPLOYER
+// ============================================
+
+export interface EmployerSummary {
+  id: string;
+  name: string;
+  /** Màu nền avatar dạng token-safe (dùng class, không dùng hex thẳng) */
+  logoVariant: "primary" | "secondary" | "muted" | "accent";
+  verified: boolean;
+}
+
+/** Hồ sơ nhà tuyển dụng — mirror `EmployerProfile` */
+export interface EmployerProfile {
+  id: string;
+  userId: number;
+  employerType: EmployerType;
+  displayName: string;
+  contactName: string;
+  contactPhone: string;
+  taxCode: string | null;
+  description: string;
+  logoUrl: string | null;
+  website: string | null;
+  provinceId: string | null;
+  address: string;
+  isVerified: boolean;
+  avgRating: number;
+  ratingCount: number;
+  createdAt: string;
+}
+
+// ============================================
+// STUDENT
+// ============================================
+
+export interface StudentExperience {
+  id: string;
+  company: string;
+  position: string;
+  startDate: string;
+  endDate: string | null;
+  description: string;
+}
+
+export interface StudentJobPreference {
+  categoryIds: string[];
+  employmentTypes: EmploymentType[];
+  salaryMin: number;
+  salaryMax: number;
+  provinceIds: string[];
+}
+
+/** Hồ sơ sinh viên — mirror `StudentProfile` */
+export interface StudentProfile {
+  id: string;
+  userId: number;
+  fullName: string;
+  phone: string;
+  dateOfBirth: string | null;
+  gender: GenderType | null;
+  studentCode: string;
+  university: string;
+  major: string;
+  yearOfStudy: number | null;
+  provinceId: string | null;
+  address: string;
+  bio: string;
+  avatarUrl: string | null;
+  cvUrl: string | null;
+  skills: string[];
+  experiences: StudentExperience[];
+  jobPreferences: StudentJobPreference;
+  avgRating: number;
+  ratingCount: number;
+  createdAt: string;
+}
+
+// ============================================
+// USER
+// ============================================
+
+export interface UserSummaryResponse {
+  id: number;
+  email: string;
+  role: RoleType;
+  fullName: string;
+  status: UserStatus;
+  emailVerifiedAt: string | null;
+  authProvider: AuthProvider;
+}
+
+/** User đầy đủ cho màn hình quản trị */
+export interface AdminUser extends UserSummaryResponse {
+  phone: string;
+  companyName: string | null;
+  university: string | null;
+  isLocked: boolean;
+  joinedAt: string;
+  lastLoginAt: string | null;
+  totalApplications: number;
+  totalJobs: number;
+}
+
+// ============================================
+// APPLICATION (ĐƠN ỨNG TUYỂN)
+// ============================================
+
+export interface ApplicationStatusEvent {
+  status: ApplicationStatus;
+  at: string;
+  note: string | null;
+}
+
+export interface Application {
+  id: string;
+  jobId: string;
+  jobTitle: string;
+  employerId: string;
+  employerName: string;
+  employerLogoVariant: EmployerSummary["logoVariant"];
+  employerVerified: boolean;
+  studentId: string;
+  studentName: string;
+  studentAvatarUrl: string | null;
+  studentUniversity: string;
+  studentMajor: string;
+  studentYear: number | null;
+  studentPhone: string;
+  studentEmail: string;
+  studentSkills: string[];
+  studentBio: string;
+  cvUrl: string | null;
+  cvFileName: string | null;
+  coverLetter: string;
+  expectedSalary: number | null;
+  status: ApplicationStatus;
+  employerNote: string | null;
+  timeline: ApplicationStatusEvent[];
+  createdAt: string;
+  updatedAt: string;
+}
+
+// ============================================
+// REVIEW (ĐÁNH GIÁ 2 CHIỀU)
+// ============================================
+
+export interface Review {
+  id: string;
+  jobId: string | null;
+  jobTitle: string | null;
+  applicationId: string | null;
+  fromUserId: number;
+  fromRole: RoleType;
+  fromName: string;
+  fromAvatarUrl: string | null;
+  targetType: ReviewTargetType;
+  targetUserId: number;
+  targetName: string;
+  rating: number;
+  comment: string;
+  reply: string | null;
+  isHidden: boolean;
+  createdAt: string;
+}
+
+// ============================================
+// NOTIFICATION
+// ============================================
+
+export interface Notification {
+  id: string;
+  userId: number;
+  type: NotificationType;
+  title: string;
+  body: string;
+  isRead: boolean;
+  link: string | null;
+  createdAt: string;
+}
+
+// ============================================
+// SAVED JOB
+// ============================================
+
+export interface SavedJob {
+  id: string;
+  jobId: string;
+  userId: number;
+  createdAt: string;
+}
+
+// ============================================
+// SALARY BENCHMARK — "XẾP HẠNG LƯƠNG" (Viecoday)
+// ============================================
+
+export interface SalaryBenchmark {
+  categoryId: string;
+  provinceId: string;
+  avgHourly: number;
+  minHourly: number;
+  maxHourly: number;
+  sampleSize: number;
+  updatedAt: string;
+}
+
+/** Kết quả so sánh lương của 1 tin tuyển dụng với benchmark */
+export interface SalaryComparison {
+  benchmark: SalaryBenchmark;
+  /** Phần trăm xếp hạng (cao hơn = số lớn hơn) */
+  percentile: number;
+  /** "Cao hơn trung bình" | "Thấp hơn trung bình" | "Trung bình" */
+  verdict: "ABOVE" | "BELOW" | "AVERAGE";
+  /** Chênh lệch (đ/giờ) so với trung bình */
+  diff: number;
+}
+
+// ============================================
+// PAGINATION
+// ============================================
+
+export interface PaginatedResponse<T> {
+  items: T[];
+  currentPage: number;
+  pageSize: number;
+  totalItems: number;
+  totalPages: number;
+  first: boolean;
+  last: boolean;
+}
+
+// ============================================
+// CONSTANTS
+// ============================================
+
+export const GENDER_LABELS: Record<GenderType, string> = {
+  MALE: "Nam",
+  FEMALE: "Nữ",
+  OTHER: "Khác",
+};
+
+export const EMPLOYMENT_TYPE_LABELS: Record<EmploymentType, string> = {
+  FULL_TIME: "Toàn thời gian",
+  PART_TIME: "Bán thời gian",
+  FLEXIBLE: "Thoáng / Linh hoạt",
+  CASUAL: "Thời vụ",
+};
+
+export const WORK_MODE_LABELS: Record<WorkMode, string> = {
+  ONSITE: "Tại địa điểm",
+  REMOTE: "Từ xa",
+  HYBRID: "Linh hoạt",
+};
+
+export const SALARY_TYPE_LABELS: Record<SalaryType, string> = {
+  HOURLY: "Theo giờ",
+  DAILY: "Theo ngày",
+  WEEKLY: "Theo tuần",
+  MONTHLY: "Theo tháng",
+  PER_TASK: "Theo tác vụ",
+  NEGOTIABLE: "Thỏa thuận",
+};
+
+export const JOB_STATUS_LABELS: Record<JobStatus, string> = {
+  DRAFT: "Nháp",
+  PENDING_REVIEW: "Chờ duyệt",
+  REJECTED: "Bị từ chối",
+  OPEN: "Đang tuyển",
+  FILLED: "Đã nhận người",
+  IN_PROGRESS: "Đang làm",
+  COMPLETED: "Hoàn thành",
+  CLOSED: "Đã đóng",
+  CANCELLED: "Đã huỷ",
+};
+
+export const APPLICATION_STATUS_LABELS: Record<ApplicationStatus, string> = {
+  PENDING: "Đang chờ",
+  VIEWED: "Đã xem hồ sơ",
+  SHORTLISTED: "Được duyệt sơ bộ",
+  ACCEPTED: "Đã nhận",
+  COMPLETED: "Hoàn thành",
+  REJECTED: "Không phù hợp",
+  WITHDRAWN: "Đã rút",
+};
+
+export const DAY_OF_WEEK_LABELS: Record<DayOfWeek, string> = {
+  1: "Thứ 2",
+  2: "Thứ 3",
+  3: "Thứ 4",
+  4: "Thứ 5",
+  5: "Thứ 6",
+  6: "Thứ 7",
+  7: "Chủ nhật",
+};
+
+export const EMPLOYER_TYPE_LABELS: Record<EmployerType, string> = {
+  COMPANY: "Doanh nghiệp",
+  INDIVIDUAL: "Cá nhân",
+};
+
+export const REVIEW_TARGET_LABELS: Record<ReviewTargetType, string> = {
+  EMPLOYER: "Nhà tuyển dụng",
+  STUDENT: "Sinh viên",
+};
+
+export const NOTIFICATION_TYPE_LABELS: Record<NotificationType, string> = {
+  APPLICATION: "Ứng tuyển mới",
+  APPLICATION_STATUS: "Cập nhật đơn ứng tuyển",
+  JOB: "Tin tuyển dụng",
+  REVIEW: "Đánh giá",
+  SYSTEM: "Hệ thống",
+};

@@ -8,46 +8,41 @@ export interface ApiResponse<T = unknown> {
   data: T;
 }
 
-// Khớp với com.uniwork.dto.response.ErrorResponse
-export interface FieldErrorDetail {
-  field: string;
-  message: string;
-}
+// ============================================
+// ERROR TYPES
+// Dùng chung với @/lib/api-error để tránh khai báo trùng lặp
+// ============================================
+export type {
+  ApiError,
+  ApiErrorKind,
+  ErrorResponse,
+  FieldErrorDetail,
+} from "@/lib/api-error";
 
-export interface ErrorResponse {
-  timestamp: string;
-  status: number;
-  code?: string;
-  message: string;
-  errors?: FieldErrorDetail[];
-}
+import type {
+  EmployerType,
+  UserSummaryResponse,
+} from "@/features/shared/types";
 
 // ============================================
 // ROLES & ENUMS
+// Nguồn sự thật: @/features/shared/types
 // ============================================
-export type RoleType = "STUDENT" | "EMPLOYER" | "ADMIN";
+export type {
+  AuthProvider,
+  EmployerType,
+  RoleType,
+  UserStatus,
+} from "@/features/shared/types";
+
+/** Chỉ 2 role được đăng ký (Admin do hệ thống quản lý) */
 export type RegisterRoleType = "STUDENT" | "EMPLOYER";
-export type EmployerType = "COMPANY" | "INDIVIDUAL";
-export type UserStatus = "ACTIVE" | "PENDING_VERIFY" | "LOCKED";
-export type AuthProvider = "LOCAL" | "GOOGLE";
 
 // ============================================
 // USER DTO
 // Khớp với com.uniwork.dto.response.UserSummaryResponse
 // ============================================
-export interface UserSummaryResponse {
-  id: number;
-  email: string;
-  role: RoleType;
-  fullName: string;
-  status: UserStatus;
-  emailVerifiedAt: string | null;
-  authProvider: AuthProvider;
-}
-
-// ============================================
-// REQUEST DTOs
-// ============================================
+export type { UserSummaryResponse };
 
 // Khớp với com.uniwork.dto.request.RegisterRequest
 export interface RegisterRequest {

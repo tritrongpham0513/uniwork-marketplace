@@ -1,0 +1,414 @@
+/**
+ * 🔁 Smoke test end-to-end qua Axios thật + mock adapter.
+ *
+ * Khác với `verify-mock-api.ts` (gọi router trực tiếp), script này chạy đúng
+ * đường đi của ứng dụng: `service` → `axiosInstance` → `mockAdapter` → `router`.
+ *
+ * Mục tiêu: đảm bảo **envelope trả về khớp với kiểu dữ liệu mà service khai báo**
+ * (`ApiResponse<T>`), nếu không app sẽ lỗi `res.data.accessToken` undefined.
+ */
+
+import assert from "node:assert/strict";
+
+// --- Shim localStorage cho môi trường Node ---
+const store = new Map<string, string>();
+(globalThis as unknown as { localStorage: Storage }).localStorage = {
+  getItem: (k: string) => store.get(k) ?? null,
+  setItem: (k: string, v: string) => void store.set(k, v),
+  removeItem: (k: string) => void store.delete(k),
+  clear: () => store.clear(),
+  key: () => null,
+  length: 0,
+} as unknown as Storage;
+
+const { axiosInstance } = await import("../src/lib/axios.ts");
+const { authService } = await import(
+  "../src/features/auth/services/auth.services.ts"
+);
+const { jobsService } = await import(
+  "../src/features/jobs/services/jobs.service.ts"
+);
+const { applicationService } = await import(
+  "../src/features/applications/services/applications.service.ts"
+);
+const { employerJobService } = await import(
+  "../src/features/employer/services/employer-jobs.service.ts"
+);
+const { adminService } = await import(
+  "../src/features/admin/services/admin.service.ts"
+);
+const { reviewService } = await import(
+  "../src/features/reviews/services/reviews.service.ts"
+);
+const { notificationService } = await import(
+  "../src/features/notifications/services/notifications.service.ts"
+);
+const { profileService } = await import(
+  "../src/features/profile/services/profile.service.ts"
+);
+const { savedJobService } = await import(
+  "../src/features/saved-jobs/services/saved-jobs.service.ts"
+);
+
+let failures = 0;
+const test = async (name: string, fn: () => Promise<void>) => {
+  try {
+    await fn();
+    console.log(`  ✅ ${name}`);
+  } catch (error) {
+    failures += 1;
+    console.error(`  ❌ ${name}`);
+    console.error(`     ${(error as Error).message}`);
+  }
+};
+
+console.log("\n🔁 End-to-end qua Axios thật + mock adapter");
+// ---------------------------------------------------------------
+// AUTH
+// ---------------------------------------------------------------
+
+let studentToken = "";
+let employerToken = "";
+let adminToken = "";
+
+/** Lưu access token vào localStorage (giống `useLogin` -> `saveAuthSession`) */
+const { saveLocalAccessToken } = await import(
+  "../src/utils/authStorage.ts"
+);
+const applyToken = (token: string): void => {
+  saveLocalAccessToken(token);
+};
+
+await test("authService.login -> ApiResponse<AuthResponse> đúng shape", async () => {
+  const response = await authService.login({
+    email: "student@viejob.vn",
+    password: "Student@123",
+  });
+
+  assert.equal(response.success, true);
+  assert.equal(typeof response.message, "string");
+  assert.ok(response.data, "data phải có giá trị");
+  assert.equal(typeof response.data.accessToken, "string");
+  assert.ok(response.data.accessToken.length > 20);
+  assert.equal(response.data.user.role, "STUDENT");
+  assert.equal(response.data.user.email, "student@viejob.vn");
+
+  studentToken = response.data.accessToken;
+  applyToken(studentToken);
+});
+
+await test("authService.getMe -> ApiResponse<UserSummaryResponse> đúng shape", async () => {
+  const response = await authService.getMe();
+  assert.equal(response.success, true);
+  assert.equal(response.data.role, "STUDENT");
+  assert.equal(response.data.email, "student@viejob.vn");
+});
+
+await test("đăng nhập nhà tuyển dụng & quản trị viên trả token riêng", async () => {
+  const employer = await authService.login({
+    email: "employer@viejob.vn",
+    password: "Employer@123",
+  });
+  const admin = await authService.login({
+    email: "admin@viejob.vn",
+    password: "Admin@123",
+  });
+
+  assert.equal(employer.data.user.role, "EMPLOYER");
+  assert.equal(admin.data.user.role, "ADMIN");
+  assert.notEqual(employer.data.accessToken, admin.data.accessToken);
+
+  employerToken = employer.data.accessToken;
+  adminToken = admin.data.accessToken;
+});
+
+// ---------------------------------------------------------------
+// JOBS (public)
+// ---------------------------------------------------------------
+
+await test("jobsService.list -> JobListResponse đủ trường phân trang", async () => {
+  const result = await jobsService.list({
+    keyword: "",
+    categoryIds: [],
+    positionIds: [],
+    provinceIds: [],
+    districtIds: [],
+    employmentTypes: [],
+    workModes: [],
+    salaryMin: 0,
+    salaryMax: 200000,
+    sort: "newest",
+    page: 1,
+    pageSize: 6,
+  });
+
+  assert.ok(Array.isArray(result.items));
+  assert.ok(result.totalItems > 0);
+  assert.equal(result.currentPage, 1);
+  assert.ok(result.totalPages >= 1);
+  assert.ok(result.items.length <= 6);
+});
+
+await test("jobsService.categories / provinces / benchmarks trả mảng", async () => {
+  const [categories, provinces, benchmarks] = await Promise.all([
+    jobsService.categories(),
+    jobsService.provinces(),
+    jobsService.salaryBenchmarks(),
+  ]);
+  assert.ok(categories.length > 0);
+  assert.ok(provinces.length > 0);
+  assert.ok(benchmarks.length > 0);
+});
+
+await test("jobsService.detail -> Job đầy đủ", async () => {
+  const list = await jobsService.list({
+    keyword: "",
+    categoryIds: [],
+    positionIds: [],
+    provinceIds: [],
+    districtIds: [],
+    employmentTypes: [],
+    workModes: [],
+    salaryMin: 0,
+    salaryMax: 200000,
+    sort: "newest",
+    page: 1,
+    pageSize: 1,
+  });
+  const id = list.items[0]!.id;
+  const job = await jobsService.detail(id);
+  assert.equal(job.id, id);
+  assert.ok(job.category.name.length > 0);
+  assert.ok(job.employer.name.length > 0);
+  assert.ok(job.location.province.length > 0);
+});
+
+await test("jobsService.related trả danh sách tin gợi ý", async () => {
+  const list = await jobsService.list({
+    keyword: "",
+    categoryIds: [],
+    positionIds: [],
+    provinceIds: [],
+    districtIds: [],
+    employmentTypes: [],
+    workModes: [],
+    salaryMin: 0,
+    salaryMax: 200000,
+    sort: "newest",
+    page: 1,
+    pageSize: 1,
+  });
+  const first = list.items[0]!;
+  const related = await jobsService.related(first.category.id, first.id);
+  assert.ok(Array.isArray(related));
+  assert.ok(related.every((job) => job.id !== first.id));
+});
+
+// ---------------------------------------------------------------
+// STUDENT
+// ---------------------------------------------------------------
+
+applyToken(studentToken);
+
+await test("profileService.getStudent -> StudentProfile", async () => {
+  const response = await profileService.getStudent();
+  assert.equal(response.success, true);
+  assert.ok(response.data.fullName.length > 0);
+  assert.ok(Array.isArray(response.data.skills));
+});
+
+await test("applicationService.listByStudent -> Application[]", async () => {
+  const response = await applicationService.listByStudent();
+  assert.equal(response.success, true);
+  assert.ok(Array.isArray(response.data));
+  assert.ok(response.data.length > 0);
+  assert.ok(response.data.every((app) => app.timeline.length > 0));
+});
+
+await test("savedJobService.list -> SavedJob[]", async () => {
+  const response = await savedJobService.list();
+  assert.equal(response.success, true);
+  assert.ok(Array.isArray(response.data));
+});
+
+// ---------------------------------------------------------------
+// EMPLOYER
+// ---------------------------------------------------------------
+
+applyToken(employerToken);
+
+await test("employerJobService.list -> Job[] (mảng, không phân trang)", async () => {
+  const response = await employerJobService.list();
+  assert.equal(response.success, true);
+  assert.ok(Array.isArray(response.data), "phải là mảng Job");
+  assert.ok(response.data.length > 0);
+});
+
+await test("applicationService.listByEmployer -> Application[]", async () => {
+  const response = await applicationService.listByEmployer();
+  assert.equal(response.success, true);
+  assert.ok(Array.isArray(response.data));
+  assert.ok(response.data.length > 0);
+});
+
+await test("employerJobService.create -> Job mới ở trạng thái PENDING_REVIEW", async () => {
+  const response = await employerJobService.create({
+    title: "Tin tuyển dụng E2E test",
+    description: "Mô tả công việc cho smoke test",
+    requirements: ["Nhanh nhẹn"],
+    benefits: ["Đồng phục"],
+    category: {
+      id: "cat-fnb",
+      name: "F&B, Barista & Phục vụ",
+      slug: "f-and-b",
+      description: "",
+      icon: "UtensilsCrossed",
+      jobCount: 0,
+      isActive: true,
+      sortOrder: 1,
+    },
+    position: null,
+    employmentType: "PART_TIME",
+    workMode: "ONSITE",
+    salaryType: "HOURLY",
+    salaryMin: 25000,
+    salaryMax: 30000,
+    location: {
+      provinceId: "hcm",
+      province: "TP. Hồ Chí Minh",
+      districtId: "q1",
+      district: "Quận 1",
+      address: "123 Nguyễn Huệ",
+      branchName: "Chi nhánh chính",
+    },
+    positionsCount: 2,
+    schedules: [],
+    skills: [],
+    deadline: null,
+  });
+
+  assert.equal(response.success, true);
+  assert.equal(response.data.status, "PENDING_REVIEW");
+  assert.equal(response.data.title, "Tin tuyển dụng E2E test");
+});
+
+// ---------------------------------------------------------------
+// ADMIN
+// ---------------------------------------------------------------
+
+applyToken(adminToken);
+
+await test("adminService.dashboard -> AdminDashboardStats đủ chỉ số", async () => {
+  const response = await adminService.dashboard();
+  assert.equal(response.success, true);
+  assert.ok(response.data.totalUsers > 0);
+  assert.ok(response.data.totalJobs > 0);
+  assert.ok(response.data.totalStudents > 0);
+  assert.ok(response.data.totalEmployers > 0);
+  assert.ok(response.data.categories > 0);
+});
+
+await test("adminService.listUsers / listJobs / listCategories trả mảng", async () => {
+  const [users, jobs, categories] = await Promise.all([
+    adminService.listUsers({ role: "STUDENT" }),
+    adminService.listJobs("ALL"),
+    adminService.listCategories(),
+  ]);
+  assert.ok(Array.isArray(users.data));
+  assert.ok(Array.isArray(jobs.data));
+  assert.ok(Array.isArray(categories.data));
+  assert.ok(users.data.every((user) => user.role === "STUDENT"));
+});
+
+await test("adminService.reviewJob -> mở tin công khai", async () => {
+  // Tạo 1 tin mới (với token NTD) để duyệt — tránh phụ thuộc vào seed data
+  applyToken(employerToken);
+  const created = await employerJobService.create({
+    title: "Tin tuyển dụng cần duyệt (E2E)",
+    description: "",
+    requirements: [],
+    benefits: [],
+    category: {
+      id: "cat-bep",
+      name: "Bếp & Nấu ăn",
+      slug: "bep",
+      description: "",
+      icon: "ChefHat",
+      jobCount: 0,
+      isActive: true,
+      sortOrder: 2,
+    },
+    position: null,
+    employmentType: "PART_TIME",
+    workMode: "ONSITE",
+    salaryType: "HOURLY",
+    salaryMin: 25000,
+    salaryMax: null,
+    location: {
+      provinceId: "hcm",
+      province: "TP. Hồ Chí Minh",
+      districtId: "q1",
+      district: "Quận 1",
+      address: "",
+      branchName: null,
+    },
+    positionsCount: 1,
+    schedules: [],
+    skills: [],
+    deadline: null,
+  });
+  assert.equal(created.data.status, "PENDING_REVIEW");
+
+  applyToken(adminToken);
+  const response = await adminService.reviewJob(created.data.id, {
+    action: "APPROVE",
+  });
+  assert.equal(response.data.status, "OPEN");
+});
+
+await test("reviewService.list -> Review[] lọc theo targetType", async () => {
+  const response = await reviewService.list({ targetType: "EMPLOYER" });
+  assert.equal(response.success, true);
+  assert.ok(response.data.length > 0);
+  assert.ok(response.data.every((review) => review.targetType === "EMPLOYER"));
+});
+
+// ---------------------------------------------------------------
+// NOTIFICATIONS
+// ---------------------------------------------------------------
+
+applyToken(studentToken);
+
+await test("notificationService.list + unreadCount đúng shape", async () => {
+  const [list, count] = await Promise.all([
+    notificationService.list(),
+    notificationService.unreadCount(),
+  ]);
+  assert.equal(list.success, true);
+  assert.ok(Array.isArray(list.data));
+  assert.equal(typeof count.data.count, "number");
+});
+
+// ---------------------------------------------------------------
+// ERROR PATH
+// ---------------------------------------------------------------
+
+await test("endpoint lỗi -> axios reject với ApiError đúng kind", async () => {
+  const { normalizeApiError } = await import("../src/lib/api-error.ts");
+  try {
+    await axiosInstance.get("/api/v1/jobs/public/khong-ton-tai");
+    assert.fail("phải throw");
+  } catch (error) {
+    const apiError = normalizeApiError(error);
+    assert.equal(apiError.status, 404);
+    assert.equal(apiError.kind, "notFound");
+    assert.ok(apiError.message.length > 0);
+  }
+});
+
+console.log(
+  failures === 0
+    ? "\n🎉 Tất cả test E2E PASSED!\n"
+    : `\n💥 ${failures} test E2E FAILED\n`
+);
+process.exit(failures === 0 ? 0 : 1);

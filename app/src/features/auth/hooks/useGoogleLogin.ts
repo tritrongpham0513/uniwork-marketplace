@@ -1,20 +1,19 @@
 import { useMutation, type UseMutationOptions } from "@tanstack/react-query";
-import type { AxiosError } from "axios";
 import { authService } from "../services/auth.services";
 import type {
   ApiResponse,
-  ErrorResponse,
   GoogleAuthResponse,
   GoogleLoginRequest,
 } from "../types";
 import { saveAuthSession } from "@/utils/authStorage";
 import { queryClient } from "@/lib/query-client";
 import { AUTH_KEYS } from "./useCurrentUser";
+import type { ApiError } from "@/lib/api-error";
 
 export const useGoogleLogin = (
   options?: UseMutationOptions<
     ApiResponse<GoogleAuthResponse>,
-    AxiosError<ErrorResponse>,
+    ApiError,
     GoogleLoginRequest
   >
 ) => {
@@ -41,4 +40,3 @@ export const useGoogleLogin = (
     },
   });
 };
-
