@@ -47,6 +47,27 @@ export {
 
 export type JobSort = "newest" | "salary_desc" | "salary_asc" | "popular";
 
+/**
+ * Đơn vị lương dùng để hiển thị & lọc (Chốt Ca cho phép chọn
+ * giờ / ngày / tuần / tháng). "HOURLY" là mặc định.
+ */
+export type SalaryUnit = "HOURLY" | "DAILY" | "WEEKLY" | "MONTHLY";
+
+export const SALARY_UNIT_LABELS: Record<SalaryUnit, string> = {
+  HOURLY: "đồng/giờ",
+  DAILY: "đồng/ngày",
+  WEEKLY: "đồng/tuần",
+  MONTHLY: "đồng/tháng",
+};
+
+/** Số giờ quy ước cho từng đơn vị — dùng để quy đổi về đồng/giờ */
+export const HOURS_PER_SALARY_UNIT: Record<SalaryUnit, number> = {
+  HOURLY: 1,
+  DAILY: 8,
+  WEEKLY: 40,
+  MONTHLY: 160,
+};
+
 export interface JobFilters {
   keyword: string;
   categoryIds: string[];
@@ -55,8 +76,11 @@ export interface JobFilters {
   districtIds: string[];
   employmentTypes: EmploymentType[];
   workModes: WorkMode[];
-  /** Khoảng lương tối thiểu theo đơn vị hiển thị (đ/giờ) */
+  /** Đơn vị lương đang chọn để hiển thị/lọc */
+  salaryUnit: SalaryUnit;
+  /** Khoảng lương tối thiểu theo `salaryUnit` */
   salaryMin: number;
+  /** Khoảng lương tối đa theo `salaryUnit` */
   salaryMax: number;
   sort: JobSort;
   page: number;

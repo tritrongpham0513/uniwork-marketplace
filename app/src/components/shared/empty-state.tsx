@@ -7,14 +7,20 @@ import {
   EmptyTitle,
 } from "@/components/ui/empty";
 import { Button } from "@/components/ui/button";
-import { AlertCircle, Inbox, RefreshCw, SearchX } from "lucide-react";
+import {
+  AlertCircle,
+  Inbox,
+  MessageSquare,
+  RefreshCw,
+  SearchX,
+} from "lucide-react";
 import { Link } from "react-router";
 import { cn } from "cn";
 
 interface EmptyStateProps {
   title: string;
   description?: string;
-  icon?: "inbox" | "search" | "error";
+  icon?: "inbox" | "search" | "error" | "message";
   action?: React.ReactNode;
   className?: string;
 }
@@ -23,6 +29,7 @@ const ICONS = {
   inbox: Inbox,
   search: SearchX,
   error: AlertCircle,
+  message: MessageSquare,
 } as const;
 
 /** Trạng thái rỗng dùng chung */

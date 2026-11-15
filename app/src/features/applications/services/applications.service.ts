@@ -11,6 +11,10 @@ export interface CreateApplicationPayload {
   cvFileName?: string | null;
   coverLetter?: string;
   expectedSalary?: number | null;
+  /** Kinh nghiệm liên quan */
+  experience?: string;
+  /** Ngày có thể bắt đầu làm việc (ISO date) */
+  availableFrom?: string | null;
 }
 
 export interface UpdateApplicationPayload {

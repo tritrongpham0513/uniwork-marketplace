@@ -903,6 +903,100 @@ await test("đổi role người dùng", () => {
   assert.equal(body.data.role, "ADMIN");
 });
 
+console.log("\n🆕  Tính năng bổ sung (giai đoạn hoàn thiện)");
+
+await test("GET /public/employers/{id} -> hồ sơ NTD công khai", () => {
+  const body = call<{
+    profile: { id: string; displayName: string };
+    jobs: Array<{ id: string }>;
+    reviews: Array<{ id: string }>;
+  }>("GET", "/api/v1/public/employers/emp-viejob-demo");
+
+  assert.equal(body.success, true);
+  assert.ok(body.data.profile, "phải có hồ sơ NTD");
+  assert.ok(Array.isArray(body.data.jobs), "phải có danh sách tin tuyển dụng");
+  assert.ok(Array.isArray(body.data.reviews), "phải có danh sách đánh giá");
+  assert.ok(
+    body.data.reviews.every((review) => review.id.length > 0),
+    "đánh giá phải có id"
+  );
+});
+
+await test("GET /public/employers/{id} không tồn tại -> 404", () => {
+  assert.throws(
+    () => call("GET", "/api/v1/public/employers/emp-khong-ton-tai"),
+    (error: unknown) =>
+      error instanceof MockHttpError && error.status === 404
+  );
+});
+
+await test("lọc việc làm theo đơn vị lương khác nhau vẫn trả kết quả", () => {
+  const hourly = call<{ items: unknown[]; totalItems: number }>(
+    "GET",
+    "/api/v1/jobs/public",
+    { params: { salaryUnit: "HOURLY", salaryMin: "0", salaryMax: "200000" } }
+  );
+  const monthly = call<{ items: unknown[]; totalItems: number }>(
+    "GET",
+    "/api/v1/jobs/public",
+    { params: { salaryUnit: "MONTHLY", salaryMin: "0", salaryMax: "32000000" } }
+  );
+
+  assert.equal(hourly.success, true);
+  assert.equal(monthly.success, true);
+  assert.ok(monthly.data.totalItems > 0, "lọc theo tháng phải có kết quả");
+});
+
+await test("lọc theo đơn vị lương hẹp -> vẫn trả về danh sách hợp lệ", () => {
+  const body = call<{ items: unknown[] }>(
+    "GET",
+    "/api/v1/jobs/public",
+    { params: { salaryUnit: "MONTHLY", salaryMin: "0", salaryMax: "1000" } }
+  );
+
+  assert.equal(body.success, true);
+  assert.ok(Array.isArray(body.data.items));
+});
+
+await test("ứng tuyển lưu thêm kinh nghiệm & ngày bắt đầu", () => {
+  const jobs = call<{ items: Array<{ id: string; status: string }> }>(
+    "GET",
+    "/api/v1/jobs/public",
+    { params: { pageSize: "100" } }
+  ).data.items;
+
+  // Chọn tin đang mở mà sinh viên chưa ứng tuyển
+  const applied = call<{ data: Array<{ jobId: string }> }>(
+    "GET",
+    "/api/v1/student/applications",
+    { token: student.token }
+  ).data.map((item) => item.jobId);
+
+  const job = jobs.find(
+    (item) => item.status === "OPEN" && !applied.includes(item.id)
+  );
+
+  assert.ok(job, "phải có tin đang mở chưa ứng tuyển");
+
+  const body = call<{ experience: string; availableFrom: string | null }>(
+    "POST",
+    "/api/v1/student/applications",
+    {
+      token: student.token,
+      data: {
+        jobId: job!.id,
+        coverLetter: "Tôi rất muốn ứng tuyển vị trí này.",
+        experience: "2 năm làm phục vụ quán cà phê",
+        availableFrom: "2026-12-01",
+      },
+    }
+  );
+
+  assert.equal(body.success, true);
+  assert.equal(body.data.experience, "2 năm làm phục vụ quán cà phê");
+  assert.equal(body.data.availableFrom, "2026-12-01");
+});
+
 console.log(
   failures === 0
     ? "\n🎉 Tất cả test MOCK API PASSED!\n"

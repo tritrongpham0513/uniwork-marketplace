@@ -1,9 +1,18 @@
 import type {
   EmployerProfile,
+  Job,
+  Review,
   StudentProfile,
 } from "@/features/shared/types";
 import type { ApiResponse } from "@/features/auth/types";
 import http from "@/lib/axios";
+
+/** Hồ sơ NTD công khai + tin tuyển dụng + đánh giá */
+export interface PublicEmployerProfile {
+  profile: EmployerProfile;
+  jobs: Job[];
+  reviews: Review[];
+}
 
 export const profileService = {
   /**
@@ -41,6 +50,17 @@ export const profileService = {
     return http.put<ApiResponse<EmployerProfile>, Partial<EmployerProfile>>(
       "/api/v1/employer/profile",
       payload
+    );
+  },
+
+  /**
+   * GET /api/v1/public/employers/{id} — hồ sơ NTD công khai.
+   */
+  getPublicEmployer(
+    id: string
+  ): Promise<ApiResponse<PublicEmployerProfile>> {
+    return http.get<ApiResponse<PublicEmployerProfile>>(
+      `/api/v1/public/employers/${id}`
     );
   },
 };

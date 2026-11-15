@@ -38,6 +38,8 @@ export const PATHS = {
       `/employer/applications/${id}`,
     ORGANIZATION: "/employer/organization",
     REVIEWS: "/employer/reviews",
+    /** Hồ sơ NTD công khai — xem được bởi mọi vai trò (không guard) */
+    PUBLIC_PROFILE: (id: string | number = ":id") => `/employer/${id}`,
   },
 
   // ---------- QUẢN TRỊ VIÊN ----------
@@ -52,6 +54,13 @@ export const PATHS = {
   NOTIFICATIONS: "/notifications",
   SAVED: "/saved",
 } as const;
+
+/**
+ * Trang hồ sơ nhà tuyển dụng công khai (xem bởi sinh viên/khách).
+ * Đặt ngoài `PATHS.EMPLOYER` vì khu vực đó được guard theo role EMPLOYER.
+ */
+export const PUBLIC_EMPLOYER_PROFILE = (id: string | number = ":id") =>
+  `/employer/${id}`;
 
 /** Trang chủ theo vai trò sau khi đăng nhập */
 export const ROLE_HOME: Record<string, string> = {

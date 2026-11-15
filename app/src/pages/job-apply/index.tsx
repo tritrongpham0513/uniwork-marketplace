@@ -8,22 +8,15 @@ import {
   Info,
   Phone,
   Send,
+  Sparkles,
   Upload,
 } from "lucide-react";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import {
-  Card,
-  CardContent,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
-import {
-  Field,
-  FieldDescription,
-  FieldLabel,
-} from "@/components/ui/field";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Field, FieldDescription, FieldLabel } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Separator } from "@/components/ui/separator";
@@ -46,11 +39,40 @@ export function ApplyJobPage() {
   const { data: profile } = useStudentProfile();
   const createApplication = useCreateApplication();
 
+  const [fullName, setFullName] = useState("");
+  const [phone, setPhone] = useState("");
+  const [email, setEmail] = useState("");
   const [coverLetter, setCoverLetter] = useState("");
+  const [experience, setExperience] = useState("");
   const [expectedSalary, setExpectedSalary] = useState("");
+  const [availableFrom, setAvailableFrom] = useState("");
+  const [agreed, setAgreed] = useState(false);
   const [cvFileName, setCvFileName] = useState<string | null>(
     profile?.cvUrl ? "CV_cua_ban.pdf" : null
   );
+
+  /** Dữ liệu hồ sơ dùng làm giá trị mặc định (prefill) */
+  const effectiveName = fullName || profile?.fullName || user?.fullName || "";
+  const effectivePhone = phone || profile?.phone || "";
+  const effectiveEmail = email || user?.email || "";
+
+  /** Ứng tuyển nhanh — điền toàn bộ thông tin từ hồ sơ UniJob (Viecoday) */
+  const fillFromProfile = () => {
+    if (!profile) {
+      toast.warning("Chưa có hồ sơ UniJob", {
+        description: "Hãy tạo hồ sơ tìm việc trước khi ứng tuyển nhanh.",
+      });
+      return;
+    }
+    setFullName(profile.fullName ?? "");
+    setPhone(profile.phone ?? "");
+    setEmail(user?.email ?? "");
+    setExperience(profile.bio ?? "");
+    if (profile.cvUrl) setCvFileName("CV_cua_ban.pdf");
+    toast.success("Đã điền thông tin từ hồ sơ UniJob", {
+      description: "Bạn vẫn có thể chỉnh sửa trước khi gửi đơn.",
+    });
+  };
 
   if (isLoading) {
     return (
@@ -93,10 +115,32 @@ export function ApplyJobPage() {
       return;
     }
 
+    if (!effectiveName.trim()) {
+      toast.error("Vui lòng nhập họ tên của bạn");
+      return;
+    }
+
+    if (!effectivePhone.trim()) {
+      toast.error("Vui lòng nhập số điện thoại liên hệ");
+      return;
+    }
+
+    if (!effectiveEmail.trim()) {
+      toast.error("Vui lòng nhập email liên hệ");
+      return;
+    }
+
+    if (!agreed) {
+      toast.error("Vui lòng đồng ý với điều khoản ứng tuyển");
+      return;
+    }
+
     createApplication.mutate(
       {
         jobId: job.id,
         coverLetter: coverLetter.trim(),
+        experience: experience.trim(),
+        availableFrom: availableFrom || null,
         expectedSalary: expectedSalary ? Number(expectedSalary) : null,
         cvUrl: profile?.cvUrl ?? null,
         cvFileName,
@@ -133,7 +177,10 @@ export function ApplyJobPage() {
         Hoàn thiện thông tin bên dưới để gửi hồ sơ ứng tuyển.
       </p>
 
-      <form onSubmit={handleSubmit} className="mt-6 grid gap-6 lg:grid-cols-[1fr_300px]">
+      <form
+        onSubmit={handleSubmit}
+        className="mt-6 grid gap-6 lg:grid-cols-[1fr_300px]"
+      >
         <div className="space-y-6">
           {/* HỒ SƠ SINH VIÊN */}
           <Card>
@@ -144,7 +191,9 @@ export function ApplyJobPage() {
               <div className="rounded-lg border border-border/60 bg-muted/40 p-4">
                 <div className="flex items-start gap-3">
                   <div className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-primary font-semibold text-primary-foreground">
-                    {profile?.fullName?.slice(0, 1)?.toUpperCase() ?? "S"}
+                    {(profile?.fullName ?? user?.fullName ?? "S")
+                      ?.slice(0, 1)
+                      ?.toUpperCase()}
                   </div>
                   <div className="min-w-0 flex-1">
                     <p className="truncate text-sm font-semibold text-foreground">
@@ -171,6 +220,17 @@ export function ApplyJobPage() {
                 </div>
               </div>
 
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                className="w-full cursor-pointer"
+                onClick={fillFromProfile}
+              >
+                <Sparkles className="size-4" />
+                Ứng tuyển nhanh với hồ sơ UniJob
+              </Button>
+
               {!profile?.cvUrl && (
                 <Alert>
                   <Info className="size-4" />
@@ -181,6 +241,54 @@ export function ApplyJobPage() {
                   </AlertDescription>
                 </Alert>
               )}
+            </CardContent>
+          </Card>
+
+          {/* THÔNG TIN LIÊN HỆ */}
+          <Card>
+            <CardHeader className="pb-3">
+              <CardTitle className="text-sm">Thông tin liên hệ</CardTitle>
+            </CardHeader>
+            <CardContent className="grid gap-4 sm:grid-cols-2">
+              <Field className="gap-1.5">
+                <FieldLabel htmlFor="full-name" className="text-xs font-medium">
+                  Họ và tên <span className="text-destructive">*</span>
+                </FieldLabel>
+                <Input
+                  id="full-name"
+                  value={fullName}
+                  onChange={(event) => setFullName(event.target.value)}
+                  placeholder={
+                    profile?.fullName ?? user?.fullName ?? "Nguyễn Văn A"
+                  }
+                />
+              </Field>
+
+              <Field className="gap-1.5">
+                <FieldLabel htmlFor="phone" className="text-xs font-medium">
+                  Số điện thoại <span className="text-destructive">*</span>
+                </FieldLabel>
+                <Input
+                  id="phone"
+                  type="tel"
+                  value={phone}
+                  onChange={(event) => setPhone(event.target.value)}
+                  placeholder={profile?.phone ?? "0900 000 000"}
+                />
+              </Field>
+
+              <Field className="gap-1.5 sm:col-span-2">
+                <FieldLabel htmlFor="email" className="text-xs font-medium">
+                  Email <span className="text-destructive">*</span>
+                </FieldLabel>
+                <Input
+                  id="email"
+                  type="email"
+                  value={email}
+                  onChange={(event) => setEmail(event.target.value)}
+                  placeholder={user?.email ?? "ban@example.com"}
+                />
+              </Field>
             </CardContent>
           </Card>
 
@@ -230,7 +338,10 @@ export function ApplyJobPage() {
             </CardHeader>
             <CardContent className="space-y-4">
               <Field className="gap-1.5">
-                <FieldLabel htmlFor="cover-letter" className="text-xs font-medium">
+                <FieldLabel
+                  htmlFor="cover-letter"
+                  className="text-xs font-medium"
+                >
                   Nội dung <span className="text-destructive">*</span>
                 </FieldLabel>
                 <Textarea
@@ -252,26 +363,95 @@ export function ApplyJobPage() {
               </Field>
 
               <Field className="gap-1.5">
-                <FieldLabel htmlFor="salary" className="text-xs font-medium">
-                  Mức lương mong muốn (đồng/giờ)
+                <FieldLabel
+                  htmlFor="experience"
+                  className="text-xs font-medium"
+                >
+                  Kinh nghiệm liên quan
                 </FieldLabel>
-                <Input
-                  id="salary"
-                  type="number"
-                  min={0}
-                  step={1000}
-                  value={expectedSalary}
-                  onChange={(event) => setExpectedSalary(event.target.value)}
-                  placeholder="Ví dụ: 30000"
+                <Textarea
+                  id="experience"
+                  value={experience}
+                  onChange={(event) => setExperience(event.target.value)}
+                  rows={4}
+                  maxLength={1000}
+                  placeholder="Ví dụ: 6 tháng làm phục vụ quán cà phê, 2 năm gia đình kinh doanh..."
                 />
-                <FieldDescription>
-                  Mức lương đề xuất của tin này là{" "}
-                  <span className="font-medium text-foreground">
-                    {formatSalary(job)}
+                <div className="flex items-center justify-between">
+                  <FieldDescription>
+                    Nêu các công việc/kỹ năng liên quan tới vị trí.
+                  </FieldDescription>
+                  <span className="text-xs text-muted-foreground">
+                    {experience.length}/1000
                   </span>
-                  .
-                </FieldDescription>
+                </div>
               </Field>
+
+              <div className="grid gap-4 sm:grid-cols-2">
+                <Field className="gap-1.5">
+                  <FieldLabel
+                    htmlFor="expected-salary"
+                    className="text-xs font-medium"
+                  >
+                    Mức lương mong muốn (đồng/giờ)
+                  </FieldLabel>
+                  <Input
+                    id="expected-salary"
+                    type="number"
+                    min={0}
+                    step={1000}
+                    value={expectedSalary}
+                    onChange={(event) => setExpectedSalary(event.target.value)}
+                    placeholder="Ví dụ: 30000"
+                  />
+                </Field>
+
+                <Field className="gap-1.5">
+                  <FieldLabel
+                    htmlFor="available-from"
+                    className="text-xs font-medium"
+                  >
+                    Ngày có thể bắt đầu
+                  </FieldLabel>
+                  <Input
+                    id="available-from"
+                    type="date"
+                    value={availableFrom}
+                    onChange={(event) => setAvailableFrom(event.target.value)}
+                  />
+                </Field>
+              </div>
+
+              <FieldDescription>
+                Mức lương đề xuất của tin này là{" "}
+                <span className="font-medium text-foreground">
+                  {formatSalary(job)}
+                </span>
+                .
+              </FieldDescription>
+            </CardContent>
+          </Card>
+
+          {/* ĐIỀU KHOẢN */}
+          <Card>
+            <CardContent className="p-5">
+              <div className="flex items-start gap-3">
+                <Checkbox
+                  id="agree"
+                  checked={agreed}
+                  onCheckedChange={(checked) => setAgreed(checked === true)}
+                  className="mt-0.5"
+                />
+                <Label htmlFor="agree" className="text-sm leading-relaxed">
+                  Tôi đồng ý với{" "}
+                  <span className="font-medium text-foreground">
+                    điều khoản ứng tuyển
+                  </span>{" "}
+                  của VieJob và cho phép nhà tuyển dụng liên hệ với tôi qua số
+                  điện thoại / email đã cung cấp. Tôi cam kết thông tin trên là
+                  chính xác.
+                </Label>
+              </div>
             </CardContent>
           </Card>
         </div>
@@ -316,6 +496,14 @@ export function ApplyJobPage() {
                     {job.location.district}
                   </span>
                 </div>
+                {job.schedules.length > 0 && (
+                  <div className="flex items-center justify-between">
+                    <span className="text-muted-foreground">Ca làm</span>
+                    <span className="text-right font-medium text-foreground">
+                      {job.schedules.length} ca trong tuần
+                    </span>
+                  </div>
+                )}
               </div>
 
               <Separator />
@@ -338,10 +526,6 @@ export function ApplyJobPage() {
               </p>
             </CardContent>
           </Card>
-
-          <Badge variant="outline" className="w-full justify-center py-2">
-            Hồ sơ của bạn được chia sẻ với {job.employer.name}
-          </Badge>
         </aside>
       </form>
     </div>

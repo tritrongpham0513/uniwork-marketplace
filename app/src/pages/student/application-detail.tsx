@@ -292,7 +292,7 @@ export default function StudentApplicationDetailPage() {
 
                 {canWithdraw && (
                   <Button
-                    variant="outline"
+                    variant="destructive"
                     size="sm"
                     className="mt-5 w-full"
                     onClick={() => setWithdrawOpen(true)}

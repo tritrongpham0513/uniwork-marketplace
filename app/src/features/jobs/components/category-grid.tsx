@@ -3,6 +3,7 @@ import { ArrowRight, MapPin } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import type { JobCategory, Province } from "@/features/shared/types";
+import { CategoryIcon } from "@/features/jobs/lib/category-icon";
 import { PATHS } from "@/config/paths";
 
 interface CategoryGridProps {
@@ -13,29 +14,37 @@ interface CategoryGridProps {
 export function CategoryGrid({ categories }: CategoryGridProps) {
   return (
     <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
-      {categories.map((category) => (
-        <Link
-          key={category.id}
-          to={`${PATHS.JOBS.ROOT}?categoryIds=${category.id}`}
-          className="group"
-        >
-          <Card size="sm" className="h-full transition-colors group-hover:bg-muted/40">
-            <CardContent className="flex h-full flex-col justify-between gap-3 p-4">
-              <div>
-                <p className="font-heading text-sm font-semibold text-foreground transition-colors group-hover:text-primary">
-                  {category.name}
-                </p>
-                <p className="mt-1 line-clamp-2 text-xs text-muted-foreground">
-                  {category.description}
-                </p>
-              </div>
-              <Badge variant="secondary" className="w-fit text-[10px]">
-                {category.jobCount} tin tuyển
-              </Badge>
-            </CardContent>
-          </Card>
-        </Link>
-      ))}
+      {categories.map((category) => {
+        return (
+          <Link
+            key={category.id}
+            to={`${PATHS.JOBS.ROOT}?categoryIds=${category.id}`}
+            className="group"
+          >
+            <Card
+              size="sm"
+              className="h-full transition-colors group-hover:bg-muted/40"
+            >
+              <CardContent className="flex h-full flex-col justify-between gap-3 p-4">
+                <div>
+                  <div className="mb-2 flex size-9 items-center justify-center rounded-lg bg-primary/10 text-primary transition-colors group-hover:bg-primary group-hover:text-primary-foreground">
+                    <CategoryIcon name={category.icon} className="size-4.5" />
+                  </div>
+                  <p className="font-heading text-sm font-semibold text-foreground transition-colors group-hover:text-primary">
+                    {category.name}
+                  </p>
+                  <p className="mt-1 line-clamp-2 text-xs text-muted-foreground">
+                    {category.description}
+                  </p>
+                </div>
+                <Badge variant="secondary" className="w-fit text-[10px]">
+                  {category.jobCount} tin tuyển
+                </Badge>
+              </CardContent>
+            </Card>
+          </Link>
+        );
+      })}
     </div>
   );
 }

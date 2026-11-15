@@ -54,6 +54,8 @@ export interface JobQuery {
   workModes?: string;
   salaryMin?: string | number;
   salaryMax?: string | number;
+  /** Đơn vị lương người dùng đang xem: giờ / ngày / tuần / tháng */
+  salaryUnit?: string;
   sort?: string;
   page?: string | number;
   pageSize?: string | number;

@@ -153,8 +153,14 @@ export default function StudentProfilePage() {
   const addSkill = () => {
     const value = skillInput.trim();
     if (!value || !form) return;
-    if (!form.skills.includes(value)) {
-      patch({ skills: [...form.skills, value] });
+    // Nếu người dùng gõ đúng tên một kỹ năng có sẵn thì lưu id để
+    // đồng bộ với danh sách kỹ năng (tránh trùng "Excel" và "sk-excel").
+    const matched = skills.find(
+      (skill) => skill.name.toLowerCase() === value.toLowerCase()
+    );
+    const skillId = matched?.id ?? value;
+    if (!form.skills.includes(skillId)) {
+      patch({ skills: [...form.skills, skillId] });
     }
     setSkillInput("");
   };

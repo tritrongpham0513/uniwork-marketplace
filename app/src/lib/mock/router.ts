@@ -160,6 +160,11 @@ export const handleMockRequest = (
     return ok(metaHandlers.skills());
   }
 
+  if (path.startsWith("/api/v1/public/employers/") && method === "GET") {
+    const id = path.replace("/api/v1/public/employers/", "");
+    return ok(profileHandlers.getEmployerPublic(id));
+  }
+
   // ---------------------------------------------------------
   // STUDENT — APPLICATIONS
   // ---------------------------------------------------------

@@ -305,6 +305,10 @@ export interface Application {
   cvFileName: string | null;
   coverLetter: string;
   expectedSalary: number | null;
+  /** Kinh nghiệm liên quan do sinh viên khai báo khi ứng tuyển */
+  experience: string;
+  /** Ngày có thể bắt đầu làm việc */
+  availableFrom: string | null;
   status: ApplicationStatus;
   employerNote: string | null;
   timeline: ApplicationStatusEvent[];

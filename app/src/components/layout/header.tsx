@@ -17,6 +17,10 @@ import {
 } from "lucide-react";
 import { buttonVariants } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import {
+  ThemeToggle,
+  ThemeModeToggleGroup,
+} from "@/components/shared/theme-toggle";
 import { PATHS, ROLE_HOME } from "@/config/paths";
 import { useAuth } from "@/features/auth/hooks";
 import { useNotificationCount } from "@/features/notifications/hooks";
@@ -157,6 +161,10 @@ export function Header() {
 
         {/* KHU VỰC TÀI KHOẢN (BÊN PHẢI) */}
         <div className="flex items-center gap-2">
+          <div className="hidden sm:block">
+            <ThemeToggle />
+          </div>
+
           {isAuthenticated && user ? (
             <>
               {/* Chuông thông báo */}
@@ -167,7 +175,7 @@ export function Header() {
               >
                 <Bell className="size-4.5" />
                 {unreadCount > 0 && (
-                  <span className="text-destructive-foreground absolute -top-0.5 -right-0.5 flex size-4 items-center justify-center rounded-full bg-destructive text-[10px] font-bold">
+                  <span className="absolute -top-1 -right-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-destructive px-1 text-[10px] leading-none font-bold text-destructive-foreground tabular-nums ring-2 ring-background">
                     {unreadCount > 9 ? "9+" : unreadCount}
                   </span>
                 )}
@@ -415,6 +423,15 @@ export function Header() {
                 )}
               </NavLink>
             )}
+
+            <div className="mt-1 border-t border-border/60 pt-3">
+              <p className="mb-2 px-3 text-xs font-medium text-muted-foreground">
+                Giao diện
+              </p>
+              <div className="px-1 pb-1">
+                <ThemeModeToggleGroup />
+              </div>
+            </div>
           </nav>
         </div>
       )}

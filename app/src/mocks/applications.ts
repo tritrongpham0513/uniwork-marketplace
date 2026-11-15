@@ -43,6 +43,8 @@ export const MOCK_APPLICATIONS: Application[] = [
     coverLetter:
       "Em chào anh/chị, em đang là sinh viên năm 3 và muốn làm thêm để rèn kinh nghiệm phục vụ. Em có 1 năm làm phục vụ tại quán cà phê nên quen với việc đón khách và pha chế cơ bản. Em sẵn sàng làm ca sáng như tin đăng.",
     expectedSalary: 62000,
+    experience: "",
+    availableFrom: null,
     status: "ACCEPTED",
     employerNote: "Đã liên hệ xác nhận lịch ca sáng.",
     timeline: timeline([
@@ -78,6 +80,8 @@ export const MOCK_APPLICATIONS: Application[] = [
     coverLetter:
       "Em xin ứng tuyển vị trí phục vụ part-time cuối tuần. Em có kinh nghiệm phục vụ tại Táo Tào và luôn cười tươi, thân thiện với khách.",
     expectedSalary: 32000,
+    experience: "",
+    availableFrom: null,
     status: "SHORTLISTED",
     employerNote: "Hồ sơ tốt, mời phỏng vấn nhanh.",
     timeline: timeline([
@@ -112,6 +116,8 @@ export const MOCK_APPLICATIONS: Application[] = [
     coverLetter:
       "Em muốn thử sức ở mảng marketing để mở rộng kiến thức ngoài chuyên ngành.",
     expectedSalary: 5000000,
+    experience: "",
+    availableFrom: null,
     status: "PENDING",
     employerNote: null,
     timeline: timeline([["PENDING", 8, null]]),
@@ -142,6 +148,8 @@ export const MOCK_APPLICATIONS: Application[] = [
     coverLetter:
       "Em là sinh viên Marketing năm 4, đã quen với Canva, CapCut và viết content bán hàng. Em muốn được làm việc thật để hoàn thiện portfolio.",
     expectedSalary: 5000000,
+    experience: "",
+    availableFrom: null,
     status: "VIEWED",
     employerNote: null,
     timeline: timeline([
@@ -175,6 +183,8 @@ export const MOCK_APPLICATIONS: Application[] = [
     coverLetter:
       "Em thấy vị trí này phù hợp với kỹ năng của em. Em có thể hỗ trợ phần landing page và tracking.",
     expectedSalary: 4500000,
+    experience: "",
+    availableFrom: null,
     status: "ACCEPTED",
     employerNote: "Đã nhận, bắt đầu từ tuần sau.",
     timeline: timeline([
@@ -208,6 +218,8 @@ export const MOCK_APPLICATIONS: Application[] = [
     cvFileName: null,
     coverLetter: "Em là sinh viên năm 2, muốn làm thêm lễ tân để cải thiện giao tiếp.",
     expectedSalary: 27000,
+    experience: "",
+    availableFrom: null,
     status: "REJECTED",
     employerNote: "Vị trí đã tuyển đủ, cảm ơn bạn đã ứng tuyển.",
     timeline: timeline([
@@ -240,6 +252,8 @@ export const MOCK_APPLICATIONS: Application[] = [
     cvFileName: null,
     coverLetter: "Em muốn làm ca đêm để kiếm thêm thu nhập.",
     expectedSalary: 35000,
+    experience: "",
+    availableFrom: null,
     status: "COMPLETED",
     employerNote: "Đã làm xong 2 ca, trả lương đúng hẹn.",
     timeline: timeline([

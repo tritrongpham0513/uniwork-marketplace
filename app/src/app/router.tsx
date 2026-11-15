@@ -24,11 +24,13 @@ import EmployerApplicationsPage from "@/pages/employer/applications";
 import EmployerApplicationDetailPage from "@/pages/employer/application-detail";
 import EmployerOrganizationPage from "@/pages/employer/organization";
 import EmployerReviewsPage from "@/pages/employer/reviews";
+import PublicEmployerPage from "@/pages/employer/public-profile";
 import AdminDashboardPage from "@/pages/admin";
 import AdminJobsPage from "@/pages/admin/jobs";
 import AdminCategoriesPage from "@/pages/admin/categories";
 import AdminUsersPage from "@/pages/admin/users";
 import AdminReviewsPage from "@/pages/admin/reviews";
+import NotFoundPage from "@/pages/not-found";
 import { createBrowserRouter } from "react-router";
 
 export const router = createBrowserRouter([
@@ -77,6 +79,11 @@ export const router = createBrowserRouter([
             </RequireRole>
           </RequireAuth>
         ),
+      },
+      {
+        // Hồ sơ nhà tuyển dụng công khai — ai cũng xem được
+        path: PATHS.EMPLOYER.PUBLIC_PROFILE(),
+        element: <PublicEmployerPage />,
       },
     ],
   },
@@ -205,5 +212,11 @@ export const router = createBrowserRouter([
         element: <AdminReviewsPage />,
       },
     ],
+  },
+
+  // 6. 404 — bắt mọi đường dẫn không tồn tại
+  {
+    path: "*",
+    element: <NotFoundPage />,
   },
 ]);

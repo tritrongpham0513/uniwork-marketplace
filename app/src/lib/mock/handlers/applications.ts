@@ -1,11 +1,12 @@
 import type {
   Application,
   ApplicationStatus,
+  EmployerProfile,
+  Job,
   Notification,
   Review,
-  StudentProfile,
-  EmployerProfile,
   SavedJob,
+  StudentProfile,
 } from "@/features/shared/types";
 import { getDb, nextId, nowIso } from "../db";
 import { badRequest, forbidden, notFound } from "../errors";
@@ -20,6 +21,8 @@ export interface CreateApplicationBody {
   cvFileName?: string | null;
   coverLetter?: string;
   expectedSalary?: number | null;
+  experience?: string;
+  availableFrom?: string | null;
 }
 
 export const applicationHandlers = {
@@ -68,6 +71,8 @@ export const applicationHandlers = {
       cvFileName: body.cvFileName ?? null,
       coverLetter: body.coverLetter ?? "",
       expectedSalary: body.expectedSalary ?? null,
+      experience: body.experience?.trim() ?? "",
+      availableFrom: body.availableFrom ?? null,
       status: "PENDING",
       employerNote: null,
       timeline: [{ status: "PENDING", at: now, note: null }],
@@ -496,12 +501,38 @@ export const profileHandlers = {
   },
 
   /**
-   * GET /api/v1/employer/profile
+   * GET /api/v1/employer/profile — hồ sơ NTD của chính người đang đăng nhập.
    */
   getEmployer(userId: number): EmployerProfile {
     const profile = getDb().employerProfiles.find((p) => p.userId === userId);
     if (!profile) throw notFound("Không tìm thấy hồ sơ nhà tuyển dụng.");
     return profile;
+  },
+
+  /**
+   * GET /api/v1/public/employers/{id} — hồ sơ NTD công khai (xem được bởi mọi vai trò).
+   */
+  getEmployerPublic(employerId: string): {
+    profile: EmployerProfile;
+    jobs: Job[];
+    reviews: Review[];
+  } {
+    const db = getDb();
+    const profile = db.employerProfiles.find((p) => p.id === employerId);
+    if (!profile) throw notFound("Không tìm thấy nhà tuyển dụng này.");
+
+    const jobs = db.jobs.filter(
+      (j) => j.employerId === employerId && j.status === "OPEN"
+    );
+
+    const reviews = db.reviews.filter(
+      (r) =>
+        r.targetType === "EMPLOYER" &&
+        r.targetUserId === profile.userId &&
+        !r.isHidden
+    );
+
+    return { profile, jobs, reviews };
   },
 
   /**

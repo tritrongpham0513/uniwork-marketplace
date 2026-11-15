@@ -1,13 +1,17 @@
 import { Link, useNavigate, useParams } from "react-router";
+import { useState } from "react";
 import {
   ArrowLeft,
-  Bookmark,
+  Bell,
+  BellRing,
   BookmarkCheck,
+  Briefcase,
   Building2,
   CalendarDays,
   CheckCircle2,
   Clock,
   Coins,
+  Copy,
   Eye,
   MapPin,
   Share2,
@@ -29,8 +33,11 @@ import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { EmployerAvatar } from "@/components/shared/employer-avatar";
 import { ErrorState } from "@/components/shared/empty-state";
 import { JobCard } from "@/features/jobs/components/job-card";
+import { SaveJobButton } from "@/components/shared/save-job-button";
 import { useJob, useRelatedJobs, useSalaryBenchmarks } from "@/features/jobs/hooks/useJobs";
 import { compareSalary, findBenchmarkFor } from "@/features/jobs/lib/salary";
+import { usePublicEmployerProfile } from "@/features/profile/hooks";
+import { RatingStars } from "@/components/shared/rating-stars";
 import {
   DAY_OF_WEEK_LABELS,
   EMPLOYMENT_TYPE_LABELS,
@@ -42,6 +49,16 @@ import { useAuth } from "@/features/auth/hooks";
 import { PATHS } from "@/config/paths";
 import { toast } from "@/lib/toast";
 
+/** Tạo link Google Maps từ địa chỉ của tin tuyển dụng */
+const buildMapUrl = (
+  address: string,
+  district: string,
+  province: string
+): string => {
+  const query = [address, district, province].filter(Boolean).join(", ");
+  return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(query)}`;
+};
+
 export function JobDetailPage() {
   const { id = "" } = useParams();
   const navigate = useNavigate();
@@ -50,6 +67,8 @@ export function JobDetailPage() {
   const { data: job, isLoading, isError, refetch } = useJob(id);
   const { data: benchmarks = [] } = useSalaryBenchmarks();
   const { data: related = [] } = useRelatedJobs(job?.category.id ?? "", id);
+  const { data: employerProfile } = usePublicEmployerProfile(job?.employerId ?? "");
+  const [notifyOn, setNotifyOn] = useState(false);
 
   if (isLoading) return <JobDetailSkeleton />;
 
@@ -118,6 +137,52 @@ export function JobDetailPage() {
     } catch {
       toast.error("Không chia sẻ được");
     }
+  };
+
+  /** Sao chép địa chỉ làm việc (Chốt Ca: nút "Sao chép") */
+  const handleCopyAddress = async () => {
+    const full = [
+      job.location.branchName,
+      job.location.address,
+      job.location.district,
+      job.location.province,
+    ]
+      .filter(Boolean)
+      .join(", ");
+
+    try {
+      await navigator.clipboard.writeText(full);
+      toast.success("Đã sao chép địa chỉ", {
+        description: full,
+      });
+    } catch {
+      toast.error("Không sao chép được địa chỉ");
+    }
+  };
+
+  /** Bật/tắt theo dõi nhóm việc + tỉnh (Viecoday) */
+  const handleToggleNotify = () => {
+    if (!isAuthenticated) {
+      toast.info("Vui lòng đăng nhập", {
+        description: "Bạn cần đăng nhập để bật thông báo.",
+      });
+      navigate(PATHS.AUTH.LOGIN, {
+        state: { from: PATHS.JOBS.DETAIL(job.id) },
+      });
+      return;
+    }
+
+    setNotifyOn((prev) => {
+      const next = !prev;
+      if (next) {
+        toast.success("Đã bật thông báo tin tuyển dụng", {
+          description: `Bạn sẽ được thông báo khi có tin mới thuộc ${job.category.name} tại ${job.location.province}.`,
+        });
+      } else {
+        toast.info("Đã tắt thông báo tin tuyển dụng");
+      }
+      return next;
+    });
   };
 
   return (
@@ -321,6 +386,62 @@ export function JobDetailPage() {
             </CardContent>
           </Card>
 
+          {/* ĐỊA ĐIỂM LÀM VIỆC */}
+          <Card>
+            <CardContent className="p-5 sm:p-6">
+              <h2 className="font-heading text-base font-semibold text-foreground">
+                Địa điểm làm việc
+              </h2>
+              <div className="mt-3 flex items-start gap-3">
+                <MapPin className="mt-0.5 size-5 shrink-0 text-primary" />
+                <div className="min-w-0 flex-1">
+                  {job.location.branchName && (
+                    <p className="text-sm font-semibold text-foreground">
+                      {job.location.branchName}
+                    </p>
+                  )}
+                  <p className="text-sm text-muted-foreground">
+                    {job.location.address ||
+                      `${job.location.district}, ${job.location.province}`}
+                  </p>
+                  {!job.location.branchName && (
+                    <p className="mt-0.5 text-xs text-muted-foreground">
+                      {job.location.district}, {job.location.province}
+                    </p>
+                  )}
+                </div>
+              </div>
+
+              <div className="mt-4 flex flex-wrap gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="cursor-pointer"
+                  nativeButton={false}
+                  render={
+                    <a
+                      href={buildMapUrl(job.location.address, job.location.district, job.location.province)}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                    />
+                  }
+                >
+                  <MapPin className="size-4" />
+                  Mở bản đồ
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="cursor-pointer"
+                  onClick={() => void handleCopyAddress()}
+                >
+                  <Copy className="size-4" />
+                  Sao chép địa chỉ
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+
           {/* TIN LIÊN QUAN */}
           {related.length > 0 && (
             <section>
@@ -348,6 +469,10 @@ export function JobDetailPage() {
               >
                 Ứng tuyển ngay
               </Button>
+              <p className="flex items-start gap-1.5 text-xs text-muted-foreground">
+                <CheckCircle2 className="mt-0.5 size-3.5 shrink-0 text-primary" />
+                Không cần CV, chỉ cần hồ sơ UniJob — ứng tuyển trong 1 chạm.
+              </p>
               <div className="grid grid-cols-2 gap-2">
                 <Button
                   variant="outline"
@@ -358,20 +483,7 @@ export function JobDetailPage() {
                   <Share2 className="size-4" />
                   Chia sẻ
                 </Button>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className="cursor-pointer"
-                  onClick={() =>
-                    toast.success("Đã lưu tin tuyển dụng", {
-                      description:
-                        "Bạn có thể xem lại trong mục Việc làm đã lưu.",
-                    })
-                  }
-                >
-                  <Bookmark className="size-4" />
-                  Lưu tin
-                </Button>
+                <SaveJobButton jobId={job.id} variant="button" />
               </div>
 
               {job.deadline && (
@@ -419,7 +531,7 @@ export function JobDetailPage() {
           {/* NHÀ TUYỂN DỤNG */}
           <Card>
             <CardHeader className="pb-3">
-              <CardTitle className="text-sm">Nhà tuyển dụng</CardTitle>
+              <CardTitle className="text-sm">Thông tin nhà tuyển dụng</CardTitle>
             </CardHeader>
             <CardContent className="space-y-3">
               <div className="flex items-center gap-3">
@@ -445,6 +557,39 @@ export function JobDetailPage() {
                 </div>
               </div>
 
+              {/* Đánh giá + số tin đang tuyển — Viecoday: "13 tin · 30 ngày" */}
+              <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted-foreground">
+                {employerProfile && employerProfile.profile.avgRating > 0 && (
+                  <span className="flex items-center gap-1.5">
+                    <RatingStars
+                      value={employerProfile.profile.avgRating}
+                      size="xs"
+                    />
+                    <span className="font-medium text-foreground">
+                      {employerProfile.profile.avgRating.toFixed(1)}
+                    </span>
+                    <span>
+                      ({employerProfile.profile.ratingCount} đánh giá)
+                    </span>
+                  </span>
+                )}
+                {employerProfile && employerProfile.jobs.length > 0 && (
+                  <span className="flex items-center gap-1.5">
+                    <Briefcase className="size-3.5" />
+                    {employerProfile.jobs.length} tin đang tuyển
+                  </span>
+                )}
+                {employerProfile && (
+                  <span className="flex items-center gap-1.5">
+                    <CalendarDays className="size-3.5" />
+                    Tham gia{" "}
+                    {new Date(
+                      employerProfile.profile.createdAt
+                    ).toLocaleDateString("vi-VN")}
+                  </span>
+                )}
+              </div>
+
               <Separator />
 
               <Button
@@ -453,10 +598,55 @@ export function JobDetailPage() {
                 className="w-full cursor-pointer"
                 nativeButton={false}
                 render={
-                  <Link to={`/employer/${job.employerId}`} />
+                  <Link to={PATHS.EMPLOYER.PUBLIC_PROFILE(job.employerId)} />
                 }
               >
                 Xem hồ sơ công ty
+              </Button>
+
+              {employerProfile && employerProfile.jobs.length > 0 && (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="w-full cursor-pointer"
+                  nativeButton={false}
+                  render={
+                    <Link
+                      to={`${PATHS.JOBS.ROOT}?keyword=${encodeURIComponent(job.employer.name)}`}
+                    />
+                  }
+                >
+                  Xem tất cả việc làm
+                </Button>
+              )}
+            </CardContent>
+          </Card>
+
+          {/* THÔNG BÁO TIN MỚI — Viecoday */}
+          <Card>
+            <CardContent className="space-y-3 p-4">
+              <div className="flex items-start gap-3">
+                {notifyOn ? (
+                  <BellRing className="size-5 shrink-0 text-primary" />
+                ) : (
+                  <Bell className="size-5 shrink-0 text-muted-foreground" />
+                )}
+                <div className="min-w-0">
+                  <p className="text-sm font-semibold text-foreground">
+                    Bạn có muốn được thông báo khi có tin mới?
+                  </p>
+                  <p className="mt-0.5 text-xs text-muted-foreground">
+                    Nhóm {job.category.name} · {job.location.province}
+                  </p>
+                </div>
+              </div>
+              <Button
+                variant={notifyOn ? "outline" : "default"}
+                size="sm"
+                className="w-full cursor-pointer"
+                onClick={handleToggleNotify}
+              >
+                {notifyOn ? "Đã bật thông báo" : "Bật thông báo"}
               </Button>
             </CardContent>
           </Card>

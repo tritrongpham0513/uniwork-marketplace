@@ -21,8 +21,10 @@ import { Slider } from "@/components/ui/slider";
 import { Button } from "@/components/ui/button";
 import {
   EMPLOYMENT_TYPE_LABELS,
+  SALARY_UNIT_LABELS,
   WORK_MODE_LABELS,
   type EmploymentType,
+  type SalaryUnit,
   type WorkMode,
 } from "@/features/jobs/types";
 import { useJobFilters } from "@/features/jobs/hooks/useJobFilters";
@@ -34,7 +36,21 @@ import {
 } from "@/features/jobs/hooks/useJobs";
 
 const SALARY_STEP = 5000;
-const SALARY_MAX = 200000;
+
+/** Trần lương theo từng đơn vị (đồng) */
+const SALARY_MAX_BY_UNIT: Record<SalaryUnit, number> = {
+  HOURLY: 200000,
+  DAILY: 1600000,
+  WEEKLY: 8000000,
+  MONTHLY: 32000000,
+};
+
+const SALARY_UNIT_ITEMS = (
+  Object.keys(SALARY_UNIT_LABELS) as SalaryUnit[]
+).map((value) => ({
+  value,
+  label: SALARY_UNIT_LABELS[value],
+}));
 
 const compact = (value: number) =>
   value >= 1000 ? `${Math.round(value / 1000)}k` : `${value}`;
@@ -248,20 +264,55 @@ export function JobFilters({ onApplied, className }: JobFiltersProps) {
               {/* ---------------- Mức lương ---------------- */}
               <Field>
                 <FieldLegend variant="label">Mức lương</FieldLegend>
+
+                {/* Chọn đơn vị lương (Chốt Ca: giờ / ngày / tuần / tháng) */}
+                <Select
+                  value={filters.salaryUnit}
+                  onValueChange={(value) => {
+                    const unit = (value || "HOURLY") as SalaryUnit;
+                    // Giữ nguyên khoảng lương đang chọn khi đổi đơn vị
+                    update({
+                      salaryUnit: unit,
+                      salaryMin: 0,
+                      salaryMax: SALARY_MAX_BY_UNIT[unit],
+                      page: 1,
+                    });
+                  }}
+                  items={SALARY_UNIT_ITEMS}
+                >
+                  <SelectTrigger id="salary-unit" className="w-full">
+                    <SelectValue placeholder="Đơn vị lương" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {SALARY_UNIT_ITEMS.map((item) => (
+                      <SelectItem key={item.value} value={item.value}>
+                        {item.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+
                 <Slider
                   value={[filters.salaryMin, filters.salaryMax]}
                   min={0}
-                  max={SALARY_MAX}
+                  max={SALARY_MAX_BY_UNIT[filters.salaryUnit]}
                   step={SALARY_STEP}
                   onValueChange={(value) => {
                     if (!Array.isArray(value)) return;
-                    const [min = 0, max = SALARY_MAX] = value as number[];
+                    const [min = 0, max = SALARY_MAX_BY_UNIT[filters.salaryUnit]] =
+                      value as number[];
                     update({ salaryMin: min, salaryMax: max, page: 1 });
                   }}
                 />
                 <div className="flex items-center justify-between text-xs text-muted-foreground">
-                  <span>{compact(filters.salaryMin)}/giờ</span>
-                  <span>{compact(filters.salaryMax)}/giờ</span>
+                  <span>
+                    {compact(filters.salaryMin)}
+                    {SALARY_UNIT_LABELS[filters.salaryUnit]}
+                  </span>
+                  <span>
+                    {compact(filters.salaryMax)}
+                    {SALARY_UNIT_LABELS[filters.salaryUnit]}
+                  </span>
                 </div>
               </Field>
 

@@ -9,6 +9,8 @@ export const PROFILE_KEYS = {
   all: ["profile"] as const,
   student: () => [...PROFILE_KEYS.all, "student"] as const,
   employer: () => [...PROFILE_KEYS.all, "employer"] as const,
+  publicEmployer: (id: string) =>
+    [...PROFILE_KEYS.all, "public-employer", id] as const,
 };
 
 /** Hồ sơ sinh viên */
@@ -44,6 +46,17 @@ export const useEmployerProfile = () =>
       const response = await profileService.getEmployer();
       return response.data;
     },
+  });
+
+/** Hồ sơ NTD công khai (xem từ trang chi tiết việc làm) */
+export const usePublicEmployerProfile = (id: string) =>
+  useQuery({
+    queryKey: PROFILE_KEYS.publicEmployer(id),
+    queryFn: async () => {
+      const response = await profileService.getPublicEmployer(id);
+      return response.data;
+    },
+    enabled: Boolean(id),
   });
 
 /** Cập nhật hồ sơ nhà tuyển dụng */

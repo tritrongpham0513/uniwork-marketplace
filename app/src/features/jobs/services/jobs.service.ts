@@ -9,6 +9,7 @@ import type {
   Skill,
   SalaryBenchmark,
 } from "@/features/jobs/types";
+import { HOURS_PER_SALARY_UNIT } from "@/features/jobs/types";
 import type { ApiResponse } from "@/features/auth/types";
 import { axiosInstance } from "@/lib/axios";
 
@@ -19,23 +20,35 @@ import { axiosInstance } from "@/lib/axios";
 /** Đơn vị lương hiển thị: đồng / giờ */
 export const HOURLY_MAX = 200000;
 
-/** Chuyển bộ lọc của UI sang query string của API */
+/**
+ * Chuyển bộ lọc của UI sang query string của API.
+ *
+ * Khoảng lương luôn được gửi theo đồng/giờ (API quy đổi chung),
+ * đồng thời gửi kèm `salaryUnit` để API hiểu người dùng đang
+ * xem/lọc theo đơn vị nào (giờ / ngày / tuần / tháng).
+ */
 export const buildJobQuery = (
   filters: JobFilters
-): Record<string, string | number> => ({
-  keyword: filters.keyword || undefined,
-  categoryIds: filters.categoryIds.join(",") || undefined,
-  positionIds: filters.positionIds.join(",") || undefined,
-  provinceIds: filters.provinceIds.join(",") || undefined,
-  districtIds: filters.districtIds.join(",") || undefined,
-  employmentTypes: filters.employmentTypes.join(",") || undefined,
-  workModes: filters.workModes.join(",") || undefined,
-  salaryMin: filters.salaryMin,
-  salaryMax: filters.salaryMax,
-  sort: filters.sort,
-  page: filters.page,
-  pageSize: filters.pageSize,
-}) as Record<string, string | number>;
+): Record<string, string | number> => {
+  const unit = filters.salaryUnit ?? "HOURLY";
+  const hours = HOURS_PER_SALARY_UNIT[unit];
+
+  return {
+    keyword: filters.keyword || undefined,
+    categoryIds: filters.categoryIds.join(",") || undefined,
+    positionIds: filters.positionIds.join(",") || undefined,
+    provinceIds: filters.provinceIds.join(",") || undefined,
+    districtIds: filters.districtIds.join(",") || undefined,
+    employmentTypes: filters.employmentTypes.join(",") || undefined,
+    workModes: filters.workModes.join(",") || undefined,
+    salaryUnit: unit,
+    salaryMin: Math.round((filters.salaryMin ?? 0) / hours),
+    salaryMax: Math.round((filters.salaryMax ?? HOURLY_MAX) / hours),
+    sort: filters.sort,
+    page: filters.page,
+    pageSize: filters.pageSize,
+  } as Record<string, string | number>;
+};
 
 // ============================================
 // SERVICE

@@ -8,7 +8,6 @@ import {
   Undo2,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
 import {
   Card,
   CardContent,
@@ -64,6 +63,22 @@ export default function StudentApplicationsPage() {
     }
     return map;
   }, [applications]);
+
+  /**
+   * Chỉ hiện tab "Tất cả" + các trạng thái đang có đơn.
+   * Tab đang chọn luôn được giữ lại để không mất focus khi đếm về 0.
+   * Giữ dải tab luôn vừa khít → không bao giờ phải cuộn ngang.
+   */
+  const visibleFilters = useMemo(
+    () =>
+      STATUS_FILTERS.filter(
+        (item) =>
+          item.value === "ALL" ||
+          item.value === status ||
+          (counts.get(item.value) ?? 0) > 0
+      ),
+    [counts, status]
+  );
 
   const visible = useMemo(() => {
     const query = keyword.trim().toLowerCase();
@@ -140,8 +155,13 @@ export default function StudentApplicationsPage() {
               setStatus(value as ApplicationStatus | "ALL")
             }
           >
-            <TabsList className="flex w-full flex-nowrap justify-start gap-1 overflow-x-auto rounded-2xl p-1 [scrollbar-width:thin] group-data-horizontal/tabs:h-auto">
-              {STATUS_FILTERS.map((item) => {
+            {/*
+              Dải tab cuộn ngang nhưng ẩn scrollbar + fade 2 cạnh (`no-scrollbar
+              scroll-fade-x`) để không bị "thô". Thêm tab rỗng đã bị lọc bỏ nên
+              thường vừa khít, không phải cuộn.
+            */}
+            <TabsList className="no-scrollbar scroll-fade-x flex w-full flex-nowrap justify-start gap-1 overflow-x-auto rounded-2xl p-1 group-data-horizontal/tabs:h-auto">
+              {visibleFilters.map((item) => {
                 const count =
                   item.value === "ALL"
                     ? applications.length
@@ -155,9 +175,9 @@ export default function StudentApplicationsPage() {
                   >
                     {item.label}
                     {count > 0 && (
-                      <Badge variant="secondary" className="ml-1 text-[10px]">
+                      <span className="ml-1 text-[10px] tabular-nums text-muted-foreground">
                         {count}
-                      </Badge>
+                      </span>
                     )}
                   </TabsTrigger>
                 );
@@ -245,9 +265,8 @@ export default function StudentApplicationsPage() {
 
                           {canWithdraw && (
                             <Button
-                              variant="ghost"
+                              variant="destructive"
                               size="sm"
-                              className="text-muted-foreground"
                               onClick={() => setWithdrawTarget(application.id)}
                             >
                               <Undo2 className="size-4" />

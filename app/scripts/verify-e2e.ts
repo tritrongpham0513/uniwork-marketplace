@@ -231,6 +231,35 @@ await test("savedJobService.list -> SavedJob[]", async () => {
   assert.ok(Array.isArray(response.data));
 });
 
+await test("profileService.getPublicEmployer -> hồ sơ NTD công khai", async () => {
+  const response = await profileService.getPublicEmployer("emp-viejob-demo");
+  assert.equal(response.success, true);
+  assert.ok(response.data.profile.displayName.length > 0);
+  assert.ok(Array.isArray(response.data.jobs));
+  assert.ok(Array.isArray(response.data.reviews));
+});
+
+await test("jobsService.list với salaryUnit khác -> vẫn trả JobListResponse", async () => {
+  const response = await jobsService.list({
+    keyword: "",
+    categoryIds: [],
+    positionIds: [],
+    provinceIds: [],
+    districtIds: [],
+    employmentTypes: [],
+    workModes: [],
+    salaryUnit: "MONTHLY",
+    salaryMin: 0,
+    salaryMax: 32000000,
+    sort: "newest",
+    page: 1,
+    pageSize: 10,
+  });
+  assert.ok(Array.isArray(response.items));
+  assert.ok(response.totalItems > 0);
+  assert.equal(response.currentPage, 1);
+});
+
 // ---------------------------------------------------------------
 // EMPLOYER
 // ---------------------------------------------------------------

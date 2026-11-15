@@ -4,6 +4,7 @@ import {
   BadgeCheck,
   Building2,
   CalendarClock,
+  GraduationCap,
   MapPin,
   Search,
   ShieldCheck,
@@ -25,6 +26,7 @@ import { InputGroup, InputGroupAddon, InputGroupInput } from "@/components/ui/in
 import { JobCard } from "@/features/jobs/components/job-card";
 import { JobCardSkeleton } from "@/features/jobs/components/job-card-skeleton";
 import { CategoryGrid, ProvinceGrid, SeeAllLink } from "@/features/jobs/components/category-grid";
+import { JobLinkGrid } from "@/features/jobs/components/job-link-grid";
 import type { Job } from "@/features/jobs/types";
 import {
   useJobCategories,
@@ -93,6 +95,57 @@ const HOW_IT_WORKS = [
   },
 ];
 
+/** Cam kết an toàn 2 chiều — Sinh viên / Nhà tuyển dụng */
+const COMMITMENTS = [
+  {
+    icon: GraduationCap,
+    side: "Sinh viên",
+    title: "Cam kết dành cho sinh viên",
+    items: [
+      "100% miễn phí — không mất bất kỳ khoản phí đăng hồ sơ hay ứng tuyển nào.",
+      "Không yêu cầu đặt cọc, không thu phí đào tạo, không thu phí thiết bị.",
+      "Thông tin nhà tuyển dụng luôn hiển thị trạng thái xác minh rõ ràng.",
+      "Báo cáo nhanh khi phát hiện tin tuyển dụng lừa đảo.",
+    ],
+  },
+  {
+    icon: Building2,
+    side: "Nhà tuyển dụng",
+    title: "Cam kết dành cho nhà tuyển dụng",
+    items: [
+      "Duyệt hồ sơ trước khi phỏng vấn, không bắt buộc làm thử không hưởng lương.",
+      "Nhận đánh giá công khai từ sinh viên để cải thiện quy trình tuyển dụng.",
+      "Phí đăng tin minh bạch, không phí ẩn cho quảng cáo hay ưu tiên vị trí.",
+      "Quản trị viên kiểm duyệt mọi tin đăng trước khi hiển thị công khai.",
+    ],
+  },
+] as const;
+
+/** Cảm nhận từ sinh viên */
+const TESTIMONIALS = [
+  {
+    name: "Nguyễn Thanh Hà",
+    role: "Sinh viên Quản trị Kinh doanh — ĐH Bách Khoa TP.HCM",
+    rating: 5,
+    content:
+      "Mình tìm được việc phục vụ cuối tuần ngay tuần đầu dùng VieJob. Phần lương và ca làm được ghi rõ ngay từ đầu nên không mất thời gian đi hỏi lại.",
+  },
+  {
+    name: "Phạm Ngọc Linh",
+    role: "Sinh viên Sư phạm Toán — ĐH Sư phạm Kỹ thuật Hà Nội",
+    rating: 5,
+    content:
+      "Tính năng xếp hạng lương rất hữu ích. Mình so được mức lương của tin gia sư với trung bình ngành trước khi ứng tuyển nên không bị hứa hẹn sai.",
+  },
+  {
+    name: "Phạm Đức Bình",
+    role: "Sinh viên Kỹ thuật Phần mềm — ĐH FPT",
+    rating: 4,
+    content:
+      "Ứng tuyển bằng hồ sơ có sẵn rất nhanh, không cần chuẩn bị CV mới mỗi lần. Hồ sơ của nhà tuyển dụng cũng hiển thị rõ đã xác minh hay chưa.",
+  },
+];
+
 export function HomePage() {
   const { user } = useAuth();
   const { data: categories = [] } = useJobCategories();
@@ -121,6 +174,13 @@ export function HomePage() {
     Record<string, number>
   >((acc, job) => {
     acc[job.location.provinceId] = (acc[job.location.provinceId] ?? 0) + 1;
+    return acc;
+  }, {});
+
+  const categoryCounts = (latestJobs?.items ?? []).reduce<
+    Record<string, number>
+  >((acc, job) => {
+    acc[job.category.id] = (acc[job.category.id] ?? 0) + 1;
     return acc;
   }, {});
 
@@ -396,6 +456,54 @@ export function HomePage() {
         <ProvinceGrid provinces={provinces} counts={provinceCounts} />
       </section>
 
+      {/* ================= VIỆC LÀM TẠI {TỈNH} — Viecoday ================= */}
+      <section className="border-y border-border/60 bg-muted/30">
+        <div className="mx-auto max-w-7xl px-4 py-12 sm:px-6 lg:px-8">
+          <div className="mb-6 flex items-end justify-between gap-4">
+            <div>
+              <h2 className="font-heading text-xl font-bold tracking-tight text-foreground sm:text-2xl">
+                Việc làm tại các tỉnh thành
+              </h2>
+              <p className="mt-1 text-sm text-muted-foreground">
+                Chọn nhóm việc bạn muốn để xét tuyển ngay tại khu vực của bạn
+              </p>
+            </div>
+            <SeeAllLink to={PATHS.JOBS.ROOT} label="Xem tất cả" />
+          </div>
+
+          <JobLinkGrid
+            provinces={provinces}
+            categories={categories}
+            provinceCounts={provinceCounts}
+            categoryCounts={categoryCounts}
+          />
+        </div>
+      </section>
+
+      {/* ================= ĐƯỢC TÌM NHIỀU ================= */}
+      <section className="mx-auto max-w-7xl px-4 py-12 sm:px-6 lg:px-8">
+        <div className="mb-6 flex items-end justify-between gap-4">
+          <div>
+            <h2 className="font-heading text-xl font-bold tracking-tight text-foreground sm:text-2xl">
+              Được tìm nhiều
+            </h2>
+            <p className="mt-1 text-sm text-muted-foreground">
+              Nhóm việc và khu vực đang có nhiều người ứng tuyển nhất
+            </p>
+          </div>
+          <SeeAllLink to={PATHS.JOBS.ROOT} label="Xem tất cả" />
+        </div>
+
+        <JobLinkGrid
+          provinces={provinces}
+          categories={categories}
+          provinceCounts={provinceCounts}
+          categoryCounts={categoryCounts}
+          variant="popular"
+          perProvince={5}
+        />
+      </section>
+
       {/* ================= VÌ TRÍ ĐƯỢC XEM NHIỀU ================= */}
       <section className="border-y border-border/60 bg-muted/30">
         <div className="mx-auto max-w-7xl px-4 py-12 sm:px-6 lg:px-8">
@@ -500,6 +608,105 @@ export function HomePage() {
               );
             })}
           </div>
+        </div>
+      </section>
+
+      {/* ================= CAM KẾT AN TOÀN 2 CHIỀU ================= */}
+      <section className="border-t border-border/60 bg-muted/30">
+        <div className="mx-auto max-w-7xl px-4 py-12 sm:px-6 lg:px-8">
+          <div className="mb-8 text-center">
+            <h2 className="font-heading text-xl font-bold tracking-tight text-foreground sm:text-2xl">
+              Cam kết an toàn 2 chiều
+            </h2>
+            <p className="mt-1.5 text-sm text-muted-foreground">
+              VieJob bảo vệ cả sinh viên lẫn nhà tuyển dụng trên mọi giao dịch
+            </p>
+          </div>
+
+          <div className="grid gap-4 md:grid-cols-2">
+            {COMMITMENTS.map((commitment) => {
+              const Icon = commitment.icon;
+              return (
+                <Card key={commitment.side} className="h-full">
+                  <CardHeader>
+                    <div className="flex items-center gap-3">
+                      <div className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary">
+                        <Icon className="size-5" />
+                      </div>
+                      <div>
+                        <Badge variant="secondary" className="mb-1">
+                          {commitment.side}
+                        </Badge>
+                        <CardTitle className="font-heading text-base">
+                          {commitment.title}
+                        </CardTitle>
+                      </div>
+                    </div>
+                  </CardHeader>
+                  <CardContent>
+                    <ul className="space-y-2.5">
+                      {commitment.items.map((item) => (
+                        <li
+                          key={item}
+                          className="flex items-start gap-2 text-sm text-muted-foreground"
+                        >
+                          <BadgeCheck className="mt-0.5 size-4 shrink-0 text-primary" />
+                          <span>{item}</span>
+                        </li>
+                      ))}
+                    </ul>
+                  </CardContent>
+                </Card>
+              );
+            })}
+          </div>
+        </div>
+      </section>
+
+      {/* ================= CẢM NHẬN TỪ SINH VIÊN ================= */}
+      <section className="mx-auto max-w-7xl px-4 py-12 sm:px-6 lg:px-8">
+        <div className="mb-8 text-center">
+          <h2 className="font-heading text-xl font-bold tracking-tight text-foreground sm:text-2xl">
+            Sinh viên nói gì về VieJob
+          </h2>
+          <p className="mt-1.5 text-sm text-muted-foreground">
+            Những chia sẻ thật từ các bạn đã ứng tuyển và làm việc
+          </p>
+        </div>
+
+        <div className="grid gap-4 md:grid-cols-3">
+          {TESTIMONIALS.map((testimonial) => (
+            <Card key={testimonial.name} className="h-full">
+              <CardContent className="flex h-full flex-col gap-3 p-5">
+                <div
+                  className="flex items-center gap-0.5"
+                  aria-label={`Đánh giá ${testimonial.rating} trên 5 sao`}
+                >
+                  {[1, 2, 3, 4, 5].map((index) => (
+                    <Star
+                      key={index}
+                      className={
+                        index <= testimonial.rating
+                          ? "size-4 fill-primary text-primary"
+                          : "size-4 fill-transparent text-muted-foreground/30"
+                      }
+                    />
+                  ))}
+                </div>
+                <p className="text-sm leading-relaxed text-muted-foreground">
+                  “{testimonial.content}”
+                </p>
+                <div className="mt-auto">
+                  <p className="text-sm font-semibold text-foreground">
+                    {testimonial.name}
+                  </p>
+                  <p className="text-xs text-muted-foreground">
+                    {testimonial.role}
+                  </p>
+                </div>
+              </CardContent>
+            </Card>
+          ))}
         </div>
       </section>
 

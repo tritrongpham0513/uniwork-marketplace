@@ -1,4 +1,3 @@
-import { useState } from "react";
 import { Link } from "react-router";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -9,19 +8,20 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
+import { SaveJobButton } from "@/components/shared/save-job-button";
 import {
-  Bookmark,
-  BookmarkCheck,
   CalendarDays,
   CheckCircle2,
   Clock,
   MapPin,
+  Sparkles,
   TrendingUp,
   Users,
 } from "lucide-react";
 import type { Job, SalaryComparison } from "@/features/jobs/types";
 import { EMPLOYMENT_TYPE_LABELS } from "@/features/jobs/types";
 import { formatPostedAgo, formatSalary } from "@/features/jobs/lib/format";
+import { CategoryIcon } from "@/features/jobs/lib/category-icon";
 import { PATHS } from "@/config/paths";
 import { cn } from "cn";
 
@@ -29,35 +29,39 @@ interface JobCardProps {
   job: Job;
   /** So sánh lương với benchmark (Viecoday: "Top 34% · Cao hơn trung bình") */
   comparison?: SalaryComparison | null;
-  /** Tin đã lưu chưa */
-  isSaved?: boolean;
-  /** Callback khi bấm lưu */
-  onToggleSave?: (job: Job) => void;
   /** Ẩn nút ứng tuyển khi đang ở màn hình quản lý của NTD */
   showApply?: boolean;
+  /** Ẩn nút lưu tin (ví dụ trong danh sách tin đã lưu) */
+  showSave?: boolean;
 }
+
+/** Tin đăng trong vòng 24 giờ -> hiện badge "Mới" */
+const isNewJob = (postedAt: string): boolean =>
+  Date.now() - new Date(postedAt).getTime() < 24 * 60 * 60 * 1000;
 
 export function JobCard({
   job,
   comparison,
-  isSaved = false,
-  onToggleSave,
   showApply = true,
+  showSave = true,
 }: JobCardProps) {
   const remaining = job.positionsCount - job.positionsFilled;
-  const [saved, setSaved] = useState(isSaved);
-
-  const handleSave = () => {
-    setSaved((prev) => !prev);
-    onToggleSave?.(job);
-  };
 
   return (
     <Card className="group transition-colors hover:bg-muted/30">
       <CardHeader className="gap-2">
         <div className="flex flex-wrap items-center gap-2">
           {job.isUrgent && <Badge>Tuyển gấp</Badge>}
-          <Badge variant="secondary">{job.category.name}</Badge>
+          {isNewJob(job.postedAt) && (
+            <Badge className="gap-1 bg-primary text-primary-foreground">
+              <Sparkles className="size-3" />
+              Mới
+            </Badge>
+          )}
+          <Badge variant="secondary" className="gap-1">
+            <CategoryIcon name={job.category.icon} className="size-3" />
+            {job.category.name}
+          </Badge>
           <Badge variant="outline">
             {EMPLOYMENT_TYPE_LABELS[job.employmentType]}
           </Badge>
@@ -78,25 +82,7 @@ export function JobCard({
             </Link>
           </CardTitle>
 
-          {onToggleSave && (
-            <button
-              type="button"
-              onClick={handleSave}
-              className={cn(
-                "shrink-0 cursor-pointer rounded-lg p-1.5 transition-colors",
-                saved
-                  ? "text-primary hover:bg-primary/10"
-                  : "text-muted-foreground hover:bg-muted hover:text-foreground"
-              )}
-              aria-label={saved ? "Bỏ lưu tin" : "Lưu tin"}
-            >
-              {saved ? (
-                <BookmarkCheck className="size-4.5" />
-              ) : (
-                <Bookmark className="size-4.5" />
-              )}
-            </button>
-          )}
+          {showSave && <SaveJobButton jobId={job.id} />}
         </div>
 
         <p className="flex items-center gap-1.5 text-sm text-muted-foreground">
@@ -112,20 +98,14 @@ export function JobCard({
 
       <CardContent className="space-y-3">
         {/* 4 ô thông tin tóm tắt — layout giống Chốt Ca */}
-        <div className="grid grid-cols-2 gap-x-4 gap-y-2 rounded-lg bg-muted/40 p-3 sm:grid-cols-4">
+        <div className="grid grid-cols-2 gap-x-4 gap-y-2 rounded-lg bg-muted p-3 sm:grid-cols-4">
           <SummaryItem label="Lương" value={formatSalary(job)} highlight />
           <SummaryItem
             label="Loại hình"
             value={EMPLOYMENT_TYPE_LABELS[job.employmentType]}
           />
-          <SummaryItem
-            label="Cần tuyển"
-            value={`${remaining} người`}
-          />
-          <SummaryItem
-            label="Địa điểm"
-            value={`${job.location.district}`}
-          />
+          <SummaryItem label="Cần tuyển" value={`${remaining} người`} />
+          <SummaryItem label="Địa điểm" value={`${job.location.district}`} />
         </div>
 
         {/* Xếp hạng lương — Viecoday */}

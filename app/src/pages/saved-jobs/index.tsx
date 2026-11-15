@@ -30,6 +30,7 @@ export default function SavedJobsPage() {
       districtIds: [],
       employmentTypes: [],
       workModes: [],
+      salaryUnit: "HOURLY",
       salaryMin: 0,
       salaryMax: 200000,
       sort: "newest",
@@ -120,7 +121,11 @@ export default function SavedJobsPage() {
           <ul className="space-y-4">
             {savedJobs.map((job) => (
               <li key={job.id} className="relative">
-                <JobCard job={job} showApply={false} />
+                <JobCard
+                  job={job}
+                  showApply={false}
+                  showSave={false}
+                />
                 <Button
                   variant="outline"
                   size="sm"

@@ -90,6 +90,7 @@ export default function StudentDashboardPage() {
       districtIds: [],
       employmentTypes: [],
       workModes: [],
+      salaryUnit: "HOURLY",
       salaryMin: 0,
       salaryMax: 200000,
       sort: "newest",

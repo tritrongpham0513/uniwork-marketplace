@@ -4,6 +4,7 @@ import type {
   EmploymentType,
   JobFilters,
   JobSort,
+  SalaryUnit,
   WorkMode,
 } from "@/features/jobs/types";
 
@@ -15,6 +16,7 @@ export const DEFAULT_FILTERS: JobFilters = {
   districtIds: [],
   employmentTypes: [],
   workModes: [],
+  salaryUnit: "HOURLY",
   salaryMin: 0,
   salaryMax: 200000,
   sort: "newest",
@@ -44,6 +46,12 @@ const EMPLOYMENT_VALUES: EmploymentType[] = [
   "CASUAL",
 ];
 const WORK_MODE_VALUES: WorkMode[] = ["ONSITE", "REMOTE", "HYBRID"];
+const SALARY_UNIT_VALUES: SalaryUnit[] = [
+  "HOURLY",
+  "DAILY",
+  "WEEKLY",
+  "MONTHLY",
+];
 
 /**
  * Filter đọc/ghi trên URL query để:
@@ -63,6 +71,11 @@ export function useJobFilters() {
       DEFAULT_FILTERS.salaryMax
     );
     const sortParam = searchParams.get("sort") as JobSort | null;
+    const salaryUnitParam = searchParams.get("salaryUnit") as SalaryUnit | null;
+    const salaryUnit =
+      salaryUnitParam && SALARY_UNIT_VALUES.includes(salaryUnitParam)
+        ? salaryUnitParam
+        : DEFAULT_FILTERS.salaryUnit;
 
     return {
       keyword: searchParams.get("keyword") ?? DEFAULT_FILTERS.keyword,
@@ -77,6 +90,7 @@ export function useJobFilters() {
       workModes: readList(searchParams.get("workModes")).filter(
         (v): v is WorkMode => WORK_MODE_VALUES.includes(v as WorkMode)
       ),
+      salaryUnit,
       salaryMin,
       salaryMax,
       sort: sortParam && SORT_VALUES.includes(sortParam) ? sortParam : "newest",
@@ -106,6 +120,8 @@ export function useJobFilters() {
         params.set("employmentTypes", next.employmentTypes.join(","));
       if (next.workModes.length)
         params.set("workModes", next.workModes.join(","));
+      if (next.salaryUnit !== DEFAULT_FILTERS.salaryUnit)
+        params.set("salaryUnit", next.salaryUnit);
       if (next.salaryMin !== DEFAULT_FILTERS.salaryMin)
         params.set("salaryMin", String(next.salaryMin));
       if (next.salaryMax !== DEFAULT_FILTERS.salaryMax)
@@ -154,6 +170,7 @@ export function useJobFilters() {
     count += filters.districtIds.length;
     count += filters.employmentTypes.length;
     count += filters.workModes.length;
+    if (filters.salaryUnit !== DEFAULT_FILTERS.salaryUnit) count += 1;
     if (filters.salaryMin !== DEFAULT_FILTERS.salaryMin) count += 1;
     if (filters.salaryMax !== DEFAULT_FILTERS.salaryMax) count += 1;
     return count;

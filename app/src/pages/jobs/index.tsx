@@ -23,7 +23,13 @@ import { JobsPagination } from "@/features/jobs/components/jobs-pagination";
 import { JobCardSkeleton } from "@/features/jobs/components/job-card-skeleton";
 import { EmptyState, ErrorState } from "@/components/shared/empty-state";
 import { useJobFilters } from "@/features/jobs/hooks/useJobFilters";
-import { useJobs, useSalaryBenchmarks } from "@/features/jobs/hooks/useJobs";
+import {
+  useJobCategories,
+  useJobPositions,
+  useJobs,
+  useProvinces,
+  useSalaryBenchmarks,
+} from "@/features/jobs/hooks/useJobs";
 import { compareSalary, findBenchmarkFor } from "@/features/jobs/lib/salary";
 import {
   EMPLOYMENT_TYPE_LABELS,
@@ -35,6 +41,9 @@ export function JobsPage() {
   const { filters, update, toggleInList, reset, activeCount } = useJobFilters();
   const { data, isLoading, isError, refetch } = useJobs(filters);
   const { data: benchmarks = [] } = useSalaryBenchmarks();
+  const { data: categories = [] } = useJobCategories();
+  const { data: positions = [] } = useJobPositions();
+  const { data: provinces = [] } = useProvinces();
   const [keywordInput, setKeywordInput] = useState(filters.keyword);
   const [isFilterOpen, setIsFilterOpen] = useState(false);
   // Theo dõi giá trị filter.keyword để đồng bộ ô tìm kiếm khi URL đổi
@@ -59,21 +68,21 @@ export function JobsPage() {
   const jobs = data?.items ?? [];
   const totalItems = data?.totalItems ?? 0;
 
-  /** Chip đang áp dụng */
+  /** Chip đang áp dụng — hiển thị tên hiển thị, không phải id/slug */
   const chips = [
     ...filters.categoryIds.map((id) => ({
       key: `cat-${id}`,
-      label: id,
+      label: categories.find((category) => category.id === id)?.name ?? id,
       onRemove: () => toggleInList("categoryIds", id),
     })),
     ...filters.positionIds.map((id) => ({
       key: `pos-${id}`,
-      label: id,
+      label: positions.find((position) => position.id === id)?.name ?? id,
       onRemove: () => toggleInList("positionIds", id),
     })),
     ...filters.provinceIds.map((id) => ({
       key: `prov-${id}`,
-      label: id,
+      label: provinces.find((province) => province.id === id)?.name ?? id,
       onRemove: () => toggleInList("provinceIds", id),
     })),
     ...filters.employmentTypes.map((type) => ({
@@ -137,7 +146,7 @@ export function JobsPage() {
             của Card), phần nội dung tự cuộn và mờ dần ở hai cạnh bằng `scroll-fade`.
           */}
           <div className="sticky top-20">
-            <JobFilters className="max-h-[calc(100dvh_-_8.5rem)] scroll-fade no-scrollbar" />
+            <JobFilters className="no-scrollbar max-h-[calc(100dvh-18rem)] scroll-fade" />
           </div>
         </aside>
 

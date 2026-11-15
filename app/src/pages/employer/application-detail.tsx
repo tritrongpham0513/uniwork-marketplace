@@ -36,6 +36,7 @@ import {
   useEmployerApplication,
   useUpdateApplicationStatus,
 } from "@/features/applications/hooks";
+import { useSkills } from "@/features/jobs/hooks/useJobs";
 import { APPLICATION_STATUS_LABELS } from "@/features/shared/types";
 import { PATHS } from "@/config/paths";
 import { showApiError, toast } from "@/lib/toast";
@@ -45,6 +46,7 @@ export default function EmployerApplicationDetailPage() {
   const { data: application, isPending, isError, refetch } =
     useEmployerApplication(id);
   const updateStatus = useUpdateApplicationStatus();
+  const { data: skills = [] } = useSkills();
 
   const [note, setNote] = useState("");
   const [reviewOpen, setReviewOpen] = useState(false);
@@ -163,9 +165,10 @@ export default function EmployerApplicationDetailPage() {
                     Kỹ năng
                   </p>
                   <div className="flex flex-wrap gap-1.5">
-                    {application.studentSkills.map((skill) => (
-                      <Badge key={skill} variant="secondary">
-                        {skill}
+                    {application.studentSkills.map((skillId) => (
+                      <Badge key={skillId} variant="secondary">
+                        {skills.find((skill) => skill.id === skillId)?.name ??
+                          skillId}
                       </Badge>
                     ))}
                   </div>

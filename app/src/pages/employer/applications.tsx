@@ -26,6 +26,19 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import {
+  Field,
+  FieldLabel,
+} from "@/components/ui/field";
+import { Textarea } from "@/components/ui/textarea";
 import { DashboardLayout, navItem } from "@/components/layout/dashboard-layout";
 import { StatusBadge } from "@/components/shared/status-badge";
 import { EmptyState, ErrorState } from "@/components/shared/empty-state";
@@ -36,6 +49,7 @@ import {
 import { useEmployerJobs } from "@/features/employer/hooks";
 import {
   APPLICATION_STATUS_LABELS,
+  type Application,
   type ApplicationStatus,
 } from "@/features/shared/types";
 import { PATHS } from "@/config/paths";
@@ -59,6 +73,8 @@ export default function EmployerApplicationsPage() {
   const [status, setStatus] = useState<ApplicationStatus | "ALL">("ALL");
   const [jobId, setJobId] = useState("ALL");
   const [keyword, setKeyword] = useState("");
+  const [rejectTarget, setRejectTarget] = useState<Application | null>(null);
+  const [rejectReason, setRejectReason] = useState("");
 
   const { data: applications = [], isPending, isError, refetch } =
     useEmployerApplications();
@@ -319,13 +335,10 @@ export default function EmployerApplicationsPage() {
                               variant="ghost"
                               size="sm"
                               className="text-destructive"
-                              onClick={() =>
-                                handleStatus(
-                                  application.id,
-                                  "REJECTED",
-                                  "Hồ sơ không phù hợp với vị trí"
-                                )
-                              }
+                              onClick={() => {
+                                setRejectTarget(application);
+                                setRejectReason("");
+                              }}
                               disabled={updateStatus.isPending}
                             >
                               <ThumbsDown className="size-4" />
@@ -357,6 +370,79 @@ export default function EmployerApplicationsPage() {
           </ul>
         )}
       </div>
+
+      {/* DIALOG TỪ CHỐI ỨNG VIÊN */}
+      <Dialog
+        open={rejectTarget !== null}
+        onOpenChange={(open) => {
+          if (!open) {
+            setRejectTarget(null);
+            setRejectReason("");
+          }
+        }}
+      >
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Từ chối ứng viên</DialogTitle>
+            <DialogDescription>
+              Ứng viên: {rejectTarget?.studentName} — vị trí {rejectTarget?.jobTitle}.
+              Lý do sẽ được gửi tới ứng viên, vui lòng nhập rõ ràng.
+            </DialogDescription>
+          </DialogHeader>
+
+          <Field className="gap-1.5">
+            <FieldLabel htmlFor="reject-reason" className="text-xs font-medium">
+              Lý do từ chối <span className="text-destructive">*</span>
+            </FieldLabel>
+            <Textarea
+              id="reject-reason"
+              value={rejectReason}
+              onChange={(event) => setRejectReason(event.target.value)}
+              rows={4}
+              maxLength={500}
+              placeholder="Ví dụ: Hồ sơ chưa phù hợp với yêu cầu về kinh nghiệm..."
+            />
+            <span className="text-xs text-muted-foreground">
+              {rejectReason.length}/500
+            </span>
+          </Field>
+
+          <DialogFooter>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => {
+                setRejectTarget(null);
+                setRejectReason("");
+              }}
+            >
+              Huỷ
+            </Button>
+            <Button
+              variant="destructive"
+              size="sm"
+              disabled={updateStatus.isPending}
+              onClick={() => {
+                if (!rejectTarget) return;
+                if (!rejectReason.trim()) {
+                  toast.warning("Vui lòng nhập lý do từ chối.");
+                  return;
+                }
+                void handleStatus(
+                  rejectTarget.id,
+                  "REJECTED",
+                  rejectReason.trim()
+                ).finally(() => {
+                  setRejectTarget(null);
+                  setRejectReason("");
+                });
+              }}
+            >
+              Xác nhận từ chối
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </DashboardLayout>
   );
 }
