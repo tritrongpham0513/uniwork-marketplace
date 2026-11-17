@@ -41,6 +41,18 @@ export const notificationService = {
       "/api/v1/notifications/read-all"
     );
   },
+
+  /**
+   * POST /api/v1/ws/ticket
+   *
+   * Xin vé dùng một lần để mở kết nối WebSocket. Vé hạn 60 giây — nhờ đó JWT
+   * không bao giờ phải đi trong query string của WebSocket.
+   */
+  requestSocketTicket(): Promise<ApiResponse<{ ticket: string; expiresIn: number }>> {
+    return http.post<ApiResponse<{ ticket: string; expiresIn: number }>>(
+      "/api/v1/ws/ticket"
+    );
+  },
 };
 
 export type { Notification, NotificationType };

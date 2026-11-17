@@ -16,7 +16,6 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Field, FieldDescription, FieldLabel } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Separator } from "@/components/ui/separator";
@@ -442,7 +441,7 @@ export function ApplyJobPage() {
                   onCheckedChange={(checked) => setAgreed(checked === true)}
                   className="mt-0.5"
                 />
-                <Label htmlFor="agree" className="text-sm leading-relaxed">
+                <p>
                   Tôi đồng ý với{" "}
                   <span className="font-medium text-foreground">
                     điều khoản ứng tuyển
@@ -450,7 +449,7 @@ export function ApplyJobPage() {
                   của VieJob và cho phép nhà tuyển dụng liên hệ với tôi qua số
                   điện thoại / email đã cung cấp. Tôi cam kết thông tin trên là
                   chính xác.
-                </Label>
+                </p>
               </div>
             </CardContent>
           </Card>

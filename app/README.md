@@ -103,6 +103,7 @@ src/lib/mock/
 | Nhà tuyển dụng | `GET/POST /employer/jobs`, `PUT/DELETE /employer/jobs/{id}`, `GET /employer/applications`, `GET/PATCH /employer/applications/{id}`, `GET/PUT /employer/profile`, `POST /employer/reviews/{id}/reply`                      |
 | Đánh giá       | `POST /reviews`, `GET /reviews?targetType=&targetUserId=`                                                                                                                                                                 |
 | Thông báo      | `GET /notifications`, `GET /notifications/unread-count`, `PATCH /notifications/{id}/read`, `POST /notifications/read-all`                                                                                                 |
+| WebSocket      | `POST /ws/ticket` — cấp vé kết nối 1 lần, hạn 60s (xem mục 7.5)                                                                                                                                                        |
 | Quản trị       | `GET /admin/dashboard`, `GET /admin/users`, `PATCH /admin/users/{id}`, `GET /admin/jobs`, `PATCH /admin/jobs/{id}/review`, `GET/POST /admin/categories`, `PUT/DELETE /admin/categories/{id}`, `PATCH /admin/reviews/{id}` |
 
 ---
@@ -171,6 +172,14 @@ Chạy 3 suite:
 | **Mock API**  | `pnpm verify:mock-api`    | **47 test**: envelope `{ success, message, data }` & envelope lỗi; đăng nhập/đăng ký 3 vai trò; phân quyền 401/403/404; lọc & phân trang tin; NTD đăng tin → Admin duyệt → SV ứng tuyển → NTD duyệt đơn → đánh giá 2 chiều → trả lời đánh giá; quản lý thông báo; CRUD nhóm việc; khoá/đổi role người dùng |
 | **E2E**       | `pnpm verify:e2e`         | **20 test**: chạy đúng đường đi của app — `service` → `axiosInstance` → `mockAdapter` → `router` — assert `ApiResponse<T>` khớp kiểu dữ liệu mà service khai báo (đặc biệt `data.accessToken`, `data.user`), qua lại 3 vai trò                                                                             |
 
+Ngoài ra có 2 script realtime (cần backend đang chạy, xem mục 7.5):
+
+```bash
+node scripts/verify-realtime-ws.mjs http://localhost:8081    # 7 sự kiện WebSocket
+SMOKE_BASE_URL=http://localhost:5173 SMOKE_API_URL=http://localhost:8081 \
+  node scripts/smoke-realtime-browser.mjs                    # toast + nút "Xem" trong Chrome
+```
+
 ### Smoke test trình duyệt (tùy chọn)
 
 `scripts/smoke-browser.mjs` chạy Chromium (Playwright) thật để kiểm tra:
@@ -187,26 +196,143 @@ pnpm smoke:browser             # cần `npm i -D playwright` + `npx playwright i
 
 ---
 
-## 7. Tích hợp backend (khi API thật sẵn sàng)
+## 7. Tích hợp backend (API thật đã sẵn sàng)
 
-1. Đặt `VITE_USE_MOCK_API=false` và `VITE_API_URL_DEV=http://localhost:8000` trong `.env`.
-2. Backend phải trả đúng envelope:
-   ```json
-   { "success": true, "message": "...", "data": {} }
-   ```
-   và lỗi:
-   ```json
-   {
-     "timestamp": "...",
-     "status": 400,
-     "success": false,
-     "code": "VALIDATION_FAILED",
-     "message": "...",
-     "errors": [{ "field": "email", "message": "..." }]
-   }
-   ```
-3. Không cần sửa service nào — `src/features/*/services/*` đã dùng đúng đường dẫn & kiểu dữ liệu mong đợi.
-4. Token: `Authorization: Bearer <access_token>`; refresh qua `POST /api/v1/auth/refresh` với body `{ refresh_token }`.
+> Backend Spring Boot 3 đã được implement đầy đủ trong `../backend/` — xem `../README.md` mục "Khởi chạy nhanh bằng Docker".
+
+### 7.1. Chạy full-stack bằng Docker (khuyến nghị)
+
+```bash
+# ở thư mục gốc repo
+docker compose up --build
+```
+
+- SPA: <http://localhost:8000> (nginx reverse proxy `/api` → backend)
+- Swagger: <http://localhost:8080/swagger-ui.html>
+
+Compose build frontend với `VITE_USE_MOCK_API=false` → app gọi **API thật**.
+
+Tài khoản demo:
+
+| Vai trò | Email | Mật khẩu |
+| --- | --- | --- |
+| Sinh viên | `student@viejob.vn` | `Student@123` |
+| Nhà tuyển dụng | `employer@viejob.vn` | `Employer@123` |
+| Quản trị viên | `admin@viejob.vn` | `Admin@123` |
+
+### 7.1b. Chế độ DEV trong Docker (hot-reload)
+
+```bash
+# ở thư mục gốc repo
+./dev.sh up-d
+# hoặc
+docker compose -f docker-compose.dev.yml up --build
+```
+
+- SPA (HMR): <http://localhost:5173> — Vite dev server, sửa `src/` là reload ngay
+- Backend: <http://localhost:8081> — `mvn spring-boot:run` + devtools, tự compile & restart khi đổi code
+- MySQL: `localhost:3307` (volume riêng, không đụng bản production)
+
+Chạy song song với bản production ở mục 7.1. Xem chi tiết ở `../README.md` mục "4b".
+
+Biến môi trường dev (đặt trong `docker-compose.dev.yml`):
+
+| Biến                    | Giá trị                    | Ý nghĩa                                                     |
+| ----------------------- | -------------------------- | ----------------------------------------------------------- |
+| `VITE_USE_MOCK_API`     | `false`                    | Gọi API thật (Vite proxy chuyển tiếp tới backend)          |
+| `VITE_API_URL_DEV`      | `http://localhost:5173`    | Base URL browser dùng — cùng origin nên đi qua proxy       |
+| `VITE_DEV_PROXY_TARGET` | `http://backend:8080`      | Đích proxy **bên trong container** (tên service DNS)       |
+| `VITE_DEV_POLLING`      | `true`                     | Bật polling cho watcher (Docker Desktop trên Windows)       |
+
+> **Lưu ý**: thêm dependency mới trong `package.json` → phải rebuild image
+> (`docker compose -f docker-compose.dev.yml build frontend`), vì `node_modules`
+> của host là bản Windows không chạy được trong container Linux.
+
+### 7.2. Chạy frontend dev độc lập (vẫn dùng mock)
+
+1. Đặt `VITE_USE_MOCK_API=true` trong `.env` (mặc định).
+2. `pnpm dev`
+
+### 7.3. Contract API
+
+Backend phải trả đúng envelope:
+```json
+{ "success": true, "message": "...", "data": {} }
+```
+và lỗi:
+```json
+{
+  "timestamp": "...",
+  "status": 400,
+  "success": false,
+  "code": "VALIDATION_FAILED",
+  "message": "...",
+  "errors": [{ "field": "email", "message": "..." }]
+}
+```
+
+Không cần sửa service nào — `src/features/*/services/*` đã dùng đúng đường dẫn & kiểu dữ liệu mong đợi.
+
+Token: `Authorization: Bearer <access_token>`; refresh qua `POST /api/v1/auth/refresh` với body `{ refresh_token }`.
+
+### 7.4. Sinh lại dữ liệu seed
+
+```bash
+pnpm seed:sql
+```
+
+Sinh `../backend/src/main/resources/db/migration/V3__seed_demo_data.sql` từ đúng `src/mocks/*` (full parity: user, hồ sơ, tin tuyển dụng, đơn ứng tuyển + timeline, đánh giá, thông báo, tin đã lưu, master data). Sau khi đổi dataset mock, nhớ `docker compose down -v && docker compose up --build` để Flyway seed lại từ đầu.
+
+### 7.5. Realtime thông báo (WebSocket)
+
+Nguồn sự thật vẫn là bảng `notifications` ở backend. WebSocket chỉ **đẩy tín hiệu** nhẹ
+(`{ id, type, title, body, link, unreadCount }`); client nhận frame → cập nhật badge → hiện toast →
+invalidate cache TanStack Query để refetch dữ liệu chuẩn từ REST.
+
+**Luồng kết nối**
+
+```
+Client                          Backend
+  │ POST /api/v1/ws/ticket  (Bearer JWT) ──▶  cấp vé 1 lần, TTL 60s
+  │ GET /ws/notifications?ticket=<ticket> ──▶  validate + consume vé → set userId
+  │ ◀── frame { id, type, title, ... } ────  (mỗi khi có thông báo mới)
+```
+
+Trình duyệt không gắn header `Authorization` khi mở WebSocket → JWT không bao giờ lọt vào query string
+hay access log. Vé sai/hết hạn → handshake bị từ chối với HTTP 403.
+
+**Mã nguồn liên quan**
+
+| File                                          | Vai trò                                                                       |
+| --------------------------------------------- | ----------------------------------------------------------------------------- |
+| `src/lib/realtime/notification-socket.ts`     | Client WebSocket native: reconnect backoff 1s→30s, ping 25s                    |
+| `src/lib/realtime/notification-broadcast.ts`  | `BroadcastChannel` đồng bộ nhiều tab, chỉ tab có focus mới hiện toast        |
+| `src/features/notifications/hooks/useNotificationSocket.ts` | Invalidate query cache + toast có nút **"Xem"** (đánh dấu đã đọc + điều hướng) |
+| `src/components/layout/notification-socket.tsx` | Mount trong `MainLayout`, tự mở/đóng socket theo trạng thái đăng nhập       |
+| `vite.config.ts` (`/ws` proxy) · `nginx.conf` (`location /ws/`) | Proxy WebSocket cho dev & production                        |
+
+**7 sự kiện realtime**
+
+| # | Nghiệp vụ                   | Nhận            | Type               | Link                            |
+| - | --------------------------- | --------------- | ------------------ | ------------------------------- |
+| 1 | Sinh viên ứng tuyển         | Nhà tuyển dụng  | `APPLICATION`      | `/employer/applications/{id}`   |
+| 2 | NTD đổi trạng thái đơn      | Sinh viên       | `APPLICATION_STATUS` | `/student/applications/{id}`  |
+| 3 | Sinh viên rút đơn           | Nhà tuyển dụng  | `APPLICATION_STATUS` | `/employer/applications/{id}`   |
+| 4 | NTD đăng tin (chờ duyệt)    | Tất cả Admin    | `JOB`              | `/admin/jobs`                   |
+| 5 | Admin duyệt tin             | Nhà tuyển dụng  | `JOB`              | `/employer/jobs`                |
+| 6 | Admin từ chối tin           | Nhà tuyển dụng  | `JOB`              | `/employer/jobs/{slug}/edit`    |
+| 7 | Đánh giá mới                | Người bị đánh giá | `REVIEW`          | `/employer/reviews`             |
+
+**Kiểm chứng**
+
+```bash
+node scripts/verify-realtime-ws.mjs http://localhost:8081
+# 7 sự kiện qua WebSocket thật + đối chiếu unreadCount với REST
+
+SMOKE_BASE_URL=http://localhost:5173 SMOKE_API_URL=http://localhost:8081 \
+  node scripts/smoke-realtime-browser.mjs
+# Chrome thật: toast hiện lên, bấm "Xem" → điều hướng đúng, kho thông báo có dữ liệu
+```
 
 ---
 

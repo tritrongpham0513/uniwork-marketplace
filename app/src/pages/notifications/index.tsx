@@ -15,7 +15,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { EmptyState } from "@/components/shared/empty-state";
 import { ErrorState } from "@/components/shared/empty-state";
-import { PageHeader } from "@/components/shared/page-header";
+import { DashboardLayout } from "@/components/layout/dashboard-layout";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
   useMarkAllRead,
@@ -79,25 +79,23 @@ export default function NotificationsPage() {
   };
 
   return (
-    <div className="mx-auto w-full max-w-4xl px-4 py-8 sm:px-6 lg:px-8">
-      <PageHeader
-        eyebrow="Thông báo"
-        title="Trung tâm thông báo"
-        description="Theo dõi cập nhật đơn ứng tuyển, tin tuyển dụng mới và thông báo hệ thống."
-        actions={
-          unreadCount > 0 && (
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => markAllRead.mutate()}
-              disabled={markAllRead.isPending}
-            >
-              <CheckCheck className="size-4" />
-              Đọc tất cả
-            </Button>
-          )
-        }
-      />
+    <DashboardLayout
+      title="Trung tâm thông báo"
+      description="Theo dõi cập nhật đơn ứng tuyển, tin tuyển dụng mới và thông báo hệ thống."
+      actions={
+        unreadCount > 0 && (
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => markAllRead.mutate()}
+            disabled={markAllRead.isPending}
+          >
+            <CheckCheck className="size-4" />
+            Đọc tất cả
+          </Button>
+        )
+      }
+    >
 
       <Tabs
         value={tab}
@@ -262,6 +260,6 @@ export default function NotificationsPage() {
           Bạn đã đọc hết thông báo.
         </p>
       )}
-    </div>
+    </DashboardLayout>
   );
 }

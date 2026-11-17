@@ -14,7 +14,6 @@ import {
   Star,
   ThumbsDown,
   ThumbsUp,
-  User,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -27,7 +26,7 @@ import {
 } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
 import { Textarea } from "@/components/ui/textarea";
-import { DashboardLayout, navItem } from "@/components/layout/dashboard-layout";
+import { DashboardLayout } from "@/components/layout/dashboard-layout";
 import { StatusBadge } from "@/components/shared/status-badge";
 import { ApplicationTimeline } from "@/components/shared/application-timeline";
 import { ReviewDialog } from "@/components/shared/review-dialog";
@@ -67,20 +66,10 @@ export default function EmployerApplicationDetailPage() {
     }
   };
 
-  const navItems = [
-    navItem("Bảng điều khiển", PATHS.EMPLOYER.ROOT, FileText),
-    navItem("Tin tuyển dụng", PATHS.EMPLOYER.JOBS, Briefcase),
-    navItem("Ứng viên", PATHS.EMPLOYER.APPLICATIONS, User),
-    navItem("Đánh giá", PATHS.EMPLOYER.REVIEWS, Star),
-    navItem("Thông tin tổ chức", PATHS.EMPLOYER.ORGANIZATION, User),
-  ];
-
   if (isPending) {
     return (
       <DashboardLayout
-        role="EMPLOYER"
         title="Chi tiết ứng viên"
-        navItems={navItems}
       >
         <div className="grid gap-6 lg:grid-cols-3">
           <div className="h-96 animate-pulse rounded-xl bg-muted/60 lg:col-span-2" />
@@ -93,9 +82,7 @@ export default function EmployerApplicationDetailPage() {
   if (isError || !application) {
     return (
       <DashboardLayout
-        role="EMPLOYER"
         title="Chi tiết ứng viên"
-        navItems={navItems}
       >
         <ErrorState
           title="Không tìm thấy hồ sơ ứng viên"
@@ -110,10 +97,8 @@ export default function EmployerApplicationDetailPage() {
 
   return (
     <DashboardLayout
-      role="EMPLOYER"
       title={application.studentName}
       description={`Ứng tuyển vị trí ${application.jobTitle}`}
-      navItems={navItems}
       actions={
         <Button
           variant="outline"

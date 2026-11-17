@@ -3,12 +3,14 @@ package com.uniwork.controller;
 import com.uniwork.constant.ApiEndpoints;
 import com.uniwork.dto.request.GoogleLoginRequest;
 import com.uniwork.dto.request.LoginRequest;
+import com.uniwork.dto.request.RefreshTokenRequest;
 import com.uniwork.dto.request.RegisterRequest;
 import com.uniwork.dto.request.ResendVerificationRequest;
 import com.uniwork.dto.request.VerifyEmailRequest;
 import com.uniwork.dto.response.ApiResponse;
 import com.uniwork.dto.response.AuthResponse;
 import com.uniwork.dto.response.GoogleAuthResponse;
+import com.uniwork.dto.response.RefreshTokenResponse;
 import com.uniwork.dto.response.UserSummaryResponse;
 import com.uniwork.exception.AppException;
 import com.uniwork.service.AuthService;
@@ -170,5 +172,20 @@ public class AuthController {
     public ResponseEntity<ApiResponse<UserSummaryResponse>> getCurrentUser(Authentication authentication) {
         UserSummaryResponse response = authService.getCurrentUser(authentication.getName());
         return ResponseEntity.ok(ApiResponse.success("Lấy thông tin người dùng thành công", response));
+    }
+
+    /**
+     * POST /api/v1/auth/refresh
+     * Làm mới access token bằng refresh token.
+     *
+     * <p>Body: {@code { "refresh_token": "..." }}
+     * Response data: {@code { "access_token": "...", "refresh_token": "...", "token_type": "Bearer", "expires_in": 86400 }}
+     */
+    @PostMapping("/refresh")
+    @Operation(summary = "Làm mới access token")
+    public ResponseEntity<ApiResponse<RefreshTokenResponse>> refresh(
+            @RequestBody RefreshTokenRequest request) {
+        RefreshTokenResponse response = authService.refresh(request.getRefresh_token());
+        return ResponseEntity.ok(ApiResponse.success("Làm mới token thành công", response));
     }
 }

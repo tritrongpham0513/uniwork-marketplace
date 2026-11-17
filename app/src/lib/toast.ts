@@ -1,3 +1,4 @@
+import type * as React from "react";
 import { toastManager, type ToastType } from "@/lib/toast-manager";
 import {
   normalizeApiError,
@@ -51,6 +52,17 @@ export interface ToastOptions {
   id?: string;
   /** Ưu tiên đọc bằng screen reader: "high" = thông báo gấp. */
   priority?: "low" | "high";
+  /**
+   * Nút hành động trên toast.
+   *
+   * Dùng cho thông báo realtime: nút "Xem" điều hướng tới trang liên quan
+   * và đánh dấu thông báo đã đọc.
+   */
+  actionProps?: {
+    children: React.ReactNode;
+    onClick?: () => void;
+    className?: string;
+  };
 }
 
 export interface ShowApiErrorOptions {
@@ -172,6 +184,7 @@ const emit = (
     duration = DEFAULT_DURATION[type],
     id,
     priority = type === "error" ? "high" : "low",
+    actionProps,
   } = options;
 
   pruneRecentToasts();
@@ -186,6 +199,7 @@ const emit = (
       description,
       timeout: duration,
       priority,
+      actionProps,
     });
   }
 
@@ -207,6 +221,7 @@ const emit = (
         : `(×${existing.count})`,
       timeout: duration,
       priority,
+      actionProps,
     });
   }
 
@@ -235,6 +250,7 @@ const emit = (
     description,
     timeout: duration,
     priority,
+    actionProps,
   });
 };
 

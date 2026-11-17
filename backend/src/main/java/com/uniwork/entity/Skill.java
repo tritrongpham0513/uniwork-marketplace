@@ -23,6 +23,10 @@ public class Skill {
     @Column(name = "name", nullable = false, unique = true, length = 80)
     private String name;
 
+    /**
+     * Slug công khai (string) — frontend dùng giá trị này làm `Skill.id`
+     * (ví dụ "sk-excel").
+     */
     @Column(name = "slug", nullable = false, unique = true, length = 100)
     private String slug;
 

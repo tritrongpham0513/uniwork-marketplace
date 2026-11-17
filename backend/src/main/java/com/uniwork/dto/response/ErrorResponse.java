@@ -11,7 +11,10 @@ import java.util.List;
 
 /**
  * Cấu trúc phản hồi lỗi chuẩn RESTful cho toàn hệ thống:
- * {"timestamp", "status", "code", "message", "errors": [{"field", "message"}]}
+ * {"timestamp", "status", "success": false, "code", "message", "errors": [{"field", "message"}]}
+ *
+ * <p>Khớp 100% với envelope lỗi mà frontend đọc ở
+ * {@code app/src/lib/mock/errors.ts} và {@code app/src/lib/api-error.ts}.
  */
 @Data
 @Builder
@@ -24,6 +27,10 @@ public class ErrorResponse {
     private Instant timestamp = Instant.now();
 
     private int status;
+
+    /** Luôn là false trong envelope lỗi. */
+    @Builder.Default
+    private boolean success = false;
 
     private String code;
 
@@ -44,6 +51,7 @@ public class ErrorResponse {
         return ErrorResponse.builder()
                 .timestamp(Instant.now())
                 .status(status)
+                .success(false)
                 .code(code)
                 .message(message)
                 .build();
@@ -53,10 +61,10 @@ public class ErrorResponse {
         return ErrorResponse.builder()
                 .timestamp(Instant.now())
                 .status(status)
+                .success(false)
                 .code(code)
                 .message(message)
                 .errors(errors)
                 .build();
     }
 }
-

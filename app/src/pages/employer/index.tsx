@@ -1,16 +1,6 @@
 import { useMemo } from "react";
 import { Link } from "react-router";
-import {
-  Briefcase,
-  CheckCircle2,
-  Clock,
-  FileText,
-  Plus,
-  Star,
-  TrendingUp,
-  UserCheck,
-  Users,
-} from "lucide-react";
+import { Briefcase, CheckCircle2, Clock, Plus, Star, TrendingUp } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import {
@@ -20,7 +10,7 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import { DashboardLayout, navItem } from "@/components/layout/dashboard-layout";
+import { DashboardLayout } from "@/components/layout/dashboard-layout";
 import { StatCard } from "@/components/shared/stat-card";
 import { StatusBadge } from "@/components/shared/status-badge";
 import { EmptyState } from "@/components/shared/empty-state";
@@ -86,27 +76,12 @@ export default function EmployerDashboardPage() {
   const recentApplicants = applications.slice(0, 5);
   const recentJobs = jobs.slice(0, 5);
 
-  const navItems = [
-    navItem("Bảng điều khiển", PATHS.EMPLOYER.ROOT, FileText),
-    navItem("Tin tuyển dụng", PATHS.EMPLOYER.JOBS, Briefcase, stats.openJobs),
-    navItem(
-      "Ứng viên",
-      PATHS.EMPLOYER.APPLICATIONS,
-      Users,
-      stats.pendingApplicants
-    ),
-    navItem("Đánh giá", PATHS.EMPLOYER.REVIEWS, Star),
-    navItem("Thông tin tổ chức", PATHS.EMPLOYER.ORGANIZATION, UserCheck),
-  ];
-
   const isPending = jobsPending || appsPending;
 
   return (
     <DashboardLayout
-      role="EMPLOYER"
       title={profile?.displayName ?? "Bảng điều khiển"}
       description="Tổng quan tin tuyển dụng và ứng viên của tổ chức bạn."
-      navItems={navItems}
       actions={
         <Button size="sm" nativeButton={false} render={<Link to={PATHS.EMPLOYER.JOB_NEW} />}>
           <Plus className="size-4" />

@@ -5,7 +5,6 @@ import {
   ArrowLeft,
   ArrowRight,
   Briefcase,
-  Building2,
   CalendarClock,
   Check,
   Clock,
@@ -45,7 +44,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { DashboardLayout, navItem } from "@/components/layout/dashboard-layout";
+import { DashboardLayout } from "@/components/layout/dashboard-layout";
 import { ErrorState } from "@/components/shared/empty-state";
 import {
   useCreateJob,
@@ -289,22 +288,12 @@ export default function EmployerJobFormPage() {
     }
   };
 
-  const navItems = [
-    navItem("Bảng điều khiển", PATHS.EMPLOYER.ROOT, Briefcase),
-    navItem("Tin tuyển dụng", PATHS.EMPLOYER.JOBS, Briefcase),
-    navItem("Ứng viên", PATHS.EMPLOYER.APPLICATIONS, Briefcase),
-    navItem("Đánh giá", PATHS.EMPLOYER.REVIEWS, Briefcase),
-    navItem("Thông tin tổ chức", PATHS.EMPLOYER.ORGANIZATION, Building2),
-  ];
-
   const isPending = loadingJob || createJob.isPending || updateJob.isPending;
 
   if (isEdit && isError) {
     return (
       <DashboardLayout
-        role="EMPLOYER"
         title="Sửa tin tuyển dụng"
-        navItems={navItems}
       >
         <ErrorState
           title="Không tìm thấy tin tuyển dụng"
@@ -316,14 +305,12 @@ export default function EmployerJobFormPage() {
 
   return (
     <DashboardLayout
-      role="EMPLOYER"
       title={isEdit ? "Sửa tin tuyển dụng" : "Đăng tin tuyển dụng"}
       description={
         isEdit
           ? "Cập nhật thông tin tin tuyển dụng. Tin sẽ được duyệt lại trước khi hiển thị."
           : "Điền đầy đủ thông tin để tin tuyển dụng được duyệt nhanh nhất."
       }
-      navItems={navItems}
       actions={
         <Button
           variant="outline"

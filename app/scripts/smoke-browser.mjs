@@ -31,7 +31,15 @@ const test = async (name, fn) => {
   }
 };
 
-const browser = await chromium.launch();
+// Ưu tiên Chrome hệ thống (không cần tải Chromium của Playwright).
+// Nếu không có, fallback về chromium bundled.
+const launchOptions = { channel: "chrome" };
+let browser;
+try {
+  browser = await chromium.launch(launchOptions);
+} catch {
+  browser = await chromium.launch();
+}
 const context = await browser.newContext({
   viewport: { width: 1440, height: 900 },
   locale: "vi-VN",

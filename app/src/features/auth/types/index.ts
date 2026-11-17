@@ -83,6 +83,11 @@ export interface ResendVerificationRequest {
 // Khớp với com.uniwork.dto.response.AuthResponse
 export interface AuthResponse {
   accessToken: string;
+  /**
+   * Refresh token (tuỳ chọn) — backend cấp kèm khi đăng nhập.
+   * Dùng cho `POST /api/v1/auth/refresh` để làm mới access token.
+   */
+  refreshToken?: string;
   tokenType: string; // "Bearer"
   expiresIn: number; // 86400 (giây)
   user: UserSummaryResponse;

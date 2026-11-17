@@ -1,17 +1,6 @@
 import { useMemo, useState } from "react";
 import { Link } from "react-router";
-import {
-  Briefcase,
-  Eye,
-  FileText,
-  Pencil,
-  Plus,
-  Search,
-  Star,
-  Trash2,
-  UserCheck,
-  Users,
-} from "lucide-react";
+import { Eye, Pencil, Plus, Search, Trash2, Users } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
@@ -37,7 +26,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { DashboardLayout, navItem } from "@/components/layout/dashboard-layout";
+import { DashboardLayout } from "@/components/layout/dashboard-layout";
 import { JobStatusBadge } from "@/components/shared/status-badge";
 import { ConfirmDialog } from "@/components/shared/confirm-dialog";
 import { EmptyState, ErrorState } from "@/components/shared/empty-state";
@@ -90,20 +79,10 @@ export default function EmployerJobsPage() {
     }
   };
 
-  const navItems = [
-    navItem("Bảng điều khiển", PATHS.EMPLOYER.ROOT, FileText),
-    navItem("Tin tuyển dụng", PATHS.EMPLOYER.JOBS, Briefcase),
-    navItem("Ứng viên", PATHS.EMPLOYER.APPLICATIONS, Users),
-    navItem("Đánh giá", PATHS.EMPLOYER.REVIEWS, Star),
-    navItem("Thông tin tổ chức", PATHS.EMPLOYER.ORGANIZATION, UserCheck),
-  ];
-
   return (
     <DashboardLayout
-      role="EMPLOYER"
       title="Tin tuyển dụng"
       description="Quản lý các tin đã đăng, theo dõi số ứng viên và cập nhật trạng thái."
-      navItems={navItems}
       actions={
         <Button size="sm" nativeButton={false} render={<Link to={PATHS.EMPLOYER.JOB_NEW} />}>
           <Plus className="size-4" />

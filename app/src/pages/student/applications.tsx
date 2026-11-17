@@ -1,12 +1,6 @@
 import { useMemo, useState } from "react";
 import { Link } from "react-router";
-import {
-  ChevronRight,
-  FileSearch,
-  Plus,
-  Search,
-  Undo2,
-} from "lucide-react";
+import { ChevronRight, Plus, Search, Undo2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -17,7 +11,7 @@ import {
 } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { DashboardLayout, navItem } from "@/components/layout/dashboard-layout";
+import { DashboardLayout } from "@/components/layout/dashboard-layout";
 import { StatusBadge } from "@/components/shared/status-badge";
 import { ConfirmDialog } from "@/components/shared/confirm-dialog";
 import { EmptyState, ErrorState } from "@/components/shared/empty-state";
@@ -103,24 +97,10 @@ export default function StudentApplicationsPage() {
     }
   };
 
-  const navItems = [
-    navItem("Bảng điều khiển", PATHS.STUDENT.ROOT, FileSearch),
-    navItem("Hồ sơ tìm việc", PATHS.STUDENT.PROFILE, FileSearch),
-    navItem(
-      "Đơn ứng tuyển",
-      PATHS.STUDENT.APPLICATIONS,
-      FileSearch,
-      applications.filter((a) => a.status === "PENDING").length
-    ),
-    navItem("Việc đã lưu", PATHS.SAVED, FileSearch),
-  ];
-
   return (
     <DashboardLayout
-      role="STUDENT"
       title="Đơn ứng tuyển của tôi"
       description="Theo dõi trạng thái và kết quả của mọi hồ sơ bạn đã gửi."
-      navItems={navItems}
       actions={
         <Button size="sm" nativeButton={false} render={<Link to={PATHS.JOBS.ROOT} />}>
           <Plus className="size-4" />

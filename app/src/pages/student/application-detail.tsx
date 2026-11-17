@@ -11,7 +11,6 @@ import {
   Phone,
   Star,
   Undo2,
-  User,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -23,7 +22,7 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
-import { DashboardLayout, navItem } from "@/components/layout/dashboard-layout";
+import { DashboardLayout } from "@/components/layout/dashboard-layout";
 import { StatusBadge } from "@/components/shared/status-badge";
 import { ApplicationTimeline } from "@/components/shared/application-timeline";
 import { ReviewDialog } from "@/components/shared/review-dialog";
@@ -56,19 +55,10 @@ export default function StudentApplicationDetailPage() {
     }
   };
 
-  const navItems = [
-    navItem("Bảng điều khiển", PATHS.STUDENT.ROOT, FileText),
-    navItem("Hồ sơ tìm việc", PATHS.STUDENT.PROFILE, User),
-    navItem("Đơn ứng tuyển", PATHS.STUDENT.APPLICATIONS, FileText),
-    navItem("Việc đã lưu", PATHS.SAVED, Star),
-  ];
-
   if (isPending) {
     return (
       <DashboardLayout
-        role="STUDENT"
         title="Chi tiết đơn ứng tuyển"
-        navItems={navItems}
       >
         <div className="grid gap-6 lg:grid-cols-3">
           <div className="space-y-4 lg:col-span-2">
@@ -84,9 +74,7 @@ export default function StudentApplicationDetailPage() {
   if (isError || !application) {
     return (
       <DashboardLayout
-        role="STUDENT"
         title="Chi tiết đơn ứng tuyển"
-        navItems={navItems}
       >
         <ErrorState
           title="Không tìm thấy đơn ứng tuyển"
@@ -103,10 +91,8 @@ export default function StudentApplicationDetailPage() {
 
   return (
     <DashboardLayout
-      role="STUDENT"
       title={application.jobTitle}
       description={`Ứng tuyển ngày ${new Date(application.createdAt).toLocaleDateString("vi-VN")}`}
-      navItems={navItems}
       actions={
         <Button
           variant="outline"

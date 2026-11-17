@@ -1,5 +1,6 @@
 import AuthLayout from "@/components/layout/auth";
 import MainLayout from "@/components/layout/main-layout";
+import WorkspaceLayout from "@/components/layout/workspace-layout";
 import { RequireAuth, RequireRole } from "@/components/guards/require-auth";
 import { PATHS } from "@/config/paths";
 import HomePage from "@/pages/home";
@@ -63,24 +64,6 @@ export const router = createBrowserRouter([
         element: <ForbiddenPage />,
       },
       {
-        path: PATHS.NOTIFICATIONS,
-        element: (
-          <RequireAuth>
-            <NotificationsPage />
-          </RequireAuth>
-        ),
-      },
-      {
-        path: PATHS.SAVED,
-        element: (
-          <RequireAuth>
-            <RequireRole roles={["STUDENT"]}>
-              <SavedJobsPage />
-            </RequireRole>
-          </RequireAuth>
-        ),
-      },
-      {
         // Hồ sơ nhà tuyển dụng công khai — ai cũng xem được
         path: PATHS.EMPLOYER.PUBLIC_PROFILE(),
         element: <PublicEmployerPage />,
@@ -112,7 +95,7 @@ export const router = createBrowserRouter([
     element: (
       <RequireAuth>
         <RequireRole roles={["STUDENT"]}>
-          <MainLayout />
+          <WorkspaceLayout />
         </RequireRole>
       </RequireAuth>
     ),
@@ -133,6 +116,10 @@ export const router = createBrowserRouter([
         path: PATHS.STUDENT.APPLICATION_DETAIL(),
         element: <StudentApplicationDetailPage />,
       },
+      {
+        path: PATHS.SAVED,
+        element: <SavedJobsPage />,
+      },
     ],
   },
 
@@ -141,7 +128,7 @@ export const router = createBrowserRouter([
     element: (
       <RequireAuth>
         <RequireRole roles={["EMPLOYER"]}>
-          <MainLayout />
+          <WorkspaceLayout />
         </RequireRole>
       </RequireAuth>
     ),
@@ -186,7 +173,7 @@ export const router = createBrowserRouter([
     element: (
       <RequireAuth>
         <RequireRole roles={["ADMIN"]}>
-          <MainLayout />
+          <WorkspaceLayout />
         </RequireRole>
       </RequireAuth>
     ),
@@ -214,7 +201,22 @@ export const router = createBrowserRouter([
     ],
   },
 
-  // 6. 404 — bắt mọi đường dẫn không tồn tại
+  // 6. Trung tâm thông báo — dùng chung cho mọi vai trò (vẫn trong workspace shell)
+  {
+    element: (
+      <RequireAuth>
+        <WorkspaceLayout />
+      </RequireAuth>
+    ),
+    children: [
+      {
+        path: PATHS.NOTIFICATIONS,
+        element: <NotificationsPage />,
+      },
+    ],
+  },
+
+  // 7. 404 — bắt mọi đường dẫn không tồn tại
   {
     path: "*",
     element: <NotFoundPage />,

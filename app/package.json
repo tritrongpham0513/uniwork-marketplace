@@ -15,6 +15,9 @@
     "verify:mock-api": "vite build --ssr scripts/verify-mock-api.ts --outDir .tmp-verify --logLevel error && node .tmp-verify/verify-mock-api.js",
     "verify:e2e": "vite build --ssr scripts/verify-e2e.ts --outDir .tmp-verify --logLevel error && node .tmp-verify/verify-e2e.js",
     "smoke:browser": "node scripts/smoke-browser.mjs",
+    "verify:realtime": "node scripts/verify-realtime-ws.mjs",
+    "smoke:realtime": "node scripts/smoke-realtime-browser.mjs",
+    "seed:sql": "vite build --ssr scripts/generate-seed-sql.ts --outDir .tmp-seed --logLevel error && node .tmp-seed/generate-seed-sql.js",
     "verify": "npm run verify:toast && npm run verify:integration && npm run verify:mock-api && npm run verify:e2e"
   },
   "dependencies": {

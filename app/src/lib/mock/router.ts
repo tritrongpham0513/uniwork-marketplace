@@ -452,6 +452,17 @@ export const handleMockRequest = (
   }
 
   // ---------------------------------------------------------
+  // WEBSOCKET (ticket)
+  // ---------------------------------------------------------
+  // Chế độ mock không có WebSocket server thật, nhưng vẫn trả vé để UI
+  // không báo lỗi. Client sẽ bỏ qua việc kết nối khi bật mock
+  // (xem `useNotificationSocket`).
+  if (path === "/api/v1/ws/ticket" && method === "POST") {
+    if (!userId) throw new MockHttpError(401, { code: "UNAUTHORIZED", message: "Vui lòng đăng nhập." }, "Unauthorized");
+    return ok({ ticket: `mock-ticket-${userId}`, expiresIn: 60 });
+  }
+
+  // ---------------------------------------------------------
   // FALLBACK
   // ---------------------------------------------------------
   throw notFound(`Endpoint không tồn tại: ${method} ${path}`);

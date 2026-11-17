@@ -1,0 +1,123 @@
+# ---------------------------------------------------------------------
+# VieJob Marketplace — CHẾ ĐỘ DEV (full dev trong Docker)
+#
+#   mysql    : MySQL 8.4 (port 3307 — tránh đụng bản production ở 3306)
+#   backend  : mvn spring-boot:run + devtools (port 8081, tự restart khi đổi code)
+#   frontend : Vite dev server + HMR (port 5173, proxy /api -> backend)
+#
+# Chạy:
+#   docker compose -f docker-compose.dev.yml up --build
+#
+# Xem tại: http://localhost:5173
+#
+# File này ĐỘC LẬP (không merge với docker-compose.yml) — chạy song song
+# với bản production nếu muốn. Nhưng port 8081/5173/3307 là port riêng
+# cho dev.
+#
+# KHÁC với docker-compose.yml (bản production build):
+#   - Frontend là Vite dev server (HMR), không phải nginx + bundle
+#   - Backend chạy mvn spring-boot:run, tự compile + restart khi source đổi
+#   - Source được bind-mount từ host nên sửa code trên máy là nạp lại ngay
+#
+# LƯU Ý Windows/macOS:
+#   node_modules của host là bản Windows, không dùng được trong container Linux.
+#   Vì vậy KHÔNG mount toàn bộ ./app — chỉ mount từng thư mục source,
+#   còn node_modules giữ nguyên bản cài trong image.
+# ---------------------------------------------------------------------
+
+name: viejob-dev
+
+services:
+  mysql:
+    image: mysql:8.4
+    container_name: viejob-mysql-dev
+    restart: unless-stopped
+    environment:
+      MYSQL_ROOT_PASSWORD: root
+      MYSQL_DATABASE: parttime_marketplace
+      TZ: UTC
+    ports:
+      - "3307:3306"
+    volumes:
+      - mysql-dev-data:/var/lib/mysql
+    command:
+      - --character-set-server=utf8mb4
+      - --collation-server=utf8mb4_unicode_ci
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-uroot", "-proot"]
+      interval: 10s
+      timeout: 5s
+      retries: 20
+      start_period: 30s
+
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile.dev
+    # Tên image riêng cho dev — không đụng image production
+    image: student-job-marketplace-backend:dev
+    container_name: viejob-backend-dev
+    restart: unless-stopped
+    depends_on:
+      mysql:
+        condition: service_healthy
+    environment:
+      DB_URL: jdbc:mysql://mysql:3306/parttime_marketplace?createDatabaseIfNotExist=true&useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=UTC&characterEncoding=UTF-8
+      DB_USERNAME: root
+      DB_PASSWORD: root
+      SPRING_PROFILES_ACTIVE: dev
+      JWT_SECRET: 404E635266556A586E3272357538782F413F4428472B4B6250645367566B5970
+      ADMIN_INITIAL_EMAIL: admin@viejob.vn
+      ADMIN_INITIAL_PASSWORD: Admin@123
+      DEMO_STUDENT_PASSWORD: Student@123
+      DEMO_EMPLOYER_PASSWORD: Employer@123
+      DEMO_ADMIN_PASSWORD: Admin@123
+      CORS_ALLOWED_ORIGINS: http://localhost:5173,http://127.0.0.1:5173
+      TZ: UTC
+    volumes:
+      # Bind-mount source + pom để sửa trên host là thấy ngay trong container
+      - ./backend/src:/build/src
+      - ./backend/pom.xml:/build/pom.xml
+      - ./backend/scripts:/build/scripts
+    ports:
+      - "8081:8080"
+
+  frontend:
+    build:
+      context: ./app
+      dockerfile: Dockerfile.dev
+    # Tên image riêng cho dev — không đụng image production
+    image: student-job-marketplace-frontend:dev
+    container_name: viejob-frontend-dev
+    restart: unless-stopped
+    depends_on:
+      - backend
+    environment:
+      # Gọi API thật (không dùng mock adapter) — Vite proxy sẽ chuyển tiếp
+      VITE_USE_MOCK_API: "false"
+      # Base URL mà browser dùng → cùng origin với dev server → đi qua proxy
+      VITE_API_URL_DEV: http://localhost:5173
+      # Đích proxy BÊN TRONG container (tên service DNS)
+      VITE_DEV_PROXY_TARGET: http://backend:8080
+      # Bật polling cho watcher (Docker Desktop trên Windows hay bỏ sót event)
+      VITE_DEV_POLLING: "true"
+      TZ: UTC
+    volumes:
+      # Bind-mount TỪNG THƯ MỤC source (không mount cả /app) để giữ
+      # node_modules bản Linux từ image.
+      - ./app/src:/app/src
+      - ./app/public:/app/public
+      - ./app/scripts:/app/scripts
+      - ./app/index.html:/app/index.html
+      - ./app/vite.config.ts:/app/vite.config.ts
+      - ./app/tsconfig.json:/app/tsconfig.json
+      - ./app/tsconfig.app.json:/app/tsconfig.app.json
+      - ./app/tsconfig.node.json:/app/tsconfig.node.json
+      - ./app/components.json:/app/components.json
+      - ./app/eslint.config.js:/app/eslint.config.js
+      - ./app/package.json:/app/package.json
+    ports:
+      - "5173:5173"
+
+volumes:
+  mysql-dev-data:

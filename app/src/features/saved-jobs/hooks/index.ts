@@ -1,5 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { savedJobService } from "../services/saved-jobs.service";
+import { getLocalAccessToken } from "@/utils/authStorage";
 
 export const SAVED_JOB_KEYS = {
   all: ["saved-jobs"] as const,
@@ -15,6 +16,7 @@ export const useSavedJobs = () =>
       const response = await savedJobService.list();
       return response.data;
     },
+    enabled: !!getLocalAccessToken(),
   });
 
 /** Danh sách id tin đã lưu (dùng để đánh dấu bookmark) */
@@ -25,6 +27,8 @@ export const useSavedJobIds = () =>
       const response = await savedJobService.list();
       return response.data.map((saved) => saved.jobId);
     },
+    // Chỉ sinh viên đã đăng nhập mới lưu/đánh dấu tin được
+    enabled: !!getLocalAccessToken(),
     staleTime: 60_000,
   });
 

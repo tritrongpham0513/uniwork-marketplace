@@ -1,15 +1,5 @@
 import { useMemo, useState } from "react";
-import {
-  Briefcase,
-  FileText,
-  FolderKanban,
-  Lock,
-  Search,
-  ShieldCheck,
-  Star,
-  Unlock,
-  Users,
-} from "lucide-react";
+import { Lock, Search, ShieldCheck, Unlock } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
@@ -43,11 +33,11 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { DashboardLayout, navItem } from "@/components/layout/dashboard-layout";
+import { DashboardLayout } from "@/components/layout/dashboard-layout";
 import { EmptyState, ErrorState } from "@/components/shared/empty-state";
 import { useAdminUsers, useUpdateUser } from "@/features/admin/hooks";
 import type { AdminUser, RoleType } from "@/features/shared/types";
-import { PATHS } from "@/config/paths";
+
 import { showApiError, toast } from "@/lib/toast";
 
 const ROLE_FILTERS: Array<{ value: RoleType | "ALL"; label: string }> = [
@@ -128,20 +118,10 @@ export default function AdminUsersPage() {
     }
   };
 
-  const navItems = [
-    navItem("Bảng điều khiển", PATHS.ADMIN.ROOT, FileText),
-    navItem("Duyệt tin đăng", PATHS.ADMIN.JOBS, Briefcase),
-    navItem("Danh mục", PATHS.ADMIN.CATEGORIES, FolderKanban),
-    navItem("Người dùng", PATHS.ADMIN.USERS, Users),
-    navItem("Kiểm duyệt đánh giá", PATHS.ADMIN.REVIEWS, Star),
-  ];
-
   return (
     <DashboardLayout
-      role="ADMIN"
       title="Quản lý người dùng"
       description="Theo dõi, khoá tài khoản và điều chỉnh vai trò người dùng."
-      navItems={navItems}
     >
       <Card className="border-border/60">
         <CardHeader>

@@ -6,14 +6,17 @@ import com.uniwork.dto.request.LoginRequest;
 import com.uniwork.dto.request.RegisterRequest;
 import com.uniwork.dto.response.AuthResponse;
 import com.uniwork.dto.response.GoogleAuthResponse;
+import com.uniwork.dto.response.RefreshTokenResponse;
 import com.uniwork.dto.response.UserSummaryResponse;
 import com.uniwork.entity.EmployerProfile;
+import com.uniwork.entity.RefreshToken;
 import com.uniwork.entity.Role;
 import com.uniwork.entity.StudentProfile;
 import com.uniwork.entity.User;
 import com.uniwork.entity.UserToken;
 import com.uniwork.exception.AppException;
 import com.uniwork.repository.EmployerProfileRepository;
+import com.uniwork.repository.RefreshTokenRepository;
 import com.uniwork.repository.RoleRepository;
 import com.uniwork.repository.StudentProfileRepository;
 import com.uniwork.repository.UserRepository;
@@ -60,6 +63,7 @@ public class AuthServiceImpl implements AuthService {
     private final StudentProfileRepository studentProfileRepository;
     private final EmployerProfileRepository employerProfileRepository;
     private final UserTokenRepository userTokenRepository;
+    private final RefreshTokenRepository refreshTokenRepository;
     private final PasswordEncoder passwordEncoder;
     private final JwtService jwtService;
     private final MailService mailService;
@@ -271,9 +275,11 @@ public class AuthServiceImpl implements AuthService {
 
         // 4.4 Cấp JWT token (chứa userId, role, hạn 24 giờ)
         String token = jwtService.generateToken(user.getId(), user.getEmail(), user.getRole().getCode());
+        String refreshToken = issueRefreshToken(user);
 
         return AuthResponse.builder()
                 .accessToken(token)
+                .refreshToken(refreshToken)
                 .tokenType("Bearer")
                 .expiresIn(86400L)
                 .user(buildUserSummary(user))
@@ -394,8 +400,72 @@ public class AuthServiceImpl implements AuthService {
     }
 
     // ----------------------------------------------------------------
+    // 7. LÀM MỚI TOKEN (POST /api/v1/auth/refresh)
+    // ----------------------------------------------------------------
+    @Override
+    @Transactional
+    public RefreshTokenResponse refresh(String rawRefreshToken) {
+        if (rawRefreshToken == null || rawRefreshToken.isBlank()) {
+            throw new AppException("Thiếu refresh token.", HttpStatus.UNAUTHORIZED, "INVALID_REFRESH_TOKEN");
+        }
+
+        String hash = sha256Hex(rawRefreshToken.trim());
+        RefreshToken stored = refreshTokenRepository.findByTokenHash(hash)
+                .orElseThrow(() -> new AppException("Refresh token không hợp lệ hoặc đã hết hạn.",
+                        HttpStatus.UNAUTHORIZED, "INVALID_REFRESH_TOKEN"));
+
+        if (stored.getRevokedAt() != null) {
+            throw new AppException("Refresh token đã bị thu hồi.",
+                    HttpStatus.UNAUTHORIZED, "INVALID_REFRESH_TOKEN");
+        }
+        if (stored.getExpiresAt().isBefore(LocalDateTime.now())) {
+            throw new AppException("Refresh token đã hết hạn.",
+                    HttpStatus.UNAUTHORIZED, "INVALID_REFRESH_TOKEN");
+        }
+
+        User user = stored.getUser();
+        if ("LOCKED".equals(user.getStatus()) || "DELETED".equals(user.getStatus())) {
+            throw new AppException("Tài khoản không còn hợp lệ.",
+                    HttpStatus.UNAUTHORIZED, "INVALID_REFRESH_TOKEN");
+        }
+
+        // Thu hồi token cũ (rotate) và cấp cặp token mới
+        stored.setRevokedAt(LocalDateTime.now());
+        refreshTokenRepository.save(stored);
+
+        String newRefreshToken = UUID.randomUUID().toString() + UUID.randomUUID();
+        refreshTokenRepository.save(RefreshToken.builder()
+                .user(user)
+                .tokenHash(sha256Hex(newRefreshToken))
+                .expiresAt(LocalDateTime.now().plusDays(30))
+                .createdAt(LocalDateTime.now())
+                .build());
+
+        String accessToken = jwtService.generateToken(user.getId(), user.getEmail(), user.getRole().getCode());
+
+        return RefreshTokenResponse.builder()
+                .access_token(accessToken)
+                .refresh_token(newRefreshToken)
+                .token_type("Bearer")
+                .expires_in(86400L)
+                .build();
+    }
+
+    // ----------------------------------------------------------------
     // Helpers
     // ----------------------------------------------------------------
+
+    /** Cấp & lưu refresh token mới (hạn 30 ngày), trả về giá trị plain để trả về client. */
+    private String issueRefreshToken(User user) {
+        String raw = UUID.randomUUID().toString() + UUID.randomUUID();
+        refreshTokenRepository.save(RefreshToken.builder()
+                .user(user)
+                .tokenHash(sha256Hex(raw))
+                .expiresAt(LocalDateTime.now().plusDays(30))
+                .createdAt(LocalDateTime.now())
+                .build());
+        return raw;
+    }
     private String sha256Hex(String input) {
         try {
             MessageDigest digest = MessageDigest.getInstance("SHA-256");

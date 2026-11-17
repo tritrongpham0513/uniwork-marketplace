@@ -20,6 +20,10 @@ public class Province {
     @Column(name = "id")
     private Short id;
 
+    /**
+     * Mã công khai (string) — frontend dùng giá trị này làm `Province.id`
+     * (ví dụ "hcm"). Đồng thời là mã tỉnh kiểu "HCM".
+     */
     @Column(name = "code", nullable = false, unique = true, length = 10)
     private String code;
 

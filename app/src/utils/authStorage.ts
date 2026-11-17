@@ -65,6 +65,9 @@ export const saveAuthSession = (authData: AuthResponse): void => {
   if (authData.accessToken) {
     saveLocalAccessToken(authData.accessToken);
   }
+  if (authData.refreshToken) {
+    saveLocalRefreshToken(authData.refreshToken);
+  }
   if (authData.user) {
     saveLocalUser(authData.user);
   }

@@ -1,14 +1,6 @@
 import { useMemo, useState } from "react";
 import { Link } from "react-router";
-import {
-  Briefcase,
-  CheckCircle2,
-  FileText,
-  Search,
-  ThumbsDown,
-  ThumbsUp,
-  Users,
-} from "lucide-react";
+import { CheckCircle2, Search, ThumbsDown, ThumbsUp } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -39,7 +31,7 @@ import {
   FieldLabel,
 } from "@/components/ui/field";
 import { Textarea } from "@/components/ui/textarea";
-import { DashboardLayout, navItem } from "@/components/layout/dashboard-layout";
+import { DashboardLayout } from "@/components/layout/dashboard-layout";
 import { StatusBadge } from "@/components/shared/status-badge";
 import { EmptyState, ErrorState } from "@/components/shared/empty-state";
 import {
@@ -114,20 +106,10 @@ export default function EmployerApplicationsPage() {
     }
   };
 
-  const navItems = [
-    navItem("Bảng điều khiển", PATHS.EMPLOYER.ROOT, FileText),
-    navItem("Tin tuyển dụng", PATHS.EMPLOYER.JOBS, Briefcase),
-    navItem("Ứng viên", PATHS.EMPLOYER.APPLICATIONS, Users),
-    navItem("Đánh giá", PATHS.EMPLOYER.REVIEWS, FileText),
-    navItem("Thông tin tổ chức", PATHS.EMPLOYER.ORGANIZATION, FileText),
-  ];
-
   return (
     <DashboardLayout
-      role="EMPLOYER"
       title="Ứng viên"
       description="Duyệt hồ sơ, phỏng vấn và cập nhật trạng thái ứng tuyển."
-      navItems={navItems}
     >
       <Card className="border-border/60">
         <CardHeader>

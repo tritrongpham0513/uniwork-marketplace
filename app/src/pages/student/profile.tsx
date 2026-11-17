@@ -40,7 +40,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { DashboardLayout, navItem } from "@/components/layout/dashboard-layout";
+import { DashboardLayout } from "@/components/layout/dashboard-layout";
 import { ErrorState } from "@/components/shared/empty-state";
 import {
   EMPLOYMENT_TYPE_LABELS,
@@ -56,7 +56,7 @@ import {
 } from "@/features/profile/hooks";
 import { useJobCategories, useProvinces, useSkills } from "@/features/jobs/hooks/useJobs";
 import { showApiError, toast } from "@/lib/toast";
-import { PATHS } from "@/config/paths";
+
 import { cn } from "cn";
 
 /** Các nhóm kiểm tra để tính mức độ hoàn thiện hồ sơ */
@@ -192,20 +192,11 @@ export default function StudentProfilePage() {
     toast.success(exists ? "Đã cập nhật kinh nghiệm." : "Đã thêm kinh nghiệm.");
   };
 
-  const navItems = [
-    navItem("Bảng điều khiển", PATHS.STUDENT.ROOT, FileText),
-    navItem("Hồ sơ tìm việc", PATHS.STUDENT.PROFILE, User),
-    navItem("Đơn ứng tuyển", PATHS.STUDENT.APPLICATIONS, Briefcase),
-    navItem("Việc đã lưu", PATHS.SAVED, Save),
-  ];
-
   if (isPending || !form) {
     return (
       <DashboardLayout
-        role="STUDENT"
         title="Hồ sơ tìm việc"
         description="Quản lý thông tin cá nhân, học vấn và kỹ năng của bạn."
-        navItems={navItems}
       >
         <div className="space-y-4">
           <div className="h-32 animate-pulse rounded-xl bg-muted/60" />
@@ -218,9 +209,7 @@ export default function StudentProfilePage() {
   if (isError) {
     return (
       <DashboardLayout
-        role="STUDENT"
         title="Hồ sơ tìm việc"
-        navItems={navItems}
       >
         <ErrorState
           title="Không tải được hồ sơ"
@@ -233,10 +222,8 @@ export default function StudentProfilePage() {
 
   return (
     <DashboardLayout
-      role="STUDENT"
       title="Hồ sơ tìm việc"
       description="Quản lý thông tin cá nhân, học vấn và kỹ năng của bạn."
-      navItems={navItems}
       actions={
         <Button size="sm" onClick={handleSave} disabled={updateProfile.isPending}>
           <Save className="size-4" />

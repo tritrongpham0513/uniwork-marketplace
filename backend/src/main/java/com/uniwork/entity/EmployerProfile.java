@@ -13,7 +13,7 @@ import java.time.LocalDateTime;
 /**
  * Entity ánh xạ bảng `employer_profiles`.
  * PK = user_id (shared primary key với bảng users qua @MapsId).
- * avg_rating và rating_count được cập nhật tự động bởi trigger sp_refresh_rating — không sửa trực tiếp.
+ * avg_rating và rating_count được cập nhật trong tầng service (không dùng trigger).
  */
 @Entity
 @Table(name = "employer_profiles")
@@ -28,6 +28,10 @@ public class EmployerProfile {
     @Id
     @Column(name = "user_id")
     private Long userId;
+
+    /** ID công khai (string) — frontend dùng giá trị này làm `EmployerProfile.id` */
+    @Column(name = "slug", nullable = false, unique = true, length = 80)
+    private String slug;
 
     /** Quan hệ 1-1 với User, dùng @MapsId để chia sẻ khóa chính */
     @OneToOne(fetch = FetchType.LAZY)
@@ -57,6 +61,14 @@ public class EmployerProfile {
     @Column(name = "logo_url", length = 500)
     private String logoUrl;
 
+    /**
+     * Màu avatar dạng token-safe (primary | secondary | muted | accent).
+     * Frontend dùng làm class nền nên không dùng hex thẳng.
+     */
+    @Column(name = "logo_variant", nullable = false, length = 16)
+    @Builder.Default
+    private String logoVariant = "primary";
+
     @Column(name = "website", length = 255)
     private String website;
 
@@ -80,17 +92,16 @@ public class EmployerProfile {
 
     /**
      * Điểm trung bình đánh giá (1.00 – 5.00).
-     * DO trigger sp_refresh_rating tính — insertable=false, updatable=false.
+     * Được cập nhật trong tầng service (Java) sau mỗi lần đánh giá mới.
      */
-    @Column(name = "avg_rating", precision = 3, scale = 2, insertable = false, updatable = false)
-    private BigDecimal avgRating;
+    @Column(name = "avg_rating", precision = 3, scale = 2)
+    @Builder.Default
+    private BigDecimal avgRating = BigDecimal.ZERO;
 
-    /**
-     * Số lượt đánh giá.
-     * DO trigger sp_refresh_rating cập nhật — insertable=false, updatable=false.
-     */
-    @Column(name = "rating_count", insertable = false, updatable = false)
-    private Integer ratingCount;
+    /** Số lượt đánh giá — cập nhật trong tầng service. */
+    @Column(name = "rating_count", nullable = false)
+    @Builder.Default
+    private Integer ratingCount = 0;
 
     @Column(name = "created_at", updatable = false)
     private LocalDateTime createdAt;

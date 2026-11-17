@@ -1,7 +1,6 @@
 import { useState } from "react";
 import {
   BadgeCheck,
-  Building2,
   Camera,
   Globe,
   MapPin,
@@ -35,7 +34,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { DashboardLayout, navItem } from "@/components/layout/dashboard-layout";
+import { DashboardLayout } from "@/components/layout/dashboard-layout";
 import { RatingStars } from "@/components/shared/rating-stars";
 import { ErrorState } from "@/components/shared/empty-state";
 import {
@@ -50,7 +49,7 @@ import {
   type EmployerProfile,
   type EmployerType,
 } from "@/features/shared/types";
-import { PATHS } from "@/config/paths";
+
 import { showApiError, toast } from "@/lib/toast";
 import { cn } from "cn";
 
@@ -83,20 +82,10 @@ export default function EmployerOrganizationPage() {
     }
   };
 
-  const navItems = [
-    navItem("Bảng điều khiển", PATHS.EMPLOYER.ROOT, Building2),
-    navItem("Tin tuyển dụng", PATHS.EMPLOYER.JOBS, Building2),
-    navItem("Ứng viên", PATHS.EMPLOYER.APPLICATIONS, Users),
-    navItem("Đánh giá", PATHS.EMPLOYER.REVIEWS, Star),
-    navItem("Thông tin tổ chức", PATHS.EMPLOYER.ORGANIZATION, Building2),
-  ];
-
   if (isPending || !form) {
     return (
       <DashboardLayout
-        role="EMPLOYER"
         title="Thông tin tổ chức"
-        navItems={navItems}
       >
         <div className="h-96 animate-pulse rounded-xl bg-muted/60" />
       </DashboardLayout>
@@ -106,9 +95,7 @@ export default function EmployerOrganizationPage() {
   if (isError) {
     return (
       <DashboardLayout
-        role="EMPLOYER"
         title="Thông tin tổ chức"
-        navItems={navItems}
       >
         <ErrorState
           title="Không tải được thông tin tổ chức"
@@ -120,10 +107,8 @@ export default function EmployerOrganizationPage() {
 
   return (
     <DashboardLayout
-      role="EMPLOYER"
       title="Thông tin tổ chức"
       description="Thông tin này được hiển thị công khai trên mọi tin tuyển dụng của bạn."
-      navItems={navItems}
       actions={
         <Button size="sm" onClick={handleSave} disabled={updateProfile.isPending}>
           <Save className="size-4" />

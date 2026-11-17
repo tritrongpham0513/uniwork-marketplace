@@ -1,14 +1,5 @@
 import { useMemo, useState } from "react";
-import {
-  Briefcase,
-  FileText,
-  FolderKanban,
-  Pencil,
-  Plus,
-  Star,
-  Trash2,
-  Users,
-} from "lucide-react";
+import { Pencil, Plus, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
@@ -36,7 +27,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { DashboardLayout, navItem } from "@/components/layout/dashboard-layout";
+import { DashboardLayout } from "@/components/layout/dashboard-layout";
 import { EmptyState, ErrorState } from "@/components/shared/empty-state";
 import {
   useAdminCategories,
@@ -45,7 +36,7 @@ import {
   useUpdateCategory,
 } from "@/features/admin/hooks";
 import type { JobCategory } from "@/features/shared/types";
-import { PATHS } from "@/config/paths";
+
 import { showApiError, toast } from "@/lib/toast";
 
 interface CategoryForm {
@@ -168,20 +159,10 @@ export default function AdminCategoriesPage() {
     }
   };
 
-  const navItems = [
-    navItem("Bảng điều khiển", PATHS.ADMIN.ROOT, FileText),
-    navItem("Duyệt tin đăng", PATHS.ADMIN.JOBS, Briefcase),
-    navItem("Danh mục", PATHS.ADMIN.CATEGORIES, FolderKanban),
-    navItem("Người dùng", PATHS.ADMIN.USERS, Users),
-    navItem("Kiểm duyệt đánh giá", PATHS.ADMIN.REVIEWS, Star),
-  ];
-
   return (
     <DashboardLayout
-      role="ADMIN"
       title="Quản lý danh mục"
       description="Thêm, sửa và kích hoạt các nhóm việc (ngành nghề) trên hệ thống."
-      navItems={navItems}
       actions={
         <Button onClick={openCreate}>
           <Plus className="size-4" />

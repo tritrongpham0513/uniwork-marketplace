@@ -15,6 +15,10 @@ dist-ssr
 # Build artifacts / test output
 .tmp-verify
 .tmp-smoke
+.tmp-smoke-dev
+.tmp-smoke-live
+.tmp-smoke-realtime
+.tmp-seed
 
 # Editor directories and files
 .vscode/*

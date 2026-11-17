@@ -20,6 +20,10 @@ public class JobCategory {
     @Column(name = "id")
     private Short id;
 
+    /** ID công khai (string) — frontend dùng giá trị này làm `JobCategory.id` */
+    @Column(name = "code", nullable = false, unique = true, length = 40)
+    private String code;
+
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "parent_id")
     private JobCategory parent;
@@ -32,6 +36,11 @@ public class JobCategory {
 
     @Column(name = "description", length = 255)
     private String description;
+
+    /** Tên icon lucide-react dùng để render động (ví dụ "UtensilsCrossed") */
+    @Column(name = "icon", nullable = false, length = 60)
+    @Builder.Default
+    private String icon = "Briefcase";
 
     @Column(name = "sort_order", nullable = false)
     @Builder.Default

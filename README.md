@@ -1,4 +1,4 @@
-# UniWork Marketplace 🎓
+# VieJob Marketplace 🎓
 
 > **Nền tảng kết nối việc làm bán thời gian và cơ hội thực tập cho sinh viên đại học.**  
 > Kiến trúc Monorepo (Spring Boot 3 RESTful Backend & Single Page Application Frontend).
@@ -7,7 +7,7 @@
 
 ## 📌 1. Tổng quan hệ thống
 
-**UniWork Marketplace** giải quyết bài toán kết nối việc làm bán thời gian (part-time), việc làm thời vụ và thực tập an toàn, minh bạch cho sinh viên:
+**VieJob Marketplace** giải quyết bài toán kết nối việc làm bán thời gian (part-time), việc làm thời vụ và thực tập an toàn, minh bạch cho sinh viên:
 * 👨‍🎓 **Sinh viên (STUDENT)**: Tìm kiếm việc làm theo ngành nghề, khu vực, mức lương; nộp hồ sơ trực tuyến, đánh giá nhà tuyển dụng.
 * 🏢 **Nhà tuyển dụng (EMPLOYER)**: Đăng tin tuyển dụng part-time, quản lý hồ sơ ứng viên, duyệt/từ chối ứng tuyển.
 * 🛡️ **Quản trị viên (ADMIN)**: Kiểm duyệt tin đăng, quản lý danh mục nghề nghiệp, giám sát hoạt động hệ thống.
@@ -17,7 +17,7 @@
 ## 🏗️ 2. Cấu trúc thư mục Monorepo
 
 ```text
-uniwork-marketplace/
+viejob-marketplace/
 ├── backend/                # Mã nguồn Backend API (Java 17, Spring Boot 3.3.5, Maven)
 ├── frontend/               # Mã nguồn Giao diện người dùng (React / Vite / Tailwind CSS)
 ├── docs/                   # Tài liệu kỹ thuật, Swagger UI offline, Postman Collections
@@ -25,7 +25,7 @@ uniwork-marketplace/
 │   │   ├── openapi.json        # Đặc tả chuẩn OpenAPI 3.0 (dùng cho Postman / sinh Type)
 │   │   └── swagger-ui.html     # Giao diện Swagger xem trực tiếp không cần bật Backend
 │   └── postman/
-│       └── UniWork_Auth_API_v1.postman_collection.json # Bộ test Postman
+│       └── VieJob_Auth_API_v1.postman_collection.json # Bộ test Postman
 ├── context/                # Hồ sơ phân tích nghiệp vụ, tài liệu SRS v1.1
 ├── schema_parttime_marketplace_mysql.sql # Bản thiết kế CSDL MySQL gốc
 └── README.md               # Tài liệu trung tâm của dự án
@@ -53,7 +53,7 @@ Tất cả thông tin cần thiết để đội ngũ Frontend tích hợp API v
    npx openapi-typescript docs/api/openapi.json -o src/types/api.ts
    ```
 4. **Bộ Test Postman:**  
-   Import file [`docs/postman/UniWork_Auth_API_v1.postman_collection.json`](file:///d:/chuyen-de-tot-nghiep-02/docs/postman/UniWork_Auth_API_v1.postman_collection.json) vào Postman để gọi thử các API.
+   Import file [`docs/postman/VieJob_Auth_API_v1.postman_collection.json`](file:///d:/chuyen-de-tot-nghiep-02/docs/postman/VieJob_Auth_API_v1.postman_collection.json) vào Postman để gọi thử các API.
 
 ---
 
@@ -68,7 +68,7 @@ Tất cả các API của Backend đều trả về theo định dạng JSON th�
   "message": "Thông điệp phản hồi nghiệp vụ",
   "data": {
     "id": 1,
-    "email": "student@uniwork.vn"
+    "email": "student@viejob.vn"
   }
 }
 ```
@@ -121,7 +121,192 @@ Tất cả các API của Backend đều trả về theo định dạng JSON th�
 
 ---
 
-## 🚀 4. Khởi chạy nhanh Backend (Local Development)
+## 🚀 4. Khởi chạy nhanh bằng Docker (khuyến nghị)
+
+> **Không cần cài Java, Maven hay MySQL trên máy.** Toàn bộ stack chạy trong Docker Compose.
+
+### Yêu cầu môi trường:
+* Docker Desktop đã chạy
+* Docker Compose v2 (`docker compose version`)
+
+### Các bước khởi động:
+
+```bash
+# 1. Build & chạy cả 3 service: mysql + backend + frontend
+docker compose up --build
+
+# 2. Mở trình duyệt
+#    - SPA (frontend qua nginx):  http://localhost:8000
+#    - Swagger UI của API:       http://localhost:8080/swagger-ui.html
+#    - MySQL:                    localhost:3306 (root/root, db=parttime_marketplace)
+```
+
+### Cấu trúc Compose
+
+| Service | Cổng | Mô tả |
+| --- | --- | --- |
+| `mysql` | `3306` | MySQL 8.4, Flyway tự migrate + seed |
+| `backend` | `8080` | Spring Boot 3.3.5 / Java 17 (JRE image) |
+| `frontend` | `8000` | Nginx serve SPA + reverse proxy `/api` → `backend:8080` |
+
+Frontend trong Compose được build với `VITE_USE_MOCK_API=false` nên gọi **API thật** qua nginx.
+
+### Tài khoản demo (seed sẵn trong DB)
+
+| Vai trò | Email | Mật khẩu |
+| --- | --- | --- |
+| Sinh viên | `student@viejob.vn` | `Student@123` |
+| Nhà tuyển dụng | `employer@viejob.vn` | `Employer@123` |
+| Quản trị viên | `admin@viejob.vn` | `Admin@123` |
+
+Dữ liệu seed = **full parity** với `app/src/mocks/*` (22 users, 45 tin tuyển dụng, 7 đơn ứng tuyển có timeline, 5 đánh giá, 6 thông báo, tin đã lưu, master data).
+Regenerate bằng: `cd app && pnpm seed:sql`.
+
+### Smoke test API
+
+```bash
+docker compose up -d --build
+bash backend/scripts/smoke-api.sh http://localhost:8080/api/v1
+```
+
+Script là **idempotent** — tự chọn tin tuyển dụng chưa ứng tuyển nên chạy lại nhiều lần vẫn xanh.
+
+### Smoke test trình duyệt (chạy app thật qua nginx)
+
+```bash
+cd app
+SMOKE_BASE_URL=http://localhost:8000 pnpm smoke:browser
+```
+
+Dùng Chrome hệ thống (`channel: "chrome"`), tự fallback về Chromium của Playwright nếu không có.
+Ảnh chụp màn hình lưu ở `app/.tmp-smoke-live/`.
+
+### Realtime thông báo (WebSocket)
+
+Bảng `notifications` trong DB vẫn là nguồn sự thật. WebSocket chỉ đẩy tín hiệu nhẹ
+(`{ id, type, title, body, link, unreadCount }`) → client cập nhật badge, hiện toast, rồi
+invalidate cache để refetch dữ liệu chuẩn từ REST.
+
+Kết nối an toàn bằng **vé dùng một lần, hạn 60s**:
+
+```
+POST /api/v1/ws/ticket        (Bearer JWT)  → { ticket, expiresIn: 60 }
+GET  /ws/notifications?ticket=…                → WebSocket (vé sai → HTTP 403)
+```
+
+JWT không bao giờ lọt vào query string / access log. Đã có proxy `/ws/` trong `app/nginx.conf`
+(production) và `app/vite.config.ts` (dev).
+
+7 sự kiện realtime: SV ứng tuyển → NTD; NTD đổi trạng thái → SV; SV rút đơn → NTD;
+NTD đăng tin → tất cả Admin; Admin duyệt/từ chối tin → NTD; đánh giá mới → người bị đánh giá.
+
+```bash
+cd app
+node scripts/verify-realtime-ws.mjs http://localhost:8081
+SMOKE_BASE_URL=http://localhost:8000 SMOKE_API_URL=http://localhost:8080 \
+  node scripts/smoke-realtime-browser.mjs
+```
+
+Chi tiết kiến trúc: `AGENTS.md` → mục "Realtime thông báo (WebSocket)".
+
+### Dừng / reset
+
+```bash
+docker compose down            # dừng (giữ dữ liệu)
+docker compose down -v         # dừng + xoá volume MySQL (seed lại từ đầu)
+```
+
+---
+
+## 🔥 4b. Chế độ DEV trong Docker (hot-reload)
+
+> Dành cho lập trình viên: sửa code trên máy là **nạp lại ngay**, không cần rebuild image.
+
+### Khác biệt so với bản production ở mục 4
+
+| | Production (`docker-compose.yml`) | Dev (`docker-compose.dev.yml`) |
+| --- | --- | --- |
+| Frontend | Nginx serve bundle `pnpm build` | **Vite dev server + HMR** |
+| Backend | `java -jar app.jar` | **`mvn spring-boot:run` + devtools** (tự compile & restart) |
+| Source | nằm trong image | **bind-mount từ host** (sửa là thấy ngay) |
+| Frontend port | `8000` | `5173` |
+| Backend port | `8080` | `8081` |
+| MySQL port | `3306` | `3307` (volume riêng `mysql-dev-data`) |
+
+Hai bản **chạy song song** được — không đụng nhau.
+
+### Chạy
+
+```bash
+# Cách 1 — script tiện lợi
+./dev.sh up-d          # build + chạy nền
+./dev.sh logs          # theo dõi log
+./dev.sh down          # dừng
+
+# Cách 2 — docker compose trực tiếp
+docker compose -f docker-compose.dev.yml up --build
+```
+
+Mở trình duyệt:
+
+- SPA (HMR): <http://localhost:5173>
+- Swagger UI: <http://localhost:8081/swagger-ui.html>
+- MySQL: `localhost:3307` (root/root, db `parttime_marketplace`)
+
+### Cách hoạt động
+
+- **Frontend**: Vite chạy trong container `node:22-alpine`, source `app/src` được bind-mount. Sửa file `.tsx`/`.ts` → HMR reload ngay. Request `/api/*` được **proxy** tới `http://backend:8080` (giống nginx ở bản production) nên không có lỗi CORS.
+- **Backend**: `mvn spring-boot:run` + `spring-boot-devtools`. Một watcher (`backend/scripts/dev-watch.sh`) poll checksum source mỗi 3 giây → `mvn compile` → devtools phát hiện classpath đổi → **restart app tự động** (~5-8 giây).
+  - Watcher dùng **polling** vì bind-mount từ host Windows qua Docker Desktop không phát sự kiện file (inotify) sang container.
+  - Nếu code lỗi compile, app giữ nguyên bản cũ và log lỗi ra console — không làm sập container.
+
+### Lưu ý khi làm việc trong chế độ dev
+
+- **Thêm dependency mới** (`package.json`) → cần rebuild image:
+  ```bash
+  docker compose -f docker-compose.dev.yml build frontend
+  ```
+  Vì `node_modules` của host là bản Windows, không chạy được trong container Linux — nên compose mount **từng thư mục source** thay vì mount cả `app/`.
+- **Sửa `pom.xml`** (thêm dependency Java) → rebuild image backend tương tự:
+  ```bash
+  docker compose -f docker-compose.dev.yml build backend
+  ```
+- **Reset DB dev**: `docker compose -f docker-compose.dev.yml down -v`
+- **Chạy verify/lint trên host** (nhanh hơn container): `cd app && pnpm lint && pnpm verify`
+
+---
+
+## ✅ 6. Trạng thái kiểm chứng
+
+| Hạng mục | Lệnh | Kết quả |
+| --- | --- | --- |
+| Frontend lint | `cd app && pnpm lint` | 0 error, 0 warning |
+| Frontend type-check + build | `cd app && pnpm build` | PASSED |
+| Frontend verify (4 suite) | `cd app && pnpm verify` | toast + integration + mock-api + e2e — **PASSED** |
+| Browser smoke (app thật + API thật) | `cd app && SMOKE_BASE_URL=http://localhost:8000 pnpm smoke:browser` | **11/11 PASSED** — không còn lỗi console |
+| Backend compile (Docker) | `docker run … mvn clean compile` | PASSED |
+| Backend schema + seed (Docker) | `docker compose up --build` | Flyway V1→V3, Hibernate `ddl-auto: validate` OK |
+| Backend smoke test (66 assertions) | `bash backend/scripts/smoke-api.sh http://localhost:8080/api/v1` | **PASS: 66 / FAIL: 0** (idempotent — chạy lại nhiều lần vẫn xanh) |
+
+Smoke test phủ đủ vòng đời nghiệp vụ:
+
+1. Đăng nhập 3 vai trò + sai mật khẩu (401) + thiếu token (401)
+2. Danh sách/chi tiết/lọc tin tuyển dụng công khai
+3. Master data (categories, positions, provinces, districts, skills, salary-benchmarks) + route không tồn tại trả 404 + HEAD trên endpoint công khai
+4. Sinh viên ứng tuyển + chặn ứng tuyển trùng
+5. NTD duyệt đơn (ACCEPTED → COMPLETED) kèm timeline
+6. Đánh giá 2 chiều + chặn đánh giá trùng + cập nhật `ratingCount`
+7. NTD đăng tin → tin `PENDING_REVIEW` bị ẩn khỏi API public → Admin duyệt → `OPEN`
+8. Admin: dashboard, quản lý user, CRUD nhóm việc
+9. Tin đã lưu (lưu / xem / bỏ lưu)
+10. Thông báo (list, unread-count, read-all)
+11. Hồ sơ sinh viên (đọc / cập nhật)
+12. Refresh token rotation
+13. Phân quyền (403 khi sai vai trò)
+
+---
+
+## 🛠️ 5. Khởi chạy Backend local (tùy chọn — cần JDK/Maven)
 
 ### Yêu cầu môi trường:
 * JDK 17+

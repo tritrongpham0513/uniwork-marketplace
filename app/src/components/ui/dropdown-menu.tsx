@@ -57,16 +57,22 @@ function DropdownMenuLabel({
 }: MenuPrimitive.GroupLabel.Props & {
   inset?: boolean
 }) {
+  // `Menu.GroupLabel` của Base UI bắt buộc phải nằm trong `Menu.Group`
+  // (MenuGroupContext cấp `setLabelId` để liên kết `aria-labelledby`).
+  // Vì shadcn cho phép dùng Label độc lập, ta bọc sẵn một Group ở đây.
+  // Group lồng nhau vẫn hợp lệ — mỗi Group giữ `labelId` riêng.
   return (
-    <MenuPrimitive.GroupLabel
-      data-slot="dropdown-menu-label"
-      data-inset={inset}
-      className={cn(
-        "px-3 py-2.5 text-xs text-muted-foreground data-inset:pl-9.5",
-        className
-      )}
-      {...props}
-    />
+    <MenuPrimitive.Group>
+      <MenuPrimitive.GroupLabel
+        data-slot="dropdown-menu-label"
+        data-inset={inset}
+        className={cn(
+          "px-3 py-2.5 text-xs text-muted-foreground data-inset:pl-9.5",
+          className
+        )}
+        {...props}
+      />
+    </MenuPrimitive.Group>
   )
 }
 

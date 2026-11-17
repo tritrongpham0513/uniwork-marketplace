@@ -56,6 +56,12 @@
             <scope>runtime</scope>
         </dependency>
 
+        <!-- 5b. WebSocket native (kênh thông báo realtime) -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-websocket</artifactId>
+        </dependency>
+
         <!-- 6. JWT Library (JJWT: HMAC-SHA256, chuẩn RFC 7519) -->
         <dependency>
             <groupId>io.jsonwebtoken</groupId>
@@ -79,6 +85,15 @@
         <dependency>
             <groupId>org.projectlombok</groupId>
             <artifactId>lombok</artifactId>
+            <optional>true</optional>
+        </dependency>
+
+        <!-- 13. Spring Boot DevTools — chỉ dùng ở chế độ dev (tự restart khi code đổi).
+             spring-boot-maven-plugin loại devtools khỏi jar đóng gói production. -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-devtools</artifactId>
+            <scope>runtime</scope>
             <optional>true</optional>
         </dependency>
 

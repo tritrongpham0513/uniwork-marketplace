@@ -24,7 +24,11 @@ public class District {
     @JoinColumn(name = "province_id", nullable = false)
     private Province province;
 
-    @Column(name = "code", length = 10)
+    /**
+     * Mã công khai (string) — frontend dùng giá trị này làm `District.id`
+     * (ví dụ "q1").
+     */
+    @Column(name = "code", nullable = false, unique = true, length = 40)
     private String code;
 
     @Column(name = "name", nullable = false, length = 100)

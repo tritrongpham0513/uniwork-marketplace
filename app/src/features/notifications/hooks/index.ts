@@ -1,12 +1,11 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "@/lib/toast";
 import { notificationService } from "../services/notifications.service";
+import { getLocalAccessToken } from "@/utils/authStorage";
+import { NOTIFICATION_KEYS } from "./keys";
 
-export const NOTIFICATION_KEYS = {
-  all: ["notifications"] as const,
-  list: (unreadOnly?: boolean) => ["notifications", "list", unreadOnly] as const,
-  unreadCount: ["notifications", "unread-count"] as const,
-};
+export { NOTIFICATION_KEYS };
+export { useNotificationSocket } from "./useNotificationSocket";
 
 /** Danh sách thông báo của người đang đăng nhập */
 export const useNotifications = (unreadOnly = false) =>
@@ -16,6 +15,7 @@ export const useNotifications = (unreadOnly = false) =>
       const response = await notificationService.list(unreadOnly);
       return response.data;
     },
+    enabled: !!getLocalAccessToken(),
   });
 
 /** Số thông báo chưa đọc (dùng cho badge trên header) */
@@ -26,6 +26,8 @@ export const useNotificationCount = () =>
       const response = await notificationService.unreadCount();
       return response.data.count;
     },
+    // Không gọi API khi chưa đăng nhập -> tránh 401 vô ích trên header
+    enabled: !!getLocalAccessToken(),
     staleTime: 30_000,
     refetchOnWindowFocus: false,
   });

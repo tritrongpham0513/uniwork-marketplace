@@ -1,11 +1,11 @@
 package com.uniwork.config;
 
 import com.uniwork.constant.ApiEndpoints;
+import com.uniwork.security.CurrentUserArgumentResolver;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
-import org.springframework.http.HttpMethod;
 import org.springframework.security.authentication.AuthenticationProvider;
 import org.springframework.security.config.annotation.method.configuration.EnableMethodSecurity;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
@@ -14,9 +14,12 @@ import org.springframework.security.config.annotation.web.configurers.AbstractHt
 import org.springframework.security.config.http.SessionCreationPolicy;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
+import org.springframework.http.HttpMethod;
 import org.springframework.web.cors.CorsConfiguration;
 import org.springframework.web.cors.CorsConfigurationSource;
 import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
+import org.springframework.web.method.support.HandlerMethodArgumentResolver;
+import org.springframework.web.servlet.config.annotation.WebMvcConfigurer;
 
 import java.util.Arrays;
 import java.util.List;
@@ -37,6 +40,9 @@ public class SecurityConfig {
 
     private final JwtAuthenticationFilter jwtAuthFilter;
     private final AuthenticationProvider authenticationProvider;
+    private final JwtAuthenticationEntryPoint authenticationEntryPoint;
+    private final JwtAccessDeniedHandler accessDeniedHandler;
+    private final CurrentUserArgumentResolver currentUserArgumentResolver;
 
     @Value("${app.cors.allowed-origins:http://localhost:3000,http://localhost:5173}")
     private String allowedOrigins;
@@ -46,19 +52,33 @@ public class SecurityConfig {
         http
             .csrf(AbstractHttpConfigurer::disable)
             .cors(cors -> cors.configurationSource(corsConfigurationSource()))
+            .exceptionHandling(ex -> ex
+                .authenticationEntryPoint(authenticationEntryPoint)
+                .accessDeniedHandler(accessDeniedHandler))
             .authorizeHttpRequests(auth -> auth
                 // 1. Endpoint /auth/me bắt buộc phải có Bearer token hợp lệ
                 .requestMatchers(ApiEndpoints.V1_AUTH + "/me").authenticated()
 
-                // 2. Các endpoint xác thực còn lại là Public
+                // 2. Vé kết nối WebSocket: yêu cầu Bearer token để cấp vé.
+                //    Endpoint /ws/** (handshake) được permitAll vì việc xác thực
+                //    do HandshakeInterceptor kiểm tra vé một-lần.
+                .requestMatchers(ApiEndpoints.API_V1 + "/ws/ticket").authenticated()
+                .requestMatchers("/ws/**").permitAll()
+
+                // 3. Các endpoint xác thực còn lại là Public
                 .requestMatchers(ApiEndpoints.V1_AUTH + "/**").permitAll()
 
-                // 3. Tin việc làm công khai & Master data
+                // 4. Tin việc làm công khai & Master data
+                // Lưu ý: phải cho phép cả HEAD (healthcheck dùng HEAD/GET),
+                // nếu không sẽ rơi vào anyRequest().authenticated() và trả 401.
                 .requestMatchers(HttpMethod.GET, ApiEndpoints.V1_PUBLIC_JOBS + "/**").permitAll()
+                .requestMatchers(HttpMethod.HEAD, ApiEndpoints.V1_PUBLIC_JOBS + "/**").permitAll()
                 .requestMatchers(HttpMethod.GET, ApiEndpoints.V1_PUBLIC_MASTER + "/**").permitAll()
+                .requestMatchers(HttpMethod.HEAD, ApiEndpoints.V1_PUBLIC_MASTER + "/**").permitAll()
                 .requestMatchers(HttpMethod.GET, "/api/jobs/public/**", "/api/public/**").permitAll()
+                .requestMatchers(HttpMethod.HEAD, "/api/jobs/public/**", "/api/public/**").permitAll()
 
-                // 4. Tài liệu Swagger / OpenAPI UI & Static Test Pages
+                // 5. Tài liệu Swagger / OpenAPI UI & Static Test Pages
                 .requestMatchers(
                     "/swagger-ui.html",
                     "/swagger-ui/**",
@@ -69,12 +89,12 @@ public class SecurityConfig {
                     "/error"
                 ).permitAll()
 
-                // 5. RBAC theo vai trò
+                // 6. RBAC theo vai trò
                 .requestMatchers(ApiEndpoints.V1_STUDENT + "/**", "/api/student/**").hasRole("STUDENT")
                 .requestMatchers(ApiEndpoints.V1_EMPLOYER + "/**", "/api/employer/**").hasRole("EMPLOYER")
                 .requestMatchers(ApiEndpoints.V1_ADMIN + "/**", "/api/admin/**").hasRole("ADMIN")
 
-                // 6. Mọi request khác yêu cầu xác thực
+                // 7. Mọi request khác yêu cầu xác thực
                 .anyRequest().authenticated()
             )
             .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
@@ -99,5 +119,19 @@ public class SecurityConfig {
         UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
         source.registerCorsConfiguration("/**", config);
         return source;
+    }
+
+    /**
+     * Đăng ký {@link CurrentUserArgumentResolver} để controller có thể inject
+     * {@code @CurrentUser User user}.
+     */
+    @Bean
+    public WebMvcConfigurer currentUserArgumentResolverConfigurer() {
+        return new WebMvcConfigurer() {
+            @Override
+            public void addArgumentResolvers(List<HandlerMethodArgumentResolver> resolvers) {
+                resolvers.add(currentUserArgumentResolver);
+            }
+        };
     }
 }

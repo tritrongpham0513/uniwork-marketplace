@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react";
-import { Briefcase, FileText, MessageSquare, Send, Star, Users } from "lucide-react";
+import { MessageSquare, Send } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -11,12 +11,12 @@ import {
 import { Progress } from "@/components/ui/progress";
 import { Textarea } from "@/components/ui/textarea";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { DashboardLayout, navItem } from "@/components/layout/dashboard-layout";
+import { DashboardLayout } from "@/components/layout/dashboard-layout";
 import { RatingStars } from "@/components/shared/rating-stars";
 import { EmptyState, ErrorState } from "@/components/shared/empty-state";
 import { useEmployerProfile } from "@/features/profile/hooks";
 import { useReplyReview, useReviews } from "@/features/reviews/hooks";
-import { PATHS } from "@/config/paths";
+
 import { showApiError, toast } from "@/lib/toast";
 import type { Review } from "@/features/shared/types";
 
@@ -68,20 +68,10 @@ export default function EmployerReviewsPage() {
     }
   };
 
-  const navItems = [
-    navItem("Bảng điều khiển", PATHS.EMPLOYER.ROOT, FileText),
-    navItem("Tin tuyển dụng", PATHS.EMPLOYER.JOBS, Briefcase),
-    navItem("Ứng viên", PATHS.EMPLOYER.APPLICATIONS, Users),
-    navItem("Đánh giá", PATHS.EMPLOYER.REVIEWS, Star),
-    navItem("Thông tin tổ chức", PATHS.EMPLOYER.ORGANIZATION, Users),
-  ];
-
   return (
     <DashboardLayout
-      role="EMPLOYER"
       title="Đánh giá từ sinh viên"
       description="Những đánh giá này hiển thị công khai trên hồ sơ tổ chức của bạn."
-      navItems={navItems}
     >
       <div className="grid gap-6 lg:grid-cols-3">
         {/* TỔNG QUAN */}

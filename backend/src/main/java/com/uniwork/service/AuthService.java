@@ -5,6 +5,7 @@ import com.uniwork.dto.request.LoginRequest;
 import com.uniwork.dto.request.RegisterRequest;
 import com.uniwork.dto.response.AuthResponse;
 import com.uniwork.dto.response.GoogleAuthResponse;
+import com.uniwork.dto.response.RefreshTokenResponse;
 import com.uniwork.dto.response.UserSummaryResponse;
 
 /**
@@ -42,4 +43,10 @@ public interface AuthService {
      * Lấy thông tin tài khoản hiện tại từ Bearer JWT (/api/v1/auth/me).
      */
     UserSummaryResponse getCurrentUser(String email);
+
+    /**
+     * Làm mới access token bằng refresh token
+     * (POST /api/v1/auth/refresh — body `{ "refresh_token": "..." }`).
+     */
+    RefreshTokenResponse refresh(String refreshToken);
 }

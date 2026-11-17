@@ -6,10 +6,7 @@ import {
   Briefcase,
   CalendarClock,
   CheckCircle2,
-  ClipboardList,
-  FileText,
   Search,
-  Star,
   TrendingUp,
   Wallet,
 } from "lucide-react";
@@ -22,7 +19,7 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
-import { DashboardLayout, navItem } from "@/components/layout/dashboard-layout";
+import { DashboardLayout } from "@/components/layout/dashboard-layout";
 import { StatCard } from "@/components/shared/stat-card";
 import { StatusBadge } from "@/components/shared/status-badge";
 import { EmptyState, ErrorState } from "@/components/shared/empty-state";
@@ -100,14 +97,6 @@ export default function StudentDashboardPage() {
     { enabled: preferredCategoryIds.length > 0 }
   );
 
-  const navItems = [
-    navItem("Bảng điều khiển", PATHS.STUDENT.ROOT, ClipboardList),
-    navItem("Hồ sơ tìm việc", PATHS.STUDENT.PROFILE, FileText),
-    navItem("Đơn ứng tuyển", PATHS.STUDENT.APPLICATIONS, CheckCircle2, stats.pending),
-    navItem("Việc đã lưu", PATHS.SAVED, Star),
-    navItem("Tìm việc làm", PATHS.JOBS.ROOT, Search),
-  ];
-
   const profileCompletion = useMemo(() => {
     if (!profile) return 0;
     const checks = [
@@ -125,10 +114,8 @@ export default function StudentDashboardPage() {
 
   return (
     <DashboardLayout
-      role="STUDENT"
       title={`Xin chào, ${profile?.fullName?.split(" ")[0] ?? "bạn"}`}
       description="Theo dõi hành trình ứng tuyển và cơ hội việc làm dành riêng cho bạn."
-      navItems={navItems}
       actions={
         <Button size="sm" nativeButton={false} render={<Link to={PATHS.JOBS.ROOT} />}>
           <Search className="size-4" />

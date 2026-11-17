@@ -6,15 +6,18 @@ import lombok.Setter;
 import lombok.NoArgsConstructor;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
+import org.hibernate.annotations.JdbcTypeCode;
+import org.hibernate.type.SqlTypes;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.util.List;
 
 /**
  * Entity ánh xạ bảng `student_profiles`.
  * PK = user_id (shared primary key với bảng users qua @MapsId).
- * avg_rating và rating_count được cập nhật tự động bởi trigger sp_refresh_rating — không sửa trực tiếp.
+ * avg_rating và rating_count được cập nhật trong tầng service (không dùng trigger).
  */
 @Entity
 @Table(name = "student_profiles")
@@ -29,6 +32,10 @@ public class StudentProfile {
     @Id
     @Column(name = "user_id")
     private Long userId;
+
+    /** ID công khai (string) — frontend dùng giá trị này làm `StudentProfile.id` */
+    @Column(name = "slug", nullable = false, unique = true, length = 80)
+    private String slug;
 
     /** Quan hệ 1-1 với User, dùng @MapsId để chia sẻ khóa chính */
     @OneToOne(fetch = FetchType.LAZY)
@@ -73,19 +80,30 @@ public class StudentProfile {
     @Column(name = "avatar_url", length = 500)
     private String avatarUrl;
 
-    /**
-     * Điểm trung bình đánh giá (1.00 – 5.00).
-     * DO trigger sp_refresh_rating tính — insertable=false, updatable=false.
-     */
-    @Column(name = "avg_rating", precision = 3, scale = 2, insertable = false, updatable = false)
-    private BigDecimal avgRating;
+    /** Đường dẫn CV (PDF) */
+    @Column(name = "cv_url", length = 500)
+    private String cvUrl;
 
     /**
-     * Số lượt đánh giá.
-     * DO trigger sp_refresh_rating cập nhật — insertable=false, updatable=false.
+     * Danh sách public id kỹ năng (skills.slug) — JSON.
+     * Sinh viên có thể nhập kỹ năng tự do ngoài danh mục chuẩn.
      */
-    @Column(name = "rating_count", insertable = false, updatable = false)
-    private Integer ratingCount;
+    @JdbcTypeCode(SqlTypes.JSON)
+    @Column(name = "skills", columnDefinition = "json")
+    private List<String> skills;
+
+    /**
+     * Điểm trung bình đánh giá (1.00 – 5.00).
+     * Được cập nhật trong tầng service (Java) sau mỗi lần đánh giá mới.
+     */
+    @Column(name = "avg_rating", precision = 3, scale = 2)
+    @Builder.Default
+    private BigDecimal avgRating = BigDecimal.ZERO;
+
+    /** Số lượt đánh giá — cập nhật trong tầng service. */
+    @Column(name = "rating_count", nullable = false)
+    @Builder.Default
+    private Integer ratingCount = 0;
 
     @Column(name = "created_at", updatable = false)
     private LocalDateTime createdAt;

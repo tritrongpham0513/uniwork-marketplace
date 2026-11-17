@@ -16,7 +16,7 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import { DashboardLayout, navItem } from "@/components/layout/dashboard-layout";
+import { DashboardLayout } from "@/components/layout/dashboard-layout";
 import { StatCard } from "@/components/shared/stat-card";
 import { ErrorState } from "@/components/shared/empty-state";
 import { useAdminDashboard } from "@/features/admin/hooks";
@@ -26,13 +26,6 @@ import { cn } from "cn";
 export default function AdminDashboardPage() {
   const { data: stats, isPending, isError, refetch } = useAdminDashboard();
 
-  const navItems = [
-    navItem("Bảng điều khiển", PATHS.ADMIN.ROOT, FileText),
-    navItem("Duyệt tin đăng", PATHS.ADMIN.JOBS, Briefcase, stats?.pendingJobs),
-    navItem("Danh mục", PATHS.ADMIN.CATEGORIES, FolderKanban),
-    navItem("Người dùng", PATHS.ADMIN.USERS, Users),
-    navItem("Kiểm duyệt đánh giá", PATHS.ADMIN.REVIEWS, Star),
-  ];
 
   const quickActions = [
     {
@@ -60,10 +53,8 @@ export default function AdminDashboardPage() {
 
   return (
     <DashboardLayout
-      role="ADMIN"
       title="Bảng điều khiển hệ thống"
       description="Tổng quan về hoạt động của VieJob Marketplace."
-      navItems={navItems}
     >
       {isError && (
         <ErrorState

@@ -9,6 +9,7 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { EmptyState, ErrorState } from "@/components/shared/empty-state";
+import { DashboardLayout } from "@/components/layout/dashboard-layout";
 import { JobCard } from "@/features/jobs/components/job-card";
 import { useJobs } from "@/features/jobs/hooks/useJobs";
 import { useSavedJobIds, useToggleSavedJob } from "@/features/saved-jobs/hooks";
@@ -56,14 +57,19 @@ export default function SavedJobsPage() {
   };
 
   return (
-    <div className="mx-auto w-full max-w-5xl px-4 py-8 sm:px-6 lg:px-8">
+    <DashboardLayout
+      title="Việc làm đã lưu"
+      description="Lưu lại những tin tuyển dụng bạn quan tâm để xem lại sau."
+    >
       <Card className="border-border/60">
         <CardHeader>
-          <CardTitle className="font-heading text-xl">Việc làm đã lưu</CardTitle>
+          <CardTitle className="font-heading text-xl">
+            Tin tuyển dụng đã lưu
+          </CardTitle>
           <CardDescription>
             {savedIds.length > 0
               ? `Bạn đã lưu ${savedIds.length} tin tuyển dụng. Nhấn biểu tượng bookmark để bỏ lưu.`
-              : "Lưu lại những tin tuyển dụng bạn quan tâm để xem lại sau."}
+              : "Chưa có tin nào được lưu."}
           </CardDescription>
         </CardHeader>
       </Card>
@@ -148,6 +154,6 @@ export default function SavedJobsPage() {
           Mẹo: nhấn biểu tượng bookmark trên thẻ tin để bỏ lưu nhanh hơn.
         </p>
       )}
-    </div>
+    </DashboardLayout>
   );
 }

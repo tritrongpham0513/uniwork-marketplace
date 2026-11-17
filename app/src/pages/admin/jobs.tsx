@@ -1,15 +1,5 @@
 import { useMemo, useState } from "react";
-import {
-  Briefcase,
-  CheckCircle2,
-  Eye,
-  FileText,
-  FolderKanban,
-  Search,
-  Star,
-  Users,
-  XCircle,
-} from "lucide-react";
+import { CheckCircle2, Eye, Search, XCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
@@ -36,7 +26,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Textarea } from "@/components/ui/textarea";
-import { DashboardLayout, navItem } from "@/components/layout/dashboard-layout";
+import { DashboardLayout } from "@/components/layout/dashboard-layout";
 import { JobStatusBadge } from "@/components/shared/status-badge";
 import { EmptyState, ErrorState } from "@/components/shared/empty-state";
 import { useAdminJobs, useReviewJob } from "@/features/admin/hooks";
@@ -46,7 +36,7 @@ import {
   type JobStatus,
 } from "@/features/shared/types";
 import { formatSalary, formatPostedAgo } from "@/features/jobs/lib/format";
-import { PATHS } from "@/config/paths";
+
 import { showApiError, toast } from "@/lib/toast";
 
 const STATUS_FILTERS: Array<{ value: JobStatus | "ALL"; label: string }> = [
@@ -111,20 +101,10 @@ export default function AdminJobsPage() {
     }
   };
 
-  const navItems = [
-    navItem("Bảng điều khiển", PATHS.ADMIN.ROOT, FileText),
-    navItem("Duyệt tin đăng", PATHS.ADMIN.JOBS, Briefcase, pendingCount),
-    navItem("Danh mục", PATHS.ADMIN.CATEGORIES, FolderKanban),
-    navItem("Người dùng", PATHS.ADMIN.USERS, Users),
-    navItem("Kiểm duyệt đánh giá", PATHS.ADMIN.REVIEWS, Star),
-  ];
-
   return (
     <DashboardLayout
-      role="ADMIN"
       title="Duyệt tin tuyển dụng"
       description="Kiểm tra nội dung trước khi tin được hiển thị công khai."
-      navItems={navItems}
     >
       <Card className="border-border/60">
         <CardHeader>

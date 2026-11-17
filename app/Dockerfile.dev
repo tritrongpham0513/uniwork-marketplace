@@ -1,0 +1,35 @@
+# ---------------------------------------------------------------------
+# Frontend — DEV trong Docker
+#
+# Chạy Vite dev server (HMR) thay vì build production.
+# Source được bind-mount từ host (xem docker-compose.dev.yml) nên sửa code
+# trên máy là hot-reload ngay, không cần rebuild image.
+#
+# LƯU Ý:
+#   - KHÔNG bind-mount toàn bộ /app, chỉ mount các thư mục/file source.
+#     Lý do: node_modules trên host là bản Windows, không chạy được trong
+#     container Linux. Mount cả /app sẽ đè node_modules của image.
+#   - Thêm dependency mới -> cần `docker compose ... build frontend`.
+# ---------------------------------------------------------------------
+
+FROM node:22-alpine
+
+WORKDIR /app
+
+RUN npm install -g pnpm@9
+
+# Cache dependency: copy manifest trước, source sau
+COPY package.json pnpm-lock.yaml* ./
+RUN pnpm install --frozen-lockfile || pnpm install
+
+# Copy source (bị bind-mount đè lại khi chạy compose)
+COPY . .
+
+# ARG để không báo "build-arg not consumed" khi compose truyền args
+ARG VITE_USE_MOCK_API=false
+ENV VITE_USE_MOCK_API=$VITE_USE_MOCK_API
+
+EXPOSE 5173
+
+# --host 0.0.0.0 để dev server nhận request từ host (không phải localhost trong container)
+CMD ["pnpm", "dev", "--host", "0.0.0.0"]

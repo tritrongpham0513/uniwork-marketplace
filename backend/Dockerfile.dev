@@ -1,0 +1,25 @@
+# ---------------------------------------------------------------------
+# Backend — DEV trong Docker
+#
+# Chạy `mvn spring-boot:run` (không đóng gói jar) kèm spring-boot-devtools
+# để tự restart khi code trong src/ thay đổi.
+#
+# Source được bind-mount từ host (xem docker-compose.dev.yml).
+# target/ nằm trong container (KHÔNG bind-mount) để Maven compile nhanh
+# và devtools theo dõi classpath bằng inotify.
+# ---------------------------------------------------------------------
+
+FROM maven:3.9-eclipse-temurin-17
+
+WORKDIR /build
+
+# Cache dependency: copy pom trước, source sau
+COPY pom.xml ./
+RUN mvn -B -q dependency:go-offline
+
+COPY src ./src
+COPY scripts ./scripts
+
+EXPOSE 8080
+
+CMD ["sh", "scripts/dev-watch.sh"]

@@ -2,6 +2,7 @@ import { useEffect, useRef } from "react";
 import { Outlet, useLocation } from "react-router";
 import { Header } from "./header";
 import { Footer } from "./footer";
+import { NotificationSocket } from "./notification-socket";
 
 /**
  * Khôi phục vị trí cuộn + đưa focus về đầu trang khi điều hướng.
@@ -43,6 +44,9 @@ export function MainLayout() {
     <div className="flex min-h-screen flex-col bg-background text-foreground">
       {/* Header điều hướng chung với User Dropdown */}
       <Header />
+
+      {/* Kết nối WebSocket thông báo realtime (chỉ sống khi đã đăng nhập) */}
+      <NotificationSocket />
 
       {/* Nội dung trang + khôi phục cuộn */}
       <ScrollRestoration />
