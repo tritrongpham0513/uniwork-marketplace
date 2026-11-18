@@ -31,6 +31,11 @@ Chi tiết kỹ thuật đầy đủ: `backend/README.md` (nếu có) + `spec/02
 - Endpoint chuẩn: `/api/v1/**`, envelope `{ success, message, data }` / `{ timestamp, status, success: false, code, message, errors }`.
 - Dữ liệu seed được sinh tự động từ `app/src/mocks/*` bằng `pnpm seed:sql` → `backend/src/main/resources/db/migration/V3__seed_demo_data.sql`.
 - **Public ID là string slug** (`job-001`, `cat-fnb`, `emp-viejob-demo`, `hcm`, `q1`, `sk-excel`) để frontend không cần mapping id.
+- **Flyway**: `V1__init_schema.sql` → `V2__marketplace_schema.sql` → `V3__seed_demo_data.sql` → `V4__file_uploads_and_job_notify.sql` → `V5__remove_viewed_application_status.sql`.
+  V3 sinh từ mock nên **phải deterministic** (xem `app/src/mocks/time.ts`) — nếu không sẽ đổi checksum và Flyway báo
+  `Migration checksum mismatch` mỗi lần rebuild.
+- **Lưu file upload**: `app.storage.upload-dir` (mặc định `./data/uploads`, Docker đặt `/data/uploads` + volume `uploads-data`).
+  Container chạy user không-root `spring` → Dockerfile phải `chown -R spring:spring /data` để ghi được file.
 - Không cài Java/Maven trên máy — chạy bằng Docker:
 
 ```bash
@@ -45,6 +50,9 @@ docker compose up --build      # mysql + backend + frontend
 # http://localhost:5173         -> Vite dev server + HMR (proxy /api -> backend)
 # http://localhost:8081         -> backend (devtools tự restart khi đổi code)
 ```
+
+> **Sửa file migration V3/V4/V5 đã apply** → Flyway báo `Migration checksum mismatch` và backend dev
+> crash loop. Dùng `./dev.sh reset` để xoá volume `mysql-dev-data` và migrate lại từ V1.
 
 Bản dev chạy **song song** với bản production (port riêng: 5173/8081/3307).
 Sửa code trên host → container thấy ngay qua bind-mount; backend tự compile & restart
@@ -71,10 +79,15 @@ Chi tiết kỹ thuật đầy đủ: `app/README.md`.
 - `src/lib/mock/adapter.ts` — Axios adapter chặn request, mô phỏng độ trễ 250–600 ms
 - `src/lib/mock/router.ts` — định tuyến path → handler
 - `src/lib/mock/db.ts` — in-memory database, seed từ `src/mocks/*`
-- `src/lib/mock/handlers/` — `auth.ts`, `jobs.ts`, `applications.ts`, `admin.ts`
+- `src/lib/mock/handlers/` — `auth.ts`, `jobs.ts`, `applications.ts`, `admin.ts`, `files.ts`
 - `src/lib/mock/errors.ts` — `MockHttpError` + envelope lỗi chuẩn backend
+- `src/mocks/time.ts` — **đồng hồ deterministic** (`MOCK_NOW` cố định) cho seed data
 
 Bật/tắt bằng `VITE_USE_MOCK_API` (mặc định `true`). Chuyển sang API thật chỉ cần đặt `VITE_USE_MOCK_API=false` — **không sửa service nào**.
+
+> **Deterministic seed**: mọi timestamp trong `src/mocks/*` phải bám `MOCK_NOW` (`src/mocks/time.ts`),
+> không dùng `Date.now()`. Nếu không, `pnpm seed:sql` sinh ra V3 migration khác nhau mỗi lần →
+> Flyway báo `Migration checksum mismatch` khi rebuild container.
 
 **Envelope bắt buộc** (khớp Spring Boot backend):
 
@@ -119,6 +132,18 @@ bash backend/scripts/smoke-api.sh http://localhost:8080/api/v1
 ```
 
 Script idempotent — chạy lại nhiều lần vẫn xanh (tự chọn tin chưa ứng tuyển).
+
+### Endpoint bổ sung (V4)
+
+| Nhóm         | Endpoint                                                                                       | Ghi chú                                                        |
+| ------------ | ----------------------------------------------------------------------------------------------- | -------------------------------------------------------------- |
+| File         | `POST /api/v1/files/upload?kind=CV\|AVATAR\|LOGO` (multipart `file`)                            | Trả `201` + `{ id, url, fileName, mimeType, sizeBytes, kind }` |
+| File         | `GET /api/v1/files/{id}` · `DELETE /api/v1/files/{id}`                                           | CV là tài nguyên riêng tư (chủ sở hữu / admin / NTD đã nhận đơn) |
+| Ghi chú NTD  | `PATCH /api/v1/employer/applications/{id}/note`                                                  | Ghi chú nội bộ, chỉ NTD sở hữu tin + admin                    |
+| Thông báo    | `GET/POST/DELETE /api/v1/student/job-notifications` (`categoryCode`, `provinceCode`)             | Bật/tắt thông báo tin tuyển dụng theo nhóm việc + tỉnh       |
+| Tin đã lưu   | `GET /api/v1/student/saved-jobs/ids`                                                            | Trả mảng id để client fetch theo id thay vì lọc client-side |
+
+> `POST /student/job-notifications` trả **HTTP 201** (không phải 200).
 
 ### Smoke test trình duyệt (app thật + API thật qua nginx)
 

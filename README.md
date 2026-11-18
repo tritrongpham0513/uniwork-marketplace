@@ -150,6 +150,7 @@ docker compose up --build
 | `frontend` | `8000` | Nginx serve SPA + reverse proxy `/api` → `backend:8080` |
 
 Frontend trong Compose được build với `VITE_USE_MOCK_API=false` nên gọi **API thật** qua nginx.
+Volume `uploads-data` giữ file upload (CV / ảnh / logo) qua các lần rebuild.
 
 ### Tài khoản demo (seed sẵn trong DB)
 
@@ -242,6 +243,7 @@ Hai bản **chạy song song** được — không đụng nhau.
 ./dev.sh up-d          # build + chạy nền
 ./dev.sh logs          # theo dõi log
 ./dev.sh down          # dừng
+./dev.sh reset         # xoá volume MySQL dev + build lại (reset DB từ đầu)
 
 # Cách 2 — docker compose trực tiếp
 docker compose -f docker-compose.dev.yml up --build
@@ -271,7 +273,15 @@ Mở trình duyệt:
   ```bash
   docker compose -f docker-compose.dev.yml build backend
   ```
-- **Reset DB dev**: `docker compose -f docker-compose.dev.yml down -v`
+- **Reset DB dev**: `docker compose -f docker-compose.dev.yml down -v` (hoặc `./dev.sh reset`)
+
+> ⚠️ **Flyway checksum mismatch**: nếu đã **sửa** file migration `V3__seed_demo_data.sql` hoặc
+> `V4__file_uploads_and_job_notify.sql` sau khi chúng được apply, Flyway sẽ từ chối migrate và
+> backend dev **crash loop** với log `Migration checksum mismatch for migration version N`.
+> Cách xử lý: `./dev.sh reset` (xoá volume `mysql-dev-data` → migrate lại từ V1).
+> Bản production dùng volume riêng (`mysql-data`) nên không bị ảnh hưởng.
+> Lưu ý: seed V3 sinh từ `app/src/mocks/*` với đồng hồ deterministic (`app/src/mocks/time.ts`)
+> nên **không** sinh ra checksum mới mỗi lần `pnpm seed:sql`.
 - **Chạy verify/lint trên host** (nhanh hơn container): `cd app && pnpm lint && pnpm verify`
 
 ---
@@ -285,8 +295,8 @@ Mở trình duyệt:
 | Frontend verify (4 suite) | `cd app && pnpm verify` | toast + integration + mock-api + e2e — **PASSED** |
 | Browser smoke (app thật + API thật) | `cd app && SMOKE_BASE_URL=http://localhost:8000 pnpm smoke:browser` | **11/11 PASSED** — không còn lỗi console |
 | Backend compile (Docker) | `docker run … mvn clean compile` | PASSED |
-| Backend schema + seed (Docker) | `docker compose up --build` | Flyway V1→V3, Hibernate `ddl-auto: validate` OK |
-| Backend smoke test (66 assertions) | `bash backend/scripts/smoke-api.sh http://localhost:8080/api/v1` | **PASS: 66 / FAIL: 0** (idempotent — chạy lại nhiều lần vẫn xanh) |
+| Backend schema + seed (Docker) | `docker compose up --build` | Flyway V1→V4, Hibernate `ddl-auto: validate` OK |
+| Backend smoke test (91 assertions) | `bash backend/scripts/smoke-api.sh http://localhost:8080/api/v1` | **PASS: 91 / FAIL: 0** (idempotent — chạy lại nhiều lần vẫn xanh) |
 
 Smoke test phủ đủ vòng đời nghiệp vụ:
 
@@ -303,6 +313,36 @@ Smoke test phủ đủ vòng đời nghiệp vụ:
 11. Hồ sơ sinh viên (đọc / cập nhật)
 12. Refresh token rotation
 13. Phân quyền (403 khi sai vai trò)
+14. Upload file thật (CV) — upload / đọc lại / xoá / từ chối sai định dạng / 401 khi không token
+15. Ghi chú nội bộ của NTD (ghi / đọc lại / 403 khi sinh viên ghi)
+16. Bật/tắt thông báo tin tuyển dụng theo nhóm việc + tỉnh
+17. Danh sách id tin đã lưu
+
+### Upload file (CV / ảnh đại diện / logo)
+
+Không dùng URL giả — file được lưu thật trên disk và phục vụ qua API:
+
+```
+POST   /api/v1/files/upload?kind=CV|AVATAR|LOGO   (multipart: file)  → 201
+GET    /api/v1/files/{id}                                              → 200 (stream file)
+DELETE /api/v1/files/{id}                                              → 200 (xoá mềm)
+```
+
+- Thư mục lưu: `app.storage.upload-dir` (`./data/uploads` khi chạy local, `/data/uploads` trong Docker + volume `uploads-data`).
+- `kind=CV` là **tài nguyên riêng tư**: chỉ chủ sở hữu, admin, và NTD đã nhận đơn ứng tuyển từ sinh viên đó mới đọc được.
+  `AVATAR` / `LOGO` là ảnh công khai.
+- Backend dùng **user không-root** (`spring`) → Dockerfile `chown -R spring:spring /data` để container ghi được file.
+- Frontend: `src/features/files/` (`files.service.ts` + `useUploadFile` / `useDeleteFile`), mock tương ứng ở `src/lib/mock/handlers/files.ts`.
+
+> **Lưu ý Windows/Git Bash**: `curl -F "file=@/tmp/x.pdf"` sẽ lỗi `(26) Failed to open/read local data from file`
+> vì curl native không hiểu đường dẫn POSIX. Luôn dùng **đường dẫn tương đối** trong thư mục hiện tại
+> (`-F "file=@./cv.pdf"`) — `backend/scripts/smoke-api.sh` đã xử lý sẵn.
+
+### Dữ liệu seed deterministic
+
+`cd app && pnpm seed:sql` sinh `backend/src/main/resources/db/migration/V3__seed_demo_data.sql`.
+Mọi timestamp bám cố định vào `app/src/mocks/time.ts` (`MOCK_NOW`) → **output giống nhau mọi lần**,
+không gây `Migration checksum mismatch` cho Flyway khi rebuild container.
 
 ---
 
