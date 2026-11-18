@@ -4,10 +4,7 @@ import type {
   Notification,
   Review,
 } from "@/features/shared/types";
-
-const now = Date.now();
-const hoursAgo = (h: number) => new Date(now - h * 3600 * 1000).toISOString();
-const daysAgo = (d: number) => new Date(now - d * 86400 * 1000).toISOString();
+import { daysAgo, hoursAgo } from "./time";
 
 const timeline = (
   events: Array<[ApplicationStatusEvent["status"], number, string | null]>
@@ -38,8 +35,8 @@ export const MOCK_APPLICATIONS: Application[] = [
     studentSkills: ["sk-service", "sk-barista", "sk-excel"],
     studentBio:
       "Sinh viên năm 3 ngành Quản trị Kinh doanh, có 1 năm kinh nghiệm phục vụ quán cà phê và muốn tìm việc làm thêm phù hợp lịch học.",
-    cvUrl: "https://viejob.vn/cv/nguyen-thanh-ha.pdf",
-    cvFileName: "CV_NguyenThanhHa.pdf",
+    cvUrl: null,
+    cvFileName: null,
     coverLetter:
       "Em chào anh/chị, em đang là sinh viên năm 3 và muốn làm thêm để rèn kinh nghiệm phục vụ. Em có 1 năm làm phục vụ tại quán cà phê nên quen với việc đón khách và pha chế cơ bản. Em sẵn sàng làm ca sáng như tin đăng.",
     expectedSalary: 62000,
@@ -49,7 +46,6 @@ export const MOCK_APPLICATIONS: Application[] = [
     employerNote: "Đã liên hệ xác nhận lịch ca sáng.",
     timeline: timeline([
       ["PENDING", 72, null],
-      ["VIEWED", 48, null],
       ["SHORTLISTED", 30, "Hồ sơ phù hợp yêu cầu"],
       ["ACCEPTED", 6, "Đã nhận vào làm ca sáng 21/11"],
     ]),
@@ -75,8 +71,8 @@ export const MOCK_APPLICATIONS: Application[] = [
     studentSkills: ["sk-service", "sk-barista", "sk-excel"],
     studentBio:
       "Sinh viên năm 3 ngành Quản trị Kinh doanh, có 1 năm kinh nghiệm phục vụ quán cà phê.",
-    cvUrl: "https://viejob.vn/cv/nguyen-thanh-ha.pdf",
-    cvFileName: "CV_NguyenThanhHa.pdf",
+    cvUrl: null,
+    cvFileName: null,
     coverLetter:
       "Em xin ứng tuyển vị trí phục vụ part-time cuối tuần. Em có kinh nghiệm phục vụ tại Táo Tào và luôn cười tươi, thân thiện với khách.",
     expectedSalary: 32000,
@@ -86,7 +82,6 @@ export const MOCK_APPLICATIONS: Application[] = [
     employerNote: "Hồ sơ tốt, mời phỏng vấn nhanh.",
     timeline: timeline([
       ["PENDING", 20, null],
-      ["VIEWED", 12, null],
       ["SHORTLISTED", 4, "Mời phỏng vấn nhanh"],
     ]),
     createdAt: hoursAgo(20),
@@ -111,8 +106,8 @@ export const MOCK_APPLICATIONS: Application[] = [
     studentSkills: ["sk-service", "sk-barista", "sk-excel"],
     studentBio:
       "Sinh viên năm 3 ngành Quản trị Kinh doanh, muốn làm thêm để rèn kinh nghiệm.",
-    cvUrl: "https://viejob.vn/cv/nguyen-thanh-ha.pdf",
-    cvFileName: "CV_NguyenThanhHa.pdf",
+    cvUrl: null,
+    cvFileName: null,
     coverLetter:
       "Em muốn thử sức ở mảng marketing để mở rộng kiến thức ngoài chuyên ngành.",
     expectedSalary: 5000000,
@@ -150,14 +145,11 @@ export const MOCK_APPLICATIONS: Application[] = [
     expectedSalary: 5000000,
     experience: "",
     availableFrom: null,
-    status: "VIEWED",
+    status: "PENDING",
     employerNote: null,
-    timeline: timeline([
-      ["PENDING", 30, null],
-      ["VIEWED", 10, null],
-    ]),
+    timeline: timeline([["PENDING", 30, null]]),
     createdAt: hoursAgo(30),
-    updatedAt: hoursAgo(10),
+    updatedAt: hoursAgo(30),
   },
   {
     id: "app-005",
@@ -178,8 +170,8 @@ export const MOCK_APPLICATIONS: Application[] = [
     studentSkills: ["sk-manual-test", "sk-excel"],
     studentBio:
       "Sinh viên CNTT, biết React và TypeScript, muốn thực tập frontend.",
-    cvUrl: "https://viejob.vn/cv/pham-duc-binh.pdf",
-    cvFileName: "CV_PhamDucBinh.pdf",
+    cvUrl: null,
+    cvFileName: null,
     coverLetter:
       "Em thấy vị trí này phù hợp với kỹ năng của em. Em có thể hỗ trợ phần landing page và tracking.",
     expectedSalary: 4500000,
@@ -189,7 +181,6 @@ export const MOCK_APPLICATIONS: Application[] = [
     employerNote: "Đã nhận, bắt đầu từ tuần sau.",
     timeline: timeline([
       ["PENDING", 70, null],
-      ["VIEWED", 50, null],
       ["SHORTLISTED", 26, "Kỹ năng phù hợp"],
       ["ACCEPTED", 5, "Đã nhận"],
     ]),
@@ -224,7 +215,6 @@ export const MOCK_APPLICATIONS: Application[] = [
     employerNote: "Vị trí đã tuyển đủ, cảm ơn bạn đã ứng tuyển.",
     timeline: timeline([
       ["PENDING", 120, null],
-      ["VIEWED", 100, null],
       ["REJECTED", 60, "Đã tuyển đủ"],
     ]),
     createdAt: daysAgo(5),
@@ -258,7 +248,6 @@ export const MOCK_APPLICATIONS: Application[] = [
     employerNote: "Đã làm xong 2 ca, trả lương đúng hẹn.",
     timeline: timeline([
       ["PENDING", 300, null],
-      ["VIEWED", 280, null],
       ["ACCEPTED", 260, "Đã nhận"],
       ["COMPLETED", 120, "Hoàn thành công việc"],
     ]),

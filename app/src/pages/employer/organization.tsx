@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useRef, useState } from "react";
 import {
   BadgeCheck,
   Camera,
@@ -44,6 +44,7 @@ import {
 import { useEmployerJobs } from "@/features/employer/hooks";
 import { useEmployerApplications } from "@/features/applications/hooks";
 import { useProvinces } from "@/features/jobs/hooks/useJobs";
+import { useDeleteFile, useUploadFile } from "@/features/files/hooks";
 import {
   EMPLOYER_TYPE_LABELS,
   type EmployerProfile,
@@ -63,6 +64,11 @@ export default function EmployerOrganizationPage() {
   const [form, setForm] = useState<EmployerProfile | null>(null);
   // Đồng bộ form khi hồ sơ tải về — pattern "adjust state khi dữ liệu đổi"
   const [syncedProfile, setSyncedProfile] = useState<EmployerProfile | null>(null);
+  // Input file ẩn cho logo
+  const logoInputRef = useRef<HTMLInputElement>(null);
+
+  const uploadFile = useUploadFile();
+  const deleteFile = useDeleteFile();
 
   if (profile && profile !== syncedProfile) {
     setSyncedProfile(profile);
@@ -71,6 +77,32 @@ export default function EmployerOrganizationPage() {
 
   const patch = (partial: Partial<EmployerProfile>) =>
     setForm((prev) => (prev ? { ...prev, ...partial } : prev));
+
+  /** Tải logo lên server rồi lưu URL vào hồ sơ. */
+  const handleLogoUpload = async (file: File | undefined) => {
+    if (!file) return;
+    try {
+      const uploaded = await uploadFile.mutateAsync({ file, kind: "LOGO" });
+      patch({ logoUrl: uploaded.url });
+    } catch {
+      // Lỗi đã được hiển thị qua toast trong useUploadFile.
+    }
+  };
+
+  /** Xoá logo khỏi hồ sơ (xoá mềm file trên server + gỡ URL). */
+  const handleLogoRemove = async () => {
+    const logoUrl = form?.logoUrl;
+    patch({ logoUrl: null });
+
+    if (!logoUrl) return;
+    const fileId = logoUrl.split("/").pop();
+    if (!fileId) return;
+    try {
+      await deleteFile.mutateAsync({ id: fileId, kind: "LOGO" });
+    } catch {
+      // Đã gỡ khỏi hồ sơ rồi — không cần báo lỗi thêm.
+    }
+  };
 
   const handleSave = async () => {
     if (!form) return;
@@ -307,6 +339,9 @@ export default function EmployerOrganizationPage() {
 
                   <Field>
                     <FieldLabel>Logo</FieldLabel>
+                    <FieldDescription>
+                      Chấp nhận PNG, JPG, WEBP — tối đa 2MB.
+                    </FieldDescription>
                     {form.logoUrl ? (
                       <div className="flex items-center gap-3">
                         <img
@@ -317,7 +352,17 @@ export default function EmployerOrganizationPage() {
                         <Button
                           variant="outline"
                           size="sm"
-                          onClick={() => patch({ logoUrl: null })}
+                          disabled={uploadFile.isPending}
+                          onClick={() => logoInputRef.current?.click()}
+                        >
+                          <Camera className="size-4" />
+                          {uploadFile.isPending ? "Đang tải..." : "Thay logo"}
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          disabled={deleteFile.isPending}
+                          onClick={() => void handleLogoRemove()}
                         >
                           Xoá logo
                         </Button>
@@ -326,16 +371,24 @@ export default function EmployerOrganizationPage() {
                       <Button
                         variant="outline"
                         size="sm"
-                        onClick={() =>
-                          patch({
-                            logoUrl: "https://ui-avatars.com/api/?name=VieJob&background=18181b&color=fafafa&size=200",
-                          })
-                        }
+                        disabled={uploadFile.isPending}
+                        onClick={() => logoInputRef.current?.click()}
                       >
                         <Camera className="size-4" />
-                        Tải logo lên
+                        {uploadFile.isPending ? "Đang tải..." : "Tải logo lên"}
                       </Button>
                     )}
+                    <input
+                      ref={logoInputRef}
+                      type="file"
+                      accept="image/png,image/jpeg,image/webp"
+                      className="hidden"
+                      onChange={(event) => {
+                        const file = event.target.files?.[0];
+                        void handleLogoUpload(file);
+                        event.target.value = "";
+                      }}
+                    />
                   </Field>
                 </FieldGroup>
               </FieldSet>

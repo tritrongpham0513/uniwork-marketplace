@@ -8,7 +8,6 @@ const APPLICATION_VARIANT: Record<
   "default" | "secondary" | "outline" | "destructive" | "ghost"
 > = {
   PENDING: "secondary",
-  VIEWED: "outline",
   SHORTLISTED: "default",
   ACCEPTED: "default",
   COMPLETED: "outline",

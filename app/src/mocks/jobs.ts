@@ -11,6 +11,7 @@ import { JOB_CATEGORIES } from "./categories";
 import { EMPLOYERS } from "./employers";
 import { DISTRICTS } from "./districts";
 import { inferPosition } from "./job-positions-map";
+import { daysFromNow, hoursAgo } from "./time";
 
 const cat = (slug: string) =>
   JOB_CATEGORIES.find((c) => c.slug === slug) ?? JOB_CATEGORIES[0];
@@ -24,13 +25,6 @@ const schedule = (
   startTime: string,
   endTime: string,
 ): JobSchedule => ({ dayOfWeek, startTime, endTime });
-
-/** Ngày đăng giảm dần từ hôm nay (giờ đã trôi) */
-const hoursAgo = (h: number) =>
-  new Date(Date.now() - h * 3600 * 1000).toISOString();
-
-const daysFromNow = (d: number) =>
-  new Date(Date.now() + d * 86400 * 1000).toISOString();
 
 /** Tìm quận theo tên + tỉnh, fallback về quận đầu tiên của tỉnh */
 const dist = (provinceId: string, name: string) =>

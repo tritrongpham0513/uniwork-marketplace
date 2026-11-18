@@ -19,6 +19,32 @@ import {
 } from "@/mocks/users";
 
 /**
+ * Tuỳ chọn "Bật thông báo" tin tuyển dụng (mock).
+ */
+export interface MockJobNotifyPreference {
+  id: string;
+  userId: number;
+  categoryCode: string;
+  /** `"ALL"` nghĩa là theo dõi mọi tỉnh. */
+  provinceCode: string;
+  createdAt: string;
+}
+
+/**
+ * File đã upload (mock) — chỉ giữ metadata, không lưu nội dung thật.
+ */
+export interface MockUploadedFile {
+  id: string;
+  ownerUserId: number;
+  kind: "CV" | "AVATAR" | "LOGO";
+  fileName: string;
+  mimeType: string;
+  sizeBytes: number;
+  url: string;
+  createdAt: string;
+}
+
+/**
  * 🗄️ In-memory database cho mock API.
  *
  * Toàn bộ dữ liệu nằm trong RAM nên thao tác (đăng tin, duyệt đơn, đánh giá)
@@ -36,6 +62,8 @@ export interface MockDatabase {
   savedJobs: SavedJob[];
   studentProfiles: StudentProfile[];
   employerProfiles: EmployerProfile[];
+  jobNotifyPreferences: MockJobNotifyPreference[];
+  uploadedFiles: MockUploadedFile[];
 }
 
 const seed = (): MockDatabase => ({
@@ -71,6 +99,8 @@ const seed = (): MockDatabase => ({
     jobPreferences: { ...p.jobPreferences },
   })),
   employerProfiles: MOCK_EMPLOYER_PROFILES.map((p) => ({ ...p })),
+  jobNotifyPreferences: [],
+  uploadedFiles: [],
 });
 
 let db: MockDatabase = seed();

@@ -33,6 +33,7 @@ import { ReviewDialog } from "@/components/shared/review-dialog";
 import { ErrorState } from "@/components/shared/empty-state";
 import {
   useEmployerApplication,
+  useUpdateApplicationNote,
   useUpdateApplicationStatus,
 } from "@/features/applications/hooks";
 import { useSkills } from "@/features/jobs/hooks/useJobs";
@@ -42,15 +43,29 @@ import { showApiError, toast } from "@/lib/toast";
 
 export default function EmployerApplicationDetailPage() {
   const { id = "" } = useParams();
-  const { data: application, isPending, isError, refetch } =
-    useEmployerApplication(id);
+  const {
+    data: application,
+    isPending,
+    isError,
+    refetch,
+  } = useEmployerApplication(id);
   const updateStatus = useUpdateApplicationStatus();
+  const updateNote = useUpdateApplicationNote();
   const { data: skills = [] } = useSkills();
 
   const [note, setNote] = useState("");
   const [reviewOpen, setReviewOpen] = useState(false);
+  // Đồng bộ ô ghi chú khi đơn ứng tuyển tải về — pattern "adjust state khi dữ liệu đổi"
+  const [syncedApplicationId, setSyncedApplicationId] = useState<string | null>(null);
 
-  const handleStatus = async (status: Parameters<typeof updateStatus.mutateAsync>[0]["status"]) => {
+  if (application && application.id !== syncedApplicationId) {
+    setSyncedApplicationId(application.id);
+    setNote(application.employerNote ?? "");
+  }
+
+  const handleStatus = async (
+    status: Parameters<typeof updateStatus.mutateAsync>[0]["status"]
+  ) => {
     try {
       await updateStatus.mutateAsync({
         id,
@@ -66,11 +81,24 @@ export default function EmployerApplicationDetailPage() {
     }
   };
 
+  /** Lưu ghi chú nội bộ — chỉ nhà tuyển dụng trong tổ chức thấy. */
+  const handleSaveNote = async () => {
+    const trimmed = note.trim();
+    if (!trimmed) {
+      toast.warning("Vui lòng nhập nội dung ghi chú.");
+      return;
+    }
+    try {
+      await updateNote.mutateAsync({ id, note: trimmed });
+      toast.success("Đã lưu ghi chú nội bộ.");
+    } catch (error) {
+      showApiError(error);
+    }
+  };
+
   if (isPending) {
     return (
-      <DashboardLayout
-        title="Chi tiết ứng viên"
-      >
+      <DashboardLayout title="Chi tiết ứng viên">
         <div className="grid gap-6 lg:grid-cols-3">
           <div className="h-96 animate-pulse rounded-xl bg-muted/60 lg:col-span-2" />
           <div className="h-72 animate-pulse rounded-xl bg-muted/60" />
@@ -81,9 +109,7 @@ export default function EmployerApplicationDetailPage() {
 
   if (isError || !application) {
     return (
-      <DashboardLayout
-        title="Chi tiết ứng viên"
-      >
+      <DashboardLayout title="Chi tiết ứng viên">
         <ErrorState
           title="Không tìm thấy hồ sơ ứng viên"
           description="Hồ sơ có thể đã bị xoá hoặc bạn không có quyền xem."
@@ -127,7 +153,8 @@ export default function EmployerApplicationDetailPage() {
                   </CardTitle>
                   <CardDescription>
                     {application.studentUniversity} · {application.studentMajor}
-                    {application.studentYear && ` · Năm học ${application.studentYear}`}
+                    {application.studentYear &&
+                      ` · Năm học ${application.studentYear}`}
                   </CardDescription>
                   <div className="mt-2 flex flex-wrap gap-3 text-xs text-muted-foreground">
                     <span className="flex items-center gap-1">
@@ -179,7 +206,8 @@ export default function EmployerApplicationDetailPage() {
                   Thư giới thiệu đã gửi
                 </p>
                 <p className="text-sm leading-relaxed whitespace-pre-line text-muted-foreground">
-                  {application.coverLetter || "Ứng viên không viết thư giới thiệu."}
+                  {application.coverLetter ||
+                    "Ứng viên không viết thư giới thiệu."}
                 </p>
               </div>
 
@@ -221,20 +249,23 @@ export default function EmployerApplicationDetailPage() {
                 )}
               </div>
 
-              {application.expectedSalary && (
-                <>
-                  <Separator />
-                  <div className="flex items-center justify-between text-sm">
-                    <span className="text-muted-foreground">
-                      Lương ứng viên mong muốn
-                    </span>
-                    <span className="font-semibold text-foreground">
-                      {application.expectedSalary.toLocaleString("vi-VN")} đ
-                      {application.expectedSalary > 100000 ? "/tháng" : "/giờ"}
-                    </span>
-                  </div>
-                </>
-              )}
+              {application.expectedSalary != null &&
+                application.expectedSalary > 0 && (
+                  <>
+                    <Separator />
+                    <div className="flex items-center justify-between text-sm">
+                      <span className="text-muted-foreground">
+                        Lương ứng viên mong muốn
+                      </span>
+                      <span className="font-semibold text-foreground">
+                        {application.expectedSalary.toLocaleString("vi-VN")} đ
+                        {application.expectedSalary > 100000
+                          ? "/tháng"
+                          : "/giờ"}
+                      </span>
+                    </div>
+                  </>
+                )}
             </CardContent>
           </Card>
 
@@ -247,8 +278,8 @@ export default function EmployerApplicationDetailPage() {
                   Đánh giá sinh viên
                 </CardTitle>
                 <CardDescription>
-                  Công việc đã hoàn thành. Đánh giá giúp các nhà tuyển dụng
-                  khác có lựa chọn tốt hơn.
+                  Công việc đã hoàn thành. Đánh giá giúp các nhà tuyển dụng khác
+                  có lựa chọn tốt hơn.
                 </CardDescription>
               </CardHeader>
               <CardContent>
@@ -303,44 +334,17 @@ export default function EmployerApplicationDetailPage() {
                     variant="outline"
                     size="sm"
                     className="w-full"
-                    onClick={() => {
-                      if (!note.trim()) {
-                        toast.warning("Vui lòng nhập nội dung ghi chú.");
-                        return;
-                      }
-                      toast.success("Đã lưu ghi chú nội bộ.");
-                    }}
+                    disabled={updateNote.isPending}
+                    onClick={() => void handleSaveNote()}
                   >
                     <Save className="size-4" />
-                    Lưu ghi chú
+                    {updateNote.isPending ? "Đang lưu..." : "Lưu ghi chú"}
                   </Button>
                 </div>
 
                 {/* HÀNH ĐỘNG */}
                 <div className="space-y-2 border-t border-border/60 pt-4">
                   {application.status === "PENDING" && (
-                    <>
-                      <Button
-                        className="w-full"
-                        onClick={() => handleStatus("SHORTLISTED")}
-                        disabled={updateStatus.isPending}
-                      >
-                        <ThumbsUp className="size-4" />
-                        Duyệt sơ bộ
-                      </Button>
-                      <Button
-                        variant="outline"
-                        className="w-full text-destructive"
-                        onClick={() => handleStatus("REJECTED")}
-                        disabled={updateStatus.isPending}
-                      >
-                        <ThumbsDown className="size-4" />
-                        Từ chối ứng viên
-                      </Button>
-                    </>
-                  )}
-
-                  {application.status === "VIEWED" && (
                     <>
                       <Button
                         className="w-full"

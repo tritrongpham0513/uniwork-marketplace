@@ -49,6 +49,12 @@ const { profileService } = await import(
 const { savedJobService } = await import(
   "../src/features/saved-jobs/services/saved-jobs.service.ts"
 );
+const { filesService } = await import(
+  "../src/features/files/services/files.service.ts"
+);
+const { jobNotifyService } = await import(
+  "../src/features/notifications/services/job-notify.service.ts"
+);
 
 let failures = 0;
 const test = async (name: string, fn: () => Promise<void>) => {
@@ -61,6 +67,11 @@ const test = async (name: string, fn: () => Promise<void>) => {
     console.error(`     ${(error as Error).message}`);
   }
 };
+
+/** Chuẩn hoá lỗi axios về ApiError (import sớm để dùng trong nhiều test). */
+const { normalizeApiError: normalizeApiErrorLocal } = await import(
+  "../src/lib/api-error.ts"
+);
 
 console.log("\n🔁 End-to-end qua Axios thật + mock adapter");
 // ---------------------------------------------------------------
@@ -231,6 +242,13 @@ await test("savedJobService.list -> SavedJob[]", async () => {
   assert.ok(Array.isArray(response.data));
 });
 
+await test("savedJobService.ids -> string[] id tin đã lưu", async () => {
+  const response = await savedJobService.ids();
+  assert.equal(response.success, true);
+  assert.ok(Array.isArray(response.data));
+  assert.ok(response.data.every((id) => typeof id === "string"));
+});
+
 await test("profileService.getPublicEmployer -> hồ sơ NTD công khai", async () => {
   const response = await profileService.getPublicEmployer("emp-viejob-demo");
   assert.equal(response.success, true);
@@ -278,6 +296,29 @@ await test("applicationService.listByEmployer -> Application[]", async () => {
   assert.equal(response.success, true);
   assert.ok(Array.isArray(response.data));
   assert.ok(response.data.length > 0);
+});
+
+await test("applicationService.updateNote -> lưu ghi chú nội bộ NTD", async () => {
+  const list = await applicationService.listByEmployer();
+  const target = list.data[0];
+  assert.ok(target, "cần ít nhất 1 đơn ứng tuyển của NTD");
+
+  const updated = await applicationService.updateNote(
+    target.id,
+    "Ghi chú E2E — ưu tiên phỏng vấn cuối tuần."
+  );
+  assert.equal(updated.success, true);
+  assert.equal(
+    updated.data.employerNote,
+    "Ghi chú E2E — ưu tiên phỏng vấn cuối tuần."
+  );
+
+  // Đọc lại để chắc chắn đã lưu
+  const detail = await applicationService.detailForEmployer(target.id);
+  assert.equal(
+    detail.data.employerNote,
+    "Ghi chú E2E — ưu tiên phỏng vấn cuối tuần."
+  );
 });
 
 await test("employerJobService.create -> Job mới ở trạng thái PENDING_REVIEW", async () => {
@@ -419,16 +460,96 @@ await test("notificationService.list + unreadCount đúng shape", async () => {
 });
 
 // ---------------------------------------------------------------
-// ERROR PATH
+// FILE UPLOAD
 // ---------------------------------------------------------------
 
+await test("filesService.upload -> trả metadata file + URL", async () => {
+  const file = new File(["%PDF-1.4 fake cv"], "CV_E2E.pdf", {
+    type: "application/pdf",
+  });
+
+  const response = await filesService.upload(file, "CV");
+  assert.equal(response.success, true);
+  assert.ok(response.data.id.length > 0);
+  assert.equal(response.data.fileName, "CV_E2E.pdf");
+  assert.equal(response.data.kind, "CV");
+  assert.ok(response.data.url.includes(response.data.id));
+});
+
+await test("filesService.upload -> từ chối định dạng không hợp lệ", async () => {
+  const file = new File(["not an image"], "avatar.txt", {
+    type: "text/plain",
+  });
+
+  try {
+    await filesService.upload(file, "AVATAR");
+    assert.fail("phải throw");
+  } catch (error) {
+    const apiError = normalizeApiErrorLocal(error);
+    assert.equal(apiError.status, 400);
+  }
+});
+
+await test("filesService.remove -> xoá file đã upload", async () => {
+  const file = new File(["%PDF-1.4 fake cv"], "CV_XOA.pdf", {
+    type: "application/pdf",
+  });
+  const uploaded = await filesService.upload(file, "CV");
+
+  const removed = await filesService.remove(uploaded.data.id);
+  assert.equal(removed.success, true);
+
+  // Đọc lại phải không còn
+  try {
+    await axiosInstance.get(`/api/v1/files/${uploaded.data.id}`);
+    assert.fail("phải throw — file đã bị xoá");
+  } catch (error) {
+    const apiError = normalizeApiErrorLocal(error);
+    assert.equal(apiError.status, 404);
+  }
+});
+
+// ---------------------------------------------------------------
+// JOB NOTIFY PREFERENCES
+// ---------------------------------------------------------------
+
+await test("jobNotifyService.subscribe/list/unsubscribe -> vòng đời đầy đủ", async () => {
+  const subscribed = await jobNotifyService.subscribe({
+    categoryCode: "cat-fnb",
+    provinceCode: "hcm",
+  });
+  assert.equal(subscribed.success, true);
+  assert.equal(subscribed.data.categoryCode, "cat-fnb");
+  assert.equal(subscribed.data.provinceCode, "hcm");
+
+  const list = await jobNotifyService.list();
+  assert.ok(
+    list.data.some(
+      (pref) =>
+        pref.categoryCode === "cat-fnb" && pref.provinceCode === "hcm"
+    )
+  );
+
+  await jobNotifyService.unsubscribe("cat-fnb", "hcm");
+
+  const after = await jobNotifyService.list();
+  assert.ok(
+    !after.data.some(
+      (pref) =>
+        pref.categoryCode === "cat-fnb" && pref.provinceCode === "hcm"
+    )
+  );
+});
+
+// ---------------------------------------------------------------
+// ERROR PATH
+// ---------------------------------------------------------------
 await test("endpoint lỗi -> axios reject với ApiError đúng kind", async () => {
-  const { normalizeApiError } = await import("../src/lib/api-error.ts");
   try {
     await axiosInstance.get("/api/v1/jobs/public/khong-ton-tai");
     assert.fail("phải throw");
   } catch (error) {
-    const apiError = normalizeApiError(error);
+    const apiError = normalizeApiErrorLocal(error);
     assert.equal(apiError.status, 404);
     assert.equal(apiError.kind, "notFound");
     assert.ok(apiError.message.length > 0);

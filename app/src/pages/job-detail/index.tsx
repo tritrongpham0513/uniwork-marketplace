@@ -1,5 +1,4 @@
 import { Link, useNavigate, useParams } from "react-router";
-import { useState } from "react";
 import {
   ArrowLeft,
   Bell,
@@ -46,8 +45,12 @@ import {
 } from "@/features/jobs/types";
 import { formatPostedAgo, formatSalary } from "@/features/jobs/lib/format";
 import { useAuth } from "@/features/auth/hooks";
+import {
+  useJobNotifyPreferences,
+  useToggleJobNotify,
+} from "@/features/notifications/hooks";
 import { PATHS } from "@/config/paths";
-import { toast } from "@/lib/toast";
+import { showApiError, toast } from "@/lib/toast";
 
 /** Tạo link Google Maps từ địa chỉ của tin tuyển dụng */
 const buildMapUrl = (
@@ -68,7 +71,8 @@ export function JobDetailPage() {
   const { data: benchmarks = [] } = useSalaryBenchmarks();
   const { data: related = [] } = useRelatedJobs(job?.category.id ?? "", id);
   const { data: employerProfile } = usePublicEmployerProfile(job?.employerId ?? "");
-  const [notifyOn, setNotifyOn] = useState(false);
+  const { data: notifyPreferences = [] } = useJobNotifyPreferences();
+  const toggleJobNotify = useToggleJobNotify();
 
   if (isLoading) return <JobDetailSkeleton />;
 
@@ -102,6 +106,14 @@ export function JobDetailPage() {
   );
   const comparison = compareSalary(job, benchmark);
   const remaining = job.positionsCount - job.positionsFilled;
+
+  /** Đang bật thông báo cho nhóm việc + tỉnh của tin này (lấy từ server). */
+  const notifyOn = notifyPreferences.some(
+    (pref) =>
+      pref.categoryCode === job.category.id &&
+      (pref.provinceCode === job.location.provinceId ||
+        pref.provinceCode === "ALL")
+  );
 
   const handleApply = () => {
     if (!isAuthenticated) {
@@ -160,8 +172,13 @@ export function JobDetailPage() {
     }
   };
 
-  /** Bật/tắt theo dõi nhóm việc + tỉnh (Viecoday) */
-  const handleToggleNotify = () => {
+  /**
+   * Bật/tắt theo dõi nhóm việc + tỉnh (Viecoday).
+   *
+   * Trạng thái lấy từ server (`useJobNotifyPreferences`) — không dùng
+   * `useState` cục bộ để trạng thái không bị mất khi tải lại trang.
+   */
+  const handleToggleNotify = async () => {
     if (!isAuthenticated) {
       toast.info("Vui lòng đăng nhập", {
         description: "Bạn cần đăng nhập để bật thông báo.",
@@ -172,17 +189,23 @@ export function JobDetailPage() {
       return;
     }
 
-    setNotifyOn((prev) => {
-      const next = !prev;
-      if (next) {
+    try {
+      await toggleJobNotify.mutateAsync({
+        categoryCode: job.category.id,
+        provinceCode: job.location.provinceId,
+        enabled: !notifyOn,
+      });
+
+      if (!notifyOn) {
         toast.success("Đã bật thông báo tin tuyển dụng", {
           description: `Bạn sẽ được thông báo khi có tin mới thuộc ${job.category.name} tại ${job.location.province}.`,
         });
       } else {
         toast.info("Đã tắt thông báo tin tuyển dụng");
       }
-      return next;
-    });
+    } catch (error) {
+      showApiError(error);
+    }
   };
 
   return (
@@ -644,9 +667,14 @@ export function JobDetailPage() {
                 variant={notifyOn ? "outline" : "default"}
                 size="sm"
                 className="w-full cursor-pointer"
-                onClick={handleToggleNotify}
+                disabled={toggleJobNotify.isPending}
+                onClick={() => void handleToggleNotify()}
               >
-                {notifyOn ? "Đã bật thông báo" : "Bật thông báo"}
+                {toggleJobNotify.isPending
+                  ? "Đang cập nhật..."
+                  : notifyOn
+                    ? "Đã bật thông báo"
+                    : "Bật thông báo"}
               </Button>
             </CardContent>
           </Card>

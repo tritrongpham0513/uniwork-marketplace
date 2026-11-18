@@ -41,7 +41,6 @@ const REFERENCE_NOW = Date.now();
 /** Bước vòng đời đơn ứng tuyển (rút gọn cho dashboard) */
 const LIFECYCLE: Application["status"][] = [
   "PENDING",
-  "VIEWED",
   "SHORTLISTED",
   "ACCEPTED",
   "COMPLETED",
@@ -53,9 +52,7 @@ export default function StudentDashboardPage() {
   const { data: profile } = useStudentProfile();
 
   const stats = useMemo(() => {
-    const pending = applications.filter(
-      (a) => a.status === "PENDING" || a.status === "VIEWED"
-    ).length;
+    const pending = applications.filter((a) => a.status === "PENDING").length;
     const accepted = applications.filter((a) => a.status === "ACCEPTED").length;
     const completed = applications.filter((a) => a.status === "COMPLETED").length;
 

@@ -225,6 +225,8 @@ export const jobHandlers = {
     if (!job) {
       throw notFound("Không tìm thấy tin tuyển dụng này.");
     }
+    // Tăng bộ đếm lượt xem (khớp với backend)
+    job.viewCount += 1;
     return job;
   },
 
@@ -332,7 +334,12 @@ export const jobHandlers = {
       id: existing.id,
       employerId: existing.employerId,
       employer: existing.employer,
-      positionsFilled: existing.positionsFilled,
+      // Số suất đã tuyển chỉ được NTD chỉnh khi tin chưa có ứng viên được
+      // nhận — khớp với hành vi backend.
+      positionsFilled:
+        body.positionsFilled !== undefined
+          ? Math.min(body.positionsFilled, existing.positionsCount)
+          : existing.positionsFilled,
       applicantCount: existing.applicantCount,
       viewCount: existing.viewCount,
       postedAt: existing.postedAt,

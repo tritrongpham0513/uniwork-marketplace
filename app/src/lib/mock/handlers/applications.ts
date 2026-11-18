@@ -142,10 +142,16 @@ export const applicationHandlers = {
       throw forbidden("Bạn không có quyền thao tác đơn ứng tuyển này.");
     }
 
-    if (application.status !== "PENDING" && application.status !== "VIEWED") {
+    if (application.status !== "PENDING") {
       throw badRequest(
         "Đơn ứng tuyển đã được xử lý, không thể rút. Vui lòng liên hệ nhà tuyển dụng."
       );
+    }
+
+    // Giảm bộ đếm ứng viên trên tin (đã tăng khi ứng tuyển)
+    const job = db.jobs.find((j) => j.id === application.jobId);
+    if (job) {
+      job.applicantCount = Math.max(0, job.applicantCount - 1);
     }
 
     return pushStatus(application, "WITHDRAWN", "Sinh viên đã rút đơn");
@@ -202,7 +208,6 @@ export const applicationHandlers = {
     }
 
     const noteMap: Partial<Record<ApplicationStatus, string>> = {
-      VIEWED: "Nhà tuyển dụng đã xem hồ sơ",
       SHORTLISTED: "Được duyệt sơ bộ",
       ACCEPTED: "Đã nhận ứng viên",
       COMPLETED: "Công việc đã hoàn thành",
@@ -222,8 +227,13 @@ export const applicationHandlers = {
         (a) => a.jobId === job.id && a.status === "ACCEPTED"
       ).length;
       job.positionsFilled = Math.min(acceptedCount, job.positionsCount);
-      if (acceptedCount >= job.positionsCount && job.status === "OPEN") {
-        job.status = "FILLED";
+      if (acceptedCount >= job.positionsCount) {
+        if (job.status === "OPEN" || job.status === "IN_PROGRESS") {
+          job.status = "FILLED";
+        }
+      } else if (acceptedCount > 0 && job.status === "OPEN") {
+        // Đã có ứng viên được nhận nhưng còn suất → tin đang tuyển dở
+        job.status = "IN_PROGRESS";
       }
     }
 
@@ -252,11 +262,29 @@ export const applicationHandlers = {
 
     return updated;
   },
-};
 
-// ============================================
-// REVIEW
-// ============================================
+  /**
+   * PATCH /api/v1/employer/applications/{id}/note — lưu ghi chú nội bộ.
+   *
+   * <p>Ghi chú chỉ hiển thị với nhà tuyển dụng, không gửi cho sinh viên.
+   */
+  updateNote(id: string, note: string, employerId: string): Application {
+    const application = getDb().applications.find((a) => a.id === id);
+    if (!application) throw notFound("Không tìm thấy đơn ứng tuyển.");
+    if (application.employerId !== employerId) {
+      throw forbidden("Bạn không có quyền ghi chú đơn ứng tuyển này.");
+    }
+
+    const trimmed = note?.trim() ?? "";
+    if (trimmed.length > 500) {
+      throw badRequest("Ghi chú không được vượt quá 500 ký tự.");
+    }
+
+    application.employerNote = trimmed === "" ? null : trimmed;
+    application.updatedAt = nowIso();
+    return application;
+  },
+};
 
 export interface CreateReviewBody {
   applicationId: string;
@@ -650,7 +678,6 @@ const employerUserId = (
 const statusLabel = (status: ApplicationStatus): string => {
   const map: Record<ApplicationStatus, string> = {
     PENDING: "Đang chờ",
-    VIEWED: "Đã xem hồ sơ",
     SHORTLISTED: "Được duyệt sơ bộ",
     ACCEPTED: "Đã nhận",
     COMPLETED: "Hoàn thành",

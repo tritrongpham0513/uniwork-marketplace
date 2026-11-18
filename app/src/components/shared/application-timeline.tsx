@@ -9,7 +9,6 @@ import { cn } from "cn";
 /** Thứ tự chuẩn của vòng đời đơn ứng tuyển */
 const FLOW: ApplicationStatus[] = [
   "PENDING",
-  "VIEWED",
   "SHORTLISTED",
   "ACCEPTED",
   "COMPLETED",

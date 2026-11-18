@@ -26,10 +26,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import {
-  Field,
-  FieldLabel,
-} from "@/components/ui/field";
+import { Field, FieldLabel } from "@/components/ui/field";
 import { Textarea } from "@/components/ui/textarea";
 import { DashboardLayout } from "@/components/layout/dashboard-layout";
 import { StatusBadge } from "@/components/shared/status-badge";
@@ -54,7 +51,6 @@ const STATUS_FILTERS: Array<{
 }> = [
   { value: "ALL", label: "Tất cả" },
   { value: "PENDING", label: "Đang chờ" },
-  { value: "VIEWED", label: "Đã xem" },
   { value: "SHORTLISTED", label: "Duyệt sơ bộ" },
   { value: "ACCEPTED", label: "Đã nhận" },
   { value: "COMPLETED", label: "Hoàn thành" },
@@ -68,8 +64,12 @@ export default function EmployerApplicationsPage() {
   const [rejectTarget, setRejectTarget] = useState<Application | null>(null);
   const [rejectReason, setRejectReason] = useState("");
 
-  const { data: applications = [], isPending, isError, refetch } =
-    useEmployerApplications();
+  const {
+    data: applications = [],
+    isPending,
+    isError,
+    refetch,
+  } = useEmployerApplications();
   const { data: jobs = [] } = useEmployerJobs();
   const updateStatus = useUpdateApplicationStatus();
 
@@ -164,7 +164,7 @@ export default function EmployerApplicationsPage() {
               setStatus(value as ApplicationStatus | "ALL")
             }
           >
-            <TabsList className="flex w-full flex-nowrap justify-start gap-1 overflow-x-auto rounded-2xl p-1 [scrollbar-width:thin] group-data-horizontal/tabs:h-auto">
+            <TabsList className="flex w-full scrollbar-thin flex-nowrap justify-start gap-1 overflow-x-auto rounded-2xl p-1 group-data-horizontal/tabs:h-auto">
               {STATUS_FILTERS.map((item) => (
                 <TabsTrigger
                   key={item.value}
@@ -183,7 +183,10 @@ export default function EmployerApplicationsPage() {
         {isPending && (
           <div className="space-y-3">
             {Array.from({ length: 4 }).map((_, index) => (
-              <div key={index} className="h-24 animate-pulse rounded-xl bg-muted/60" />
+              <div
+                key={index}
+                className="h-24 animate-pulse rounded-xl bg-muted/60"
+              />
             ))}
           </div>
         )}
@@ -236,7 +239,9 @@ export default function EmployerApplicationsPage() {
 
                         <div className="min-w-0">
                           <Link
-                            to={PATHS.EMPLOYER.APPLICATION_DETAIL(application.id)}
+                            to={PATHS.EMPLOYER.APPLICATION_DETAIL(
+                              application.id
+                            )}
                             className="truncate text-sm font-semibold text-foreground transition-colors hover:text-primary"
                           >
                             {application.studentName}
@@ -253,19 +258,20 @@ export default function EmployerApplicationsPage() {
                       </div>
 
                       <div className="flex shrink-0 flex-wrap items-center gap-2">
-                        {application.expectedSalary && (
-                          <span className="text-xs text-muted-foreground">
-                            Mong muốn:{" "}
-                            <span className="font-semibold text-foreground">
-                              {application.expectedSalary.toLocaleString(
-                                "vi-VN"
-                              )}
-                              {application.expectedSalary > 100000
-                                ? "đ/tháng"
-                                : "đ/giờ"}
+                        {application.expectedSalary !== null &&
+                          application.expectedSalary > 0 && (
+                            <span className="text-xs text-muted-foreground">
+                              Mong muốn:{" "}
+                              <span className="font-semibold text-foreground">
+                                {application.expectedSalary.toLocaleString(
+                                  "vi-VN"
+                                )}
+                                {application.expectedSalary > 100000
+                                  ? "đ/tháng"
+                                  : "đ/giờ"}
+                              </span>
                             </span>
-                          </span>
-                        )}
+                          )}
 
                         <StatusBadge
                           status={application.status}
@@ -308,11 +314,8 @@ export default function EmployerApplicationsPage() {
                             </Button>
                           )}
 
-                          {(
-                            application.status === "PENDING" ||
-                            application.status === "VIEWED" ||
-                            application.status === "SHORTLISTED"
-                          ) && (
+                          {(application.status === "PENDING" ||
+                            application.status === "SHORTLISTED") && (
                             <Button
                               variant="ghost"
                               size="sm"
@@ -367,8 +370,9 @@ export default function EmployerApplicationsPage() {
           <DialogHeader>
             <DialogTitle>Từ chối ứng viên</DialogTitle>
             <DialogDescription>
-              Ứng viên: {rejectTarget?.studentName} — vị trí {rejectTarget?.jobTitle}.
-              Lý do sẽ được gửi tới ứng viên, vui lòng nhập rõ ràng.
+              Ứng viên: {rejectTarget?.studentName} — vị trí{" "}
+              {rejectTarget?.jobTitle}. Lý do sẽ được gửi tới ứng viên, vui lòng
+              nhập rõ ràng.
             </DialogDescription>
           </DialogHeader>
 

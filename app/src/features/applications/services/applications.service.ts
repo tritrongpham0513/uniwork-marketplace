@@ -95,6 +95,21 @@ export const applicationService = {
       payload
     );
   },
+
+  /**
+   * PATCH /api/v1/employer/applications/{id}/note — lưu ghi chú nội bộ.
+   *
+   * <p>Ghi chú chỉ hiển thị với nhà tuyển dụng, không gửi cho sinh viên.
+   */
+  updateNote(
+    id: string,
+    note: string
+  ): Promise<ApiResponse<Application>> {
+    return http.patch<ApiResponse<Application>, { note: string }>(
+      `/api/v1/employer/applications/${id}/note`,
+      { note }
+    );
+  },
 };
 
 export default applicationService;

@@ -10,6 +10,7 @@ import {
   savedJobHandlers,
 } from "./handlers/applications";
 import { adminHandlers, metaHandlers } from "./handlers/admin";
+import { fileHandlers, jobNotifyHandlers } from "./handlers/files";
 
 // ============================================
 // TYPES
@@ -217,6 +218,11 @@ export const handleMockRequest = (
     return ok(savedJobHandlers.list(userId));
   }
 
+  if (path === "/api/v1/student/saved-jobs/ids" && method === "GET") {
+    if (!userId) throw new MockHttpError(401, { code: "UNAUTHORIZED", message: "Vui lòng đăng nhập." }, "Unauthorized");
+    return ok(savedJobHandlers.ids(userId));
+  }
+
   if (path === "/api/v1/student/saved-jobs" && method === "POST") {
     if (!userId) throw new MockHttpError(401, { code: "UNAUTHORIZED", message: "Vui lòng đăng nhập." }, "Unauthorized");
     return ok(savedJobHandlers.save(String(body.jobId ?? ""), userId), "Đã lưu tin.");
@@ -227,6 +233,59 @@ export const handleMockRequest = (
     const jobId = path.replace("/api/v1/student/saved-jobs/", "");
     savedJobHandlers.remove(jobId, userId);
     return ok(null, "Đã bỏ lưu tin.");
+  }
+
+  // ---------------------------------------------------------
+  // STUDENT — TUỲ CHỌN THÔNG BÁO TIN TUYỂN DỤNG
+  // ---------------------------------------------------------
+  if (path === "/api/v1/student/job-notifications" && method === "GET") {
+    if (!userId) throw new MockHttpError(401, { code: "UNAUTHORIZED", message: "Vui lòng đăng nhập." }, "Unauthorized");
+    return ok(jobNotifyHandlers.list(userId));
+  }
+
+  if (path === "/api/v1/student/job-notifications" && method === "POST") {
+    if (!userId) throw new MockHttpError(401, { code: "UNAUTHORIZED", message: "Vui lòng đăng nhập." }, "Unauthorized");
+    return created(
+      jobNotifyHandlers.subscribe(body as never, userId),
+      "Đã bật thông báo tin tuyển dụng."
+    );
+  }
+
+  if (path === "/api/v1/student/job-notifications" && method === "DELETE") {
+    if (!userId) throw new MockHttpError(401, { code: "UNAUTHORIZED", message: "Vui lòng đăng nhập." }, "Unauthorized");
+    jobNotifyHandlers.unsubscribe(
+      String(params.categoryCode ?? ""),
+      params.provinceCode,
+      userId
+    );
+    return ok(null, "Đã tắt thông báo tin tuyển dụng.");
+  }
+
+  // ---------------------------------------------------------
+  // FILES (upload CV / ảnh / logo)
+  // ---------------------------------------------------------
+  if (path === "/api/v1/files/upload" && method === "POST") {
+    if (!userId) throw new MockHttpError(401, { code: "UNAUTHORIZED", message: "Vui lòng đăng nhập." }, "Unauthorized");
+    return created(
+      fileHandlers.upload(
+        body.file as never,
+        String(body.kind ?? params.kind ?? "CV"),
+        userId
+      ),
+      "Đã tải lên file thành công."
+    );
+  }
+
+  if (path.startsWith("/api/v1/files/") && method === "GET") {
+    const id = path.replace("/api/v1/files/", "");
+    return ok(fileHandlers.detail(id));
+  }
+
+  if (path.startsWith("/api/v1/files/") && method === "DELETE") {
+    if (!userId) throw new MockHttpError(401, { code: "UNAUTHORIZED", message: "Vui lòng đăng nhập." }, "Unauthorized");
+    const id = path.replace("/api/v1/files/", "");
+    fileHandlers.remove(id, userId);
+    return ok(null, "Đã xoá file.");
   }
 
   // ---------------------------------------------------------
@@ -306,6 +365,18 @@ export const handleMockRequest = (
     const profile = profileHandlers.getEmployer(userId);
     const id = path.replace("/api/v1/employer/applications/", "");
     return ok(applicationHandlers.detailForEmployer(id, profile.id));
+  }
+
+  if (path.endsWith("/note") && path.startsWith("/api/v1/employer/applications/") && method === "PATCH") {
+    if (!userId) throw new MockHttpError(401, { code: "UNAUTHORIZED", message: "Vui lòng đăng nhập." }, "Unauthorized");
+    const profile = profileHandlers.getEmployer(userId);
+    const id = path
+      .replace("/api/v1/employer/applications/", "")
+      .replace(/\/note$/, "");
+    return ok(
+      applicationHandlers.updateNote(id, String(body.note ?? ""), profile.id),
+      "Đã lưu ghi chú nội bộ."
+    );
   }
 
   if (path.startsWith("/api/v1/employer/applications/") && method === "PATCH") {

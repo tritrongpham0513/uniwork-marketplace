@@ -80,8 +80,12 @@ src/lib/mock/
     ├── auth.ts       # đăng ký / đăng nhập / Google / /me / refresh
     ├── jobs.ts       # danh sách, lọc, chi tiết, CRUD tin (NTD + Admin duyệt)
     ├── applications.ts # ứng tuyển, duyệt đơn, đánh giá, thông báo, hồ sơ, tin lưu
-    └── admin.ts      # dashboard, user, nhóm việc, master data
+    ├── admin.ts      # dashboard, user, nhóm việc, master data
+    └── files.ts      # upload/xoá file, ghi chú NTD, bật thông báo tin tuyển dụng, saved-jobs/ids
 ```
+
+> `src/mocks/time.ts` là **đồng hồ deterministic** (`MOCK_NOW`) — mọi timestamp seed đều bám về đây
+> nên `pnpm seed:sql` cho ra file giống nhau mọi lần (tránh lỗi Flyway checksum mismatch).
 
 ### Nguyên tắc thiết kế
 
@@ -99,11 +103,12 @@ src/lib/mock/
 | -------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | Auth           | `POST /auth/register`, `POST /auth/login`, `POST /auth/google`, `POST /auth/verify-email`, `POST /auth/resend-verification`, `POST /auth/refresh`, `GET /auth/me`                                                         |
 | Public         | `GET /jobs/public`, `GET /jobs/public/{id}`, `GET /jobs/public/related`, `GET /public/{categories,positions,provinces,districts,skills,salary-benchmarks}`                                                                |
-| Sinh viên      | `GET/PUT /student/profile`, `GET/POST /student/applications`, `GET /student/applications/{id}`, `PATCH /student/applications/{id}/withdraw`, `GET/POST/DELETE /student/saved-jobs`                                        |
-| Nhà tuyển dụng | `GET/POST /employer/jobs`, `PUT/DELETE /employer/jobs/{id}`, `GET /employer/applications`, `GET/PATCH /employer/applications/{id}`, `GET/PUT /employer/profile`, `POST /employer/reviews/{id}/reply`                      |
+| Sinh viên      | `GET/PUT /student/profile`, `GET/POST /student/applications`, `GET /student/applications/{id}`, `PATCH /student/applications/{id}/withdraw`, `GET/POST/DELETE /student/saved-jobs`, `GET /student/saved-jobs/ids`, `GET/POST/DELETE /student/job-notifications` |
+| Nhà tuyển dụng | `GET/POST /employer/jobs`, `PUT/DELETE /employer/jobs/{id}`, `GET /employer/applications`, `GET/PATCH /employer/applications/{id}`, `PATCH /employer/applications/{id}/note`, `GET/PUT /employer/profile`, `POST /employer/reviews/{id}/reply` |
 | Đánh giá       | `POST /reviews`, `GET /reviews?targetType=&targetUserId=`                                                                                                                                                                 |
 | Thông báo      | `GET /notifications`, `GET /notifications/unread-count`, `PATCH /notifications/{id}/read`, `POST /notifications/read-all`                                                                                                 |
 | WebSocket      | `POST /ws/ticket` — cấp vé kết nối 1 lần, hạn 60s (xem mục 7.5)                                                                                                                                                        |
+| File           | `POST /files/upload?kind=CV\|AVATAR\|LOGO`, `GET /files/{id}`, `DELETE /files/{id}`                                                                                                                                     |
 | Quản trị       | `GET /admin/dashboard`, `GET /admin/users`, `PATCH /admin/users/{id}`, `GET /admin/jobs`, `PATCH /admin/jobs/{id}/review`, `GET/POST /admin/categories`, `PUT/DELETE /admin/categories/{id}`, `PATCH /admin/reviews/{id}` |
 
 ---
@@ -163,14 +168,17 @@ src/
 pnpm verify
 ```
 
-Chạy 3 suite:
+Chạy 4 suite:
 
 | Suite         | Script                    | Nội dung                                                                                                                                                                                                                                                                                                   |
 | ------------- | ------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | Toast & Error | `pnpm verify:toast`       | `normalizeApiError` (mapping status → kind), toast facade (dedupe theo `id`, merge trong 2s, rate limit), `showApiError` (bỏ qua validation/handled/silent)                                                                                                                                                |
 | Tích hợp HTTP | `pnpm verify:integration` | Chạy HTTP server thật trong Node, kiểm tra interceptor, normalize lỗi, retry, header Authorization                                                                                                                                                                                                         |
 | **Mock API**  | `pnpm verify:mock-api`    | **47 test**: envelope `{ success, message, data }` & envelope lỗi; đăng nhập/đăng ký 3 vai trò; phân quyền 401/403/404; lọc & phân trang tin; NTD đăng tin → Admin duyệt → SV ứng tuyển → NTD duyệt đơn → đánh giá 2 chiều → trả lời đánh giá; quản lý thông báo; CRUD nhóm việc; khoá/đổi role người dùng |
-| **E2E**       | `pnpm verify:e2e`         | **20 test**: chạy đúng đường đi của app — `service` → `axiosInstance` → `mockAdapter` → `router` — assert `ApiResponse<T>` khớp kiểu dữ liệu mà service khai báo (đặc biệt `data.accessToken`, `data.user`), qua lại 3 vai trò                                                                             |
+| **E2E**       | `pnpm verify:e2e`         | **26 test**: chạy đúng đường đi của app — `service` → `axiosInstance` → `mockAdapter` → `router` — assert `ApiResponse<T>` khớp kiểu dữ liệu mà service khai báo (đặc biệt `data.accessToken`, `data.user`), qua lại 3 vai trò; gồm upload file, ghi chú NTD, bật/tắt thông báo tin tuyển dụng, danh sách id tin đã lưu |
+
+> Mock seed dùng **đồng hồ cố định** (`src/mocks/time.ts` → `MOCK_NOW`) để `pnpm seed:sql` luôn sinh ra
+> `V3__seed_demo_data.sql` giống hệt nhau → Flyway không báo `Migration checksum mismatch` khi rebuild container.
 
 Ngoài ra có 2 script realtime (cần backend đang chạy, xem mục 7.5):
 
@@ -282,6 +290,27 @@ pnpm seed:sql
 ```
 
 Sinh `../backend/src/main/resources/db/migration/V3__seed_demo_data.sql` từ đúng `src/mocks/*` (full parity: user, hồ sơ, tin tuyển dụng, đơn ứng tuyển + timeline, đánh giá, thông báo, tin đã lưu, master data). Sau khi đổi dataset mock, nhớ `docker compose down -v && docker compose up --build` để Flyway seed lại từ đầu.
+
+> **Deterministic**: seed dùng đồng hồ cố định `src/mocks/time.ts` (`MOCK_NOW`) → file SQL sinh ra **giống nhau mọi lần**,
+> nên rebuild container không bị lỗi `Migration checksum mismatch for migration version 3`.
+
+### 7.4b. Upload file (CV / ảnh đại diện / logo)
+
+Không dùng URL giả (`pravatar.cc`, `ui-avatars.com`, `viejob.vn/cv/...`) — file được upload thật qua API:
+
+```ts
+// src/features/files/services/files.service.ts
+const res = await filesService.upload(file, "CV"); // kind: CV | AVATAR | LOGO
+// → { id, url, fileName, mimeType, sizeBytes, kind }
+```
+
+| Hook                        | Việc                                    |
+| --------------------------- | --------------------------------------- |
+| `useUploadFile()`           | Upload + validate phía client + toast   |
+| `useDeleteFile()`           | Xoá file đã upload                      |
+
+Nơi dùng: hồ sơ sinh viên (CV + ảnh đại diện), hồ sơ tổ chức (logo NTD), trang ứng tuyển (CV).
+Ảnh đại diện & logo là ảnh công khai; CV là tài nguyên riêng tư (chỉ chủ sở hữu, admin và NTD đã nhận đơn mới đọc được).
 
 ### 7.5. Realtime thông báo (WebSocket)
 

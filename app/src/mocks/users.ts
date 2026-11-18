@@ -5,10 +5,7 @@ import type {
   UserSummaryResponse,
 } from "@/features/shared/types";
 import { EMPLOYERS } from "./employers";
-
-const now = Date.now();
-const daysAgo = (d: number) =>
-  new Date(now - d * 86400 * 1000).toISOString();
+import { daysAgo } from "./time";
 
 // ============================================
 // USERS — dùng cho đăng nhập mock & màn hình Admin
@@ -213,7 +210,7 @@ export const MOCK_STUDENT_PROFILES: StudentProfile[] = [
     address: "Khu đô thị Đại học Quốc Gia, Thủ Đức, TP.HCM",
     bio: "Sinh viên năm 3 ngành Quản trị Kinh doanh, có 1 năm kinh nghiệm phục vụ quán cà phê và muốn tìm việc làm thêm phù hợp lịch học.",
     avatarUrl: null,
-    cvUrl: "https://viejob.vn/cv/nguyen-thanh-ha.pdf",
+    cvUrl: null,
     skills: ["sk-service", "sk-barista", "sk-excel"],
     experiences: [
       {
@@ -280,7 +277,7 @@ export const MOCK_STUDENT_PROFILES: StudentProfile[] = [
     address: "Thủ Đức, TP.HCM",
     bio: "Sinh viên CNTT, biết React và TypeScript, muốn thực tập frontend.",
     avatarUrl: null,
-    cvUrl: "https://viejob.vn/cv/pham-duc-binh.pdf",
+    cvUrl: null,
     skills: ["sk-manual-test", "sk-excel"],
     experiences: [],
     jobPreferences: {

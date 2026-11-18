@@ -77,9 +77,7 @@ function StudentNavBadge({ itemId }: { itemId: string }) {
   const { data: savedIds = [] } = useSavedJobIds();
 
   if (itemId === "student-applications") {
-    const pending = applications.filter(
-      (a) => a.status === "PENDING" || a.status === "VIEWED"
-    ).length;
+    const pending = applications.filter((a) => a.status === "PENDING").length;
     return pending > 0 ? <SidebarMenuBadge>{pending}</SidebarMenuBadge> : null;
   }
 
@@ -104,9 +102,7 @@ function EmployerNavBadge({ itemId }: { itemId: string }) {
   }
 
   if (itemId === "employer-applications") {
-    const pending = applications.filter(
-      (a) => a.status === "PENDING" || a.status === "VIEWED"
-    ).length;
+    const pending = applications.filter((a) => a.status === "PENDING").length;
     return pending > 0 ? (
       <SidebarMenuBadge>{pending}</SidebarMenuBadge>
     ) : null;

@@ -57,7 +57,6 @@ export type JobStatus =
 /** Trạng thái đơn ứng tuyển */
 export type ApplicationStatus =
   | "PENDING"
-  | "VIEWED"
   | "SHORTLISTED"
   | "ACCEPTED"
   | "COMPLETED"
@@ -450,7 +449,6 @@ export const JOB_STATUS_LABELS: Record<JobStatus, string> = {
 
 export const APPLICATION_STATUS_LABELS: Record<ApplicationStatus, string> = {
   PENDING: "Đang chờ",
-  VIEWED: "Đã xem hồ sơ",
   SHORTLISTED: "Được duyệt sơ bộ",
   ACCEPTED: "Đã nhận",
   COMPLETED: "Hoàn thành",

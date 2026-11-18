@@ -8,4 +8,6 @@ export const NOTIFICATION_KEYS = {
   all: ["notifications"] as const,
   list: (unreadOnly?: boolean) => ["notifications", "list", unreadOnly] as const,
   unreadCount: ["notifications", "unread-count"] as const,
+  /** Tuỳ chọn "Bật thông báo" tin tuyển dụng. */
+  jobNotify: ["notifications", "job-notify"] as const,
 };

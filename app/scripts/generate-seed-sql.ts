@@ -40,6 +40,10 @@ import {
   MOCK_NOTIFICATIONS,
   MOCK_REVIEWS,
 } from "../src/mocks/applications";
+import { MOCK_NOW } from "../src/mocks/time";
+
+/** Mốc thời gian cố định (ISO) — dùng cho các dòng seed không có timestamp riêng. */
+const MOCK_NOW_ISO = new Date(MOCK_NOW).toISOString();
 
 // ============================================
 // SQL HELPERS
@@ -595,7 +599,7 @@ const savedRows: string[] = [
   { slug: "saved-002", jobId: "job-demo-003", userId: 1 },
 ].map((s, index) =>
   `(${index + 1}, ${q(s.slug)}, ${s.userId}, ${jobPk.get(s.jobId) ?? "NULL"}, ${dt(
-    new Date().toISOString()
+    MOCK_NOW_ISO
   )})`
 );
 push(

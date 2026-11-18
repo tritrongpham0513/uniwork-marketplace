@@ -11,7 +11,7 @@ import {
 import { EmptyState, ErrorState } from "@/components/shared/empty-state";
 import { DashboardLayout } from "@/components/layout/dashboard-layout";
 import { JobCard } from "@/features/jobs/components/job-card";
-import { useJobs } from "@/features/jobs/hooks/useJobs";
+import { useJobsByIds } from "@/features/jobs/hooks/useJobs";
 import { useSavedJobIds, useToggleSavedJob } from "@/features/saved-jobs/hooks";
 import { PATHS } from "@/config/paths";
 import { showApiError, toast } from "@/lib/toast";
@@ -21,29 +21,14 @@ export default function SavedJobsPage() {
   const { data: savedIds = [], isPending: idsPending } = useSavedJobIds();
   const toggleSaved = useToggleSavedJob();
 
-  // Lấy chi tiết các tin đã lưu (giới hạn 20 tin gần nhất)
-  const { data: jobsData, isPending: jobsPending, isError, refetch } = useJobs(
-    {
-      keyword: "",
-      categoryIds: [],
-      positionIds: [],
-      provinceIds: [],
-      districtIds: [],
-      employmentTypes: [],
-      workModes: [],
-      salaryUnit: "HOURLY",
-      salaryMin: 0,
-      salaryMax: 200000,
-      sort: "newest",
-      page: 1,
-      pageSize: 20,
-    },
-    { enabled: savedIds.length > 0 }
-  );
-
-  const savedJobs = (jobsData?.items ?? []).filter((job) =>
-    savedIds.includes(job.id)
-  );
+  // Lấy chi tiết theo từng id đã lưu — không lọc từ danh sách chung để
+  // không bỏ sót tin đã lưu nhưng không nằm trong 20 tin mới nhất.
+  const {
+    data: savedJobs = [],
+    isPending: jobsPending,
+    isError,
+    refetch,
+  } = useJobsByIds(savedIds);
 
   const isLoading = idsPending || (savedIds.length > 0 && jobsPending);
 

@@ -12,6 +12,8 @@ export const JOB_KEYS = {
   list: (filters: JobFilters) => [...JOB_KEYS.lists(), filters] as const,
   details: () => [...JOB_KEYS.all, "detail"] as const,
   detail: (id: string) => [...JOB_KEYS.details(), id] as const,
+  detailsByIds: (ids: string[]) =>
+    [...JOB_KEYS.details(), "by-ids", ...ids] as const,
   related: (categoryId: string, excludeId: string) =>
     [...JOB_KEYS.details(), "related", categoryId, excludeId] as const,
   meta: () => [...JOB_KEYS.all, "meta"] as const,
@@ -103,4 +105,30 @@ export const useSalaryBenchmarks = () =>
     queryKey: JOB_KEYS.benchmarks(),
     queryFn: () => jobsService.salaryBenchmarks(),
     staleTime: 60 * 60_000,
+  });
+
+/**
+ * Nhiều tin tuyển dụng theo danh sách id.
+ *
+ * <p>Dùng cho trang "Việc đã lưu" — nếu tải danh sách chung rồi lọc client
+ * thì tin đã lưu cũ (ngoài trang đầu) sẽ biến mất.
+ *
+ * <p>Tin không còn tồn tại (đã đóng) bị bỏ qua thay vì làm hỏng cả trang.
+ */
+export const useJobsByIds = (ids: string[]) =>
+  useQuery({
+    queryKey: JOB_KEYS.detailsByIds(ids),
+    queryFn: async () => {
+      const results = await Promise.allSettled(
+        ids.map((id) => jobsService.detail(id))
+      );
+      return results
+        .filter(
+          (result): result is PromiseFulfilledResult<Job> =>
+            result.status === "fulfilled"
+        )
+        .map((result) => result.value);
+    },
+    enabled: ids.length > 0,
+    staleTime: 60_000,
   });

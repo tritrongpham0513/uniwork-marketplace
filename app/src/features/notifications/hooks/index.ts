@@ -1,6 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "@/lib/toast";
 import { notificationService } from "../services/notifications.service";
+import { jobNotifyService } from "../services/job-notify.service";
 import { getLocalAccessToken } from "@/utils/authStorage";
 import { NOTIFICATION_KEYS } from "./keys";
 
@@ -62,6 +63,57 @@ export const useMarkAllRead = () => {
           ? `Đã đánh dấu ${count} thông báo là đã đọc.`
           : "Không có thông báo chưa đọc."
       );
+    },
+  });
+};
+
+/**
+ * Danh sách tuỳ chọn "Bật thông báo" tin tuyển dụng đang bật.
+ */
+export const useJobNotifyPreferences = () =>
+  useQuery({
+    queryKey: NOTIFICATION_KEYS.jobNotify,
+    queryFn: async () => {
+      const response = await jobNotifyService.list();
+      return response.data;
+    },
+    enabled: !!getLocalAccessToken(),
+    staleTime: 60_000,
+  });
+
+/**
+ * Bật/tắt thông báo tin tuyển dụng.
+ *
+ * `onError` rollback — cache được cập nhật lại về trạng thái trước đó để
+ * nút không hiển thị sai.
+ */
+export const useToggleJobNotify = () => {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async ({
+      categoryCode,
+      provinceCode,
+      enabled,
+    }: {
+      categoryCode: string;
+      provinceCode?: string | null;
+      enabled: boolean;
+    }) => {
+      if (enabled) {
+        const response = await jobNotifyService.subscribe({
+          categoryCode,
+          provinceCode: provinceCode ?? null,
+        });
+        return response.data;
+      }
+      await jobNotifyService.unsubscribe(categoryCode, provinceCode);
+      return null;
+    },
+    onSuccess: () => {
+      void queryClient.invalidateQueries({
+        queryKey: NOTIFICATION_KEYS.jobNotify,
+      });
     },
   });
 };

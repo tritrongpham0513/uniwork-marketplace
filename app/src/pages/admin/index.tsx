@@ -36,11 +36,14 @@ export default function AdminDashboardPage() {
       icon: Clock,
     },
     {
-      label: "Đơn ứng tuyển đang chờ",
-      value: stats?.pendingApplications ?? 0,
-      description: "Ứng viên đang chờ nhà tuyển dụng phản hồi",
-      to: PATHS.ADMIN.USERS,
-      icon: Users,
+      // Admin chưa có màn hình quản lý đơn ứng tuyển riêng — số liệu đơn
+      // ứng tuyển đang chờ nằm ở thẻ KPI "Tổng đơn ứng tuyển" phía trên.
+      // Thẻ nhanh này trỏ tới nhóm việc (màn hình có thật).
+      label: "Nhóm việc",
+      value: stats?.categories ?? 0,
+      description: "Danh mục nhóm việc đang hoạt động",
+      to: PATHS.ADMIN.CATEGORIES,
+      icon: FolderKanban,
     },
     {
       label: "Đánh giá bị ẩn",

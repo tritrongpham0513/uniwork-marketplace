@@ -284,7 +284,7 @@ async function main() {
       employer.accessToken,
       "PATCH",
       "/api/v1/employer/applications/" + applicationId,
-      { status: "VIEWED", note: "Hồ sơ đã được xem xét" }
+      { status: "SHORTLISTED", note: "Hồ sơ phù hợp, đã duyệt sơ bộ" }
     );
     if (statusRes.status === 200) {
       ok("Cập nhật trạng thái thành công");
@@ -313,18 +313,56 @@ async function main() {
   // ------------------------------------------------------------------
   // SỰ KIỆN 3: Sinh viên rút đơn -> NTD
   // ------------------------------------------------------------------
+  // Đơn ở sự kiện 1 đã chuyển sang SHORTLISTED nên không rút được nữa
+  // (chỉ rút được khi còn PENDING) -> tạo tin + đơn riêng cho kịch bản này.
   log("\n▶ Sự kiện 3: Sinh viên rút đơn -> NTD nhận thông báo");
-  if (applicationId) {
-    const withdrawRes = await api(
-      student.accessToken,
+  const withdrawJobCreate = await api(
+    employer.accessToken,
+    "POST",
+    "/api/v1/employer/jobs",
+    buildJobPayload("Tin kiểm chứng rút đơn " + stamp)
+  );
+  if (withdrawJobCreate.status === 201 || withdrawJobCreate.status === 200) {
+    const withdrawJobId = withdrawJobCreate.json?.data?.id;
+    await api(
+      admin.accessToken,
       "PATCH",
-      "/api/v1/student/applications/" + applicationId + "/withdraw"
+      "/api/v1/admin/jobs/" + withdrawJobId + "/review",
+      { action: "APPROVE" }
     );
-    if (withdrawRes.status === 200) {
-      ok("Rút đơn thành công");
+
+    const withdrawApply = await api(
+      student.accessToken,
+      "POST",
+      "/api/v1/student/applications",
+      { jobId: withdrawJobId, expectedSalary: 0, coverLetter: "Xin ứng tuyển." }
+    );
+    const withdrawApplicationId = withdrawApply.json?.data?.id;
+
+    if (withdrawApplicationId) {
+      const withdrawRes = await api(
+        student.accessToken,
+        "PATCH",
+        "/api/v1/student/applications/" + withdrawApplicationId + "/withdraw"
+      );
+      if (withdrawRes.status === 200) {
+        ok("Rút đơn thành công");
+      } else {
+        fail(
+          "Rút đơn thất bại: " + JSON.stringify(withdrawRes.json).slice(0, 300)
+        );
+      }
     } else {
-      fail("Rút đơn thất bại: " + JSON.stringify(withdrawRes.json).slice(0, 300));
+      fail(
+        "Ứng tuyển để rút đơn thất bại: " +
+          JSON.stringify(withdrawApply.json).slice(0, 300)
+      );
     }
+  } else {
+    fail(
+      "Tạo tin để rút đơn thất bại: " +
+        JSON.stringify(withdrawJobCreate.json).slice(0, 200)
+    );
   }
 
   const withdrawFrame = await waitForFrame(

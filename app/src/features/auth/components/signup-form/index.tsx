@@ -520,7 +520,10 @@ function SignupForm({ className, onSubmitSuccess }: SignupFormProps) {
               type="button"
               className="w-full h-10 rounded-2xl cursor-pointer font-medium"
               onClick={() => {
-                alert("Tính năng đăng ký qua Google OAuth ID Token đã sẵn sàng ở Backend.");
+                toast.info("Đăng ký bằng Google chưa được bật", {
+                  description:
+                    "Tính năng đăng ký qua Google OAuth ID Token đã sẵn sàng ở Backend.",
+                });
               }}
             >
               <svg className="size-4 mr-2" viewBox="0 0 24 24">

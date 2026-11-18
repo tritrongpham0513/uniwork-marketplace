@@ -49,10 +49,14 @@ interface HeaderNavItem {
 
 /**
  * Điều hướng cấp site — chỉ chứa các khu vực dùng chung.
- * Các mục con của không gian làm việc (đơn ứng tuyển, việc đã lưu, hồ sơ…)
- * đã nằm trong sidebar của DashboardLayout nên không lặp lại ở header.
+ *
+ * Danh sách này **không đổi** theo trạng thái đăng nhập: sau khi đăng nhập,
+ * các mục riêng của vai trò (bảng điều khiển, hồ sơ, đơn ứng tuyển…) đã
+ * nằm trong menu tài khoản và trong sidebar của không gian làm việc, nên
+ * lặp lại ở header chỉ gây rối.
  */
 const SITE_NAV: HeaderNavItem[] = [
+  { label: "Trang chủ", to: PATHS.HOME, end: true },
   { label: "Tìm việc làm", to: PATHS.JOBS.ROOT },
   { label: "Về chúng tôi", to: PATHS.ABOUT },
 ];
@@ -87,17 +91,6 @@ export function Header() {
   const isStudent = role === "STUDENT";
   const isEmployer = role === "EMPLOYER";
   const isAdmin = role === "ADMIN";
-
-  const navItems: HeaderNavItem[] = isAuthenticated
-    ? [
-        {
-          label: "Bảng điều khiển",
-          to: ROLE_HOME[role] ?? PATHS.HOME,
-          end: true,
-        },
-        ...SITE_NAV,
-      ]
-    : [{ label: "Trang chủ", to: PATHS.HOME, end: true }, ...SITE_NAV];
 
   /** Đường dẫn hồ sơ theo vai trò */
   const profilePath = isEmployer
@@ -139,7 +132,7 @@ export function Header() {
 
           {/* MENU ĐIỀU HƯỚNG CHÍNH */}
           <nav className="hidden items-center gap-6 text-sm font-medium md:flex">
-            {navItems.map((item) => (
+            {SITE_NAV.map((item) => (
               <NavLink
                 key={item.to}
                 to={item.to}
@@ -389,7 +382,7 @@ export function Header() {
       {isMobileOpen && (
         <div className="border-t border-border/60 bg-background md:hidden">
           <nav className="mx-auto flex max-w-7xl flex-col gap-1 px-4 py-3 sm:px-6">
-            {navItems.map((item) => (
+            {SITE_NAV.map((item) => (
               <NavLink
                 key={item.to}
                 to={item.to}

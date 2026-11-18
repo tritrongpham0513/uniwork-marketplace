@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import {
   Briefcase,
   Camera,
@@ -8,6 +8,7 @@ import {
   Plus,
   Save,
   Trash2,
+  Upload,
   User,
   X,
 } from "lucide-react";
@@ -42,6 +43,7 @@ import {
 } from "@/components/ui/select";
 import { DashboardLayout } from "@/components/layout/dashboard-layout";
 import { ErrorState } from "@/components/shared/empty-state";
+import { DatePicker } from "@/components/shared/date-picker";
 import {
   EMPLOYMENT_TYPE_LABELS,
   GENDER_LABELS,
@@ -55,6 +57,8 @@ import {
   useUpdateStudentProfile,
 } from "@/features/profile/hooks";
 import { useJobCategories, useProvinces, useSkills } from "@/features/jobs/hooks/useJobs";
+import { useDeleteFile, useUploadFile } from "@/features/files/hooks";
+import { formatDateVi, todayIso } from "@/lib/date";
 import { showApiError, toast } from "@/lib/toast";
 
 import { cn } from "cn";
@@ -95,6 +99,12 @@ export default function StudentProfilePage() {
   const [experience, setExperience] = useState<StudentExperience | null>(null);
   // Đồng bộ form khi hồ sơ tải về — pattern "adjust state khi dữ liệu đổi"
   const [syncedProfile, setSyncedProfile] = useState<StudentProfile | null>(null);
+  // Input file ẩn cho CV & ảnh đại diện
+  const cvInputRef = useRef<HTMLInputElement>(null);
+  const avatarInputRef = useRef<HTMLInputElement>(null);
+
+  const uploadFile = useUploadFile();
+  const deleteFile = useDeleteFile();
 
   if (profile && profile !== syncedProfile) {
     setSyncedProfile(profile);
@@ -138,6 +148,48 @@ export default function StudentProfilePage() {
 
   const patch = (partial: Partial<StudentProfile>) => {
     setForm((prev) => (prev ? { ...prev, ...partial } : prev));
+  };
+
+  /**
+   * Tải CV lên server rồi lưu URL vào hồ sơ.
+   *
+   * File được upload ngay khi chọn — URL trả về được ghi vào form, người dùng
+   * bấm "Lưu hồ sơ" để lưu xuống DB.
+   */
+  const handleCvUpload = async (file: File | undefined) => {
+    if (!file) return;
+    try {
+      const uploaded = await uploadFile.mutateAsync({ file, kind: "CV" });
+      patch({ cvUrl: uploaded.url });
+    } catch {
+      // Lỗi đã được hiển thị qua toast trong useUploadFile.
+    }
+  };
+
+  /** Tải ảnh đại diện lên server rồi lưu URL vào hồ sơ. */
+  const handleAvatarUpload = async (file: File | undefined) => {
+    if (!file) return;
+    try {
+      const uploaded = await uploadFile.mutateAsync({ file, kind: "AVATAR" });
+      patch({ avatarUrl: uploaded.url });
+    } catch {
+      // Lỗi đã được hiển thị qua toast trong useUploadFile.
+    }
+  };
+
+  /** Xoá CV khỏi hồ sơ (xoá mềm file trên server + gỡ URL). */
+  const handleCvRemove = async () => {
+    const cvUrl = form?.cvUrl;
+    patch({ cvUrl: null });
+
+    if (!cvUrl) return;
+    const fileId = cvUrl.split("/").pop();
+    if (!fileId) return;
+    try {
+      await deleteFile.mutateAsync({ id: fileId, kind: "CV" });
+    } catch {
+      // Đã gỡ khỏi hồ sơ rồi — không cần báo lỗi thêm.
+    }
   };
 
   const toggleSkill = (skillId: string) => {
@@ -250,13 +302,24 @@ export default function StudentProfilePage() {
               <button
                 type="button"
                 aria-label="Đổi ảnh đại diện"
-                className="absolute -right-1 -bottom-1 flex size-7 cursor-pointer items-center justify-center rounded-full bg-primary text-primary-foreground ring-2 ring-card transition-transform hover:scale-105"
-                onClick={() =>
-                  patch({ avatarUrl: "https://i.pravatar.cc/200?img=12" })
-                }
+                disabled={uploadFile.isPending}
+                className="absolute -right-1 -bottom-1 flex size-7 cursor-pointer items-center justify-center rounded-full bg-primary text-primary-foreground ring-2 ring-card transition-transform hover:scale-105 disabled:cursor-not-allowed disabled:opacity-60"
+                onClick={() => avatarInputRef.current?.click()}
               >
                 <Camera className="size-3.5" />
               </button>
+              <input
+                ref={avatarInputRef}
+                type="file"
+                accept="image/png,image/jpeg,image/webp"
+                className="hidden"
+                onChange={(event) => {
+                  const file = event.target.files?.[0];
+                  void handleAvatarUpload(file);
+                  // Cho phép chọn lại cùng một file ngay sau khi upload
+                  event.target.value = "";
+                }}
+              />
             </div>
 
             <div>
@@ -345,13 +408,12 @@ export default function StudentProfilePage() {
 
                     <Field>
                       <FieldLabel htmlFor="dateOfBirth">Ngày sinh</FieldLabel>
-                      <Input
+                      <DatePicker
                         id="dateOfBirth"
-                        type="date"
-                        value={form.dateOfBirth ?? ""}
-                        onChange={(event) =>
-                          patch({ dateOfBirth: event.target.value || null })
-                        }
+                        value={form.dateOfBirth}
+                        onChange={(value) => patch({ dateOfBirth: value })}
+                        max={todayIso()}
+                        placeholder="Chọn ngày sinh"
                       />
                     </Field>
 
@@ -379,6 +441,35 @@ export default function StudentProfilePage() {
                       </Select>
                     </Field>
                   </div>
+
+                  <Field>
+                    <FieldLabel htmlFor="provinceId">Tỉnh / Thành phố</FieldLabel>
+                    <Select
+                      value={form.provinceId ?? "__none__"}
+                      onValueChange={(value) =>
+                        patch({ provinceId: value === "__none__" ? null : value })
+                      }
+                      items={[
+                        { value: "__none__", label: "Chưa chọn tỉnh" },
+                        ...provinces.map((province) => ({
+                          value: province.id,
+                          label: province.name,
+                        })),
+                      ]}
+                    >
+                      <SelectTrigger id="provinceId" className="w-full">
+                        <SelectValue placeholder="Chọn tỉnh / thành phố" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="__none__">Chưa chọn tỉnh</SelectItem>
+                        {provinces.map((province) => (
+                          <SelectItem key={province.id} value={province.id}>
+                            {province.name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </Field>
 
                   <Field>
                     <FieldLabel htmlFor="address">Địa chỉ</FieldLabel>
@@ -672,6 +763,9 @@ export default function StudentProfilePage() {
 
                 <Field>
                   <FieldLabel>CV / Hồ sơ tải về</FieldLabel>
+                  <FieldDescription>
+                    Chấp nhận PDF, DOC, DOCX — tối đa 5MB.
+                  </FieldDescription>
                   {form.cvUrl ? (
                     <div className="flex items-center justify-between gap-3 rounded-lg border border-border bg-muted/40 px-3 py-2.5">
                       <div className="flex min-w-0 items-center gap-2">
@@ -680,29 +774,49 @@ export default function StudentProfilePage() {
                           {form.cvUrl.split("/").pop()}
                         </span>
                       </div>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => patch({ cvUrl: null })}
-                      >
-                        <Trash2 className="size-4" />
-                        Xoá
-                      </Button>
+                      <div className="flex shrink-0 items-center gap-1">
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          disabled={uploadFile.isPending}
+                          onClick={() => cvInputRef.current?.click()}
+                        >
+                          <Upload className="size-4" />
+                          Thay CV
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          disabled={deleteFile.isPending}
+                          onClick={() => void handleCvRemove()}
+                        >
+                          <Trash2 className="size-4" />
+                          Xoá
+                        </Button>
+                      </div>
                     </div>
                   ) : (
                     <Button
                       variant="outline"
                       size="sm"
-                      onClick={() =>
-                        patch({
-                          cvUrl: `https://viejob.vn/cv/${form.studentCode || "ho-so"}.pdf`,
-                        })
-                      }
+                      disabled={uploadFile.isPending}
+                      onClick={() => cvInputRef.current?.click()}
                     >
-                      <Plus className="size-4" />
-                      Tải CV lên
+                      <Upload className="size-4" />
+                      {uploadFile.isPending ? "Đang tải lên..." : "Tải CV lên"}
                     </Button>
                   )}
+                  <input
+                    ref={cvInputRef}
+                    type="file"
+                    accept=".pdf,.doc,.docx,application/pdf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+                    className="hidden"
+                    onChange={(event) => {
+                      const file = event.target.files?.[0];
+                      void handleCvUpload(file);
+                      event.target.value = "";
+                    }}
+                  />
                 </Field>
               </FieldGroup>
             </CardContent>
@@ -814,8 +928,8 @@ export default function StudentProfilePage() {
                           {item.position}
                         </p>
                         <p className="text-xs text-muted-foreground">
-                          {item.company} · {item.startDate} —{" "}
-                          {item.endDate ?? "Hiện tại"}
+                          {item.company} · {formatDateVi(item.startDate)} —{" "}
+                          {item.endDate ? formatDateVi(item.endDate) : "Hiện tại"}
                         </p>
                         {item.description && (
                           <p className="mt-1.5 text-xs text-muted-foreground">
@@ -880,31 +994,34 @@ export default function StudentProfilePage() {
 
                     <Field>
                       <FieldLabel htmlFor="exp-start">Bắt đầu</FieldLabel>
-                      <Input
+                      <DatePicker
                         id="exp-start"
-                        type="date"
                         value={experience.startDate}
-                        onChange={(event) =>
+                        onChange={(value) =>
                           setExperience({
                             ...experience,
-                            startDate: event.target.value,
+                            startDate: value ?? "",
                           })
                         }
+                        max={todayIso()}
+                        placeholder="Chọn ngày bắt đầu"
                       />
                     </Field>
 
                     <Field>
                       <FieldLabel htmlFor="exp-end">Kết thúc</FieldLabel>
-                      <Input
+                      <DatePicker
                         id="exp-end"
-                        type="date"
-                        value={experience.endDate ?? ""}
-                        onChange={(event) =>
+                        value={experience.endDate}
+                        onChange={(value) =>
                           setExperience({
                             ...experience,
-                            endDate: event.target.value || null,
+                            endDate: value,
                           })
                         }
+                        min={experience.startDate || null}
+                        max={todayIso()}
+                        placeholder="Chọn ngày kết thúc"
                       />
                     </Field>
                   </div>

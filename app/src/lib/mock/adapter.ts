@@ -29,6 +29,9 @@ const readHeader = (
  * nên `config.data` tới đây đã là **chuỗi JSON**, không phải object.
  * Ta phải tự parse lại để router nhận đúng object (giống backend Spring Boot
  * sau khi deserialize body).
+ *
+ * Trường hợp `FormData` (upload file) được giữ nguyên — router đọc trực tiếp
+ * qua `formData.get(...)`.
  */
 const parseBody = (data: unknown): unknown => {
   if (typeof data !== "string") return data;
@@ -41,6 +44,37 @@ const parseBody = (data: unknown): unknown => {
     return data;
   }
 };
+
+/**
+ * Chuẩn hoá `FormData` thành object phẳng mà router dùng được.
+ *
+ * <p>File được đọc metadata (tên, mime, dung lượng) — mock không lưu nội dung.
+ */
+const parseFormData = (data: unknown): Record<string, unknown> => {
+  if (!isFormData(data)) return {};
+
+  const result: Record<string, unknown> = {};
+  const file = data.get("file");
+  if (file && typeof file === "object" && "size" in file) {
+    const blob = file as Blob & { name?: string };
+    result.file = {
+      name: blob.name ?? "file",
+      type: blob.type ?? "application/octet-stream",
+      size: blob.size ?? 0,
+    };
+  }
+
+  const kind = data.get("kind");
+  if (typeof kind === "string") {
+    result.kind = kind;
+  }
+
+  return result;
+};
+
+/** Kiểm tra `FormData` mà không phụ thuộc global có sẵn hay không. */
+const isFormData = (value: unknown): value is FormData =>
+  typeof FormData !== "undefined" && value instanceof FormData;
 
 /**
  * Đọc query params — axios vẫn giữ dạng object tới adapter,
@@ -83,7 +117,9 @@ export const mockAdapter: AxiosAdapter = async (
     const result = handleMockRequest({
       method,
       url,
-      data: parseBody(config.data),
+      data: isFormData(config.data)
+        ? parseFormData(config.data)
+        : parseBody(config.data),
       params: parseParams(config.params),
       headers: authorization ? { authorization } : undefined,
     });

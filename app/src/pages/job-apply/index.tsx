@@ -24,10 +24,14 @@ import { useJob } from "@/features/jobs/hooks/useJobs";
 import { useAuth } from "@/features/auth/hooks";
 import { useStudentProfile } from "@/features/profile/hooks";
 import { useCreateApplication } from "@/features/applications/hooks";
+import { useUploadFile } from "@/features/files/hooks";
 import { EMPLOYMENT_TYPE_LABELS } from "@/features/jobs/types";
 import { formatSalary } from "@/features/jobs/lib/format";
+import { DatePicker } from "@/components/shared/date-picker";
+import { todayIso } from "@/lib/date";
 import { PATHS } from "@/config/paths";
 import { toast } from "@/lib/toast";
+import { cn } from "cn";
 
 export function ApplyJobPage() {
   const { id = "" } = useParams();
@@ -46,9 +50,12 @@ export function ApplyJobPage() {
   const [expectedSalary, setExpectedSalary] = useState("");
   const [availableFrom, setAvailableFrom] = useState("");
   const [agreed, setAgreed] = useState(false);
-  const [cvFileName, setCvFileName] = useState<string | null>(
-    profile?.cvUrl ? "CV_cua_ban.pdf" : null
+  // CV đã chọn: file được upload ngay, giữ URL + tên file để gửi kèm đơn.
+  const [cvFile, setCvFile] = useState<{ url: string; fileName: string } | null>(
+    null
   );
+
+  const uploadFile = useUploadFile();
 
   /** Dữ liệu hồ sơ dùng làm giá trị mặc định (prefill) */
   const effectiveName = fullName || profile?.fullName || user?.fullName || "";
@@ -58,7 +65,7 @@ export function ApplyJobPage() {
   /** Ứng tuyển nhanh — điền toàn bộ thông tin từ hồ sơ UniJob (Viecoday) */
   const fillFromProfile = () => {
     if (!profile) {
-      toast.warning("Chưa có hồ sơ UniJob", {
+      toast.warning("Chưa có hồ sơ của bạn", {
         description: "Hãy tạo hồ sơ tìm việc trước khi ứng tuyển nhanh.",
       });
       return;
@@ -67,8 +74,13 @@ export function ApplyJobPage() {
     setPhone(profile.phone ?? "");
     setEmail(user?.email ?? "");
     setExperience(profile.bio ?? "");
-    if (profile.cvUrl) setCvFileName("CV_cua_ban.pdf");
-    toast.success("Đã điền thông tin từ hồ sơ UniJob", {
+    if (profile.cvUrl) {
+      setCvFile({
+        url: profile.cvUrl,
+        fileName: profile.cvUrl.split("/").pop() ?? "CV_cua_ban.pdf",
+      });
+    }
+    toast.success("Đã điền thông tin từ hồ sơ của bạn", {
       description: "Bạn vẫn có thể chỉnh sửa trước khi gửi đơn.",
     });
   };
@@ -134,6 +146,12 @@ export function ApplyJobPage() {
       return;
     }
 
+    // CV đang được tải lên — chặn gửi đơn cho tới khi xong
+    if (uploadFile.isPending) {
+      toast.warning("CV đang được tải lên, vui lòng đợi");
+      return;
+    }
+
     createApplication.mutate(
       {
         jobId: job.id,
@@ -141,8 +159,9 @@ export function ApplyJobPage() {
         experience: experience.trim(),
         availableFrom: availableFrom || null,
         expectedSalary: expectedSalary ? Number(expectedSalary) : null,
-        cvUrl: profile?.cvUrl ?? null,
-        cvFileName,
+        // Ưu tiên CV vừa upload; nếu không thì dùng CV trong hồ sơ
+        cvUrl: cvFile?.url ?? profile?.cvUrl ?? null,
+        cvFileName: cvFile?.fileName ?? null,
       },
       {
         onSuccess: () => {
@@ -227,7 +246,7 @@ export function ApplyJobPage() {
                 onClick={fillFromProfile}
               >
                 <Sparkles className="size-4" />
-                Ứng tuyển nhanh với hồ sơ UniJob
+                Ứng tuyển nhanh với hồ sơ của bạn
               </Button>
 
               {!profile?.cvUrl && (
@@ -300,26 +319,48 @@ export function ApplyJobPage() {
               <div className="flex flex-wrap items-center gap-3">
                 <label
                   htmlFor="cv-upload"
-                  className="inline-flex h-9 cursor-pointer items-center gap-2 rounded-lg border border-border bg-background px-3 text-sm font-medium shadow-xs transition-colors hover:bg-muted"
+                  className={cn(
+                    "inline-flex h-9 items-center gap-2 rounded-lg border border-border bg-background px-3 text-sm font-medium shadow-xs transition-colors",
+                    uploadFile.isPending
+                      ? "cursor-not-allowed opacity-60"
+                      : "cursor-pointer hover:bg-muted"
+                  )}
                 >
                   <Upload className="size-4" />
-                  {cvFileName ? "Chọn CV khác" : "Tải CV lên"}
+                  {uploadFile.isPending
+                    ? "Đang tải lên..."
+                    : cvFile
+                      ? "Chọn CV khác"
+                      : "Tải CV lên"}
                   <input
                     id="cv-upload"
                     type="file"
                     accept=".pdf,.doc,.docx"
                     className="sr-only"
+                    disabled={uploadFile.isPending}
                     onChange={(event) => {
                       const file = event.target.files?.[0];
-                      if (file) setCvFileName(file.name);
+                      event.target.value = "";
+                      if (!file) return;
+                      void uploadFile
+                        .mutateAsync({ file, kind: "CV" })
+                        .then((uploaded) => {
+                          setCvFile({
+                            url: uploaded.url,
+                            fileName: uploaded.fileName,
+                          });
+                        })
+                        .catch(() => {
+                          // Lỗi đã được hiển thị qua toast trong useUploadFile.
+                        });
                     }}
                   />
                 </label>
 
-                {cvFileName && (
+                {cvFile && (
                   <span className="inline-flex items-center gap-1.5 rounded-md bg-primary/10 px-2 py-1 text-xs font-medium text-primary">
                     <FileText className="size-3.5" />
-                    {cvFileName}
+                    {cvFile.fileName}
                   </span>
                 )}
               </div>
@@ -412,11 +453,12 @@ export function ApplyJobPage() {
                   >
                     Ngày có thể bắt đầu
                   </FieldLabel>
-                  <Input
+                  <DatePicker
                     id="available-from"
-                    type="date"
                     value={availableFrom}
-                    onChange={(event) => setAvailableFrom(event.target.value)}
+                    onChange={(value) => setAvailableFrom(value ?? "")}
+                    min={todayIso()}
+                    placeholder="Chọn ngày"
                   />
                 </Field>
               </div>

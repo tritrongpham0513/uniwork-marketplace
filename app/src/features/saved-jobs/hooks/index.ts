@@ -24,8 +24,10 @@ export const useSavedJobIds = () =>
   useQuery({
     queryKey: SAVED_JOB_KEYS.ids(),
     queryFn: async () => {
-      const response = await savedJobService.list();
-      return response.data.map((saved) => saved.jobId);
+      // Endpoint `ids` trả về danh sách id — nhẹ hơn nhiều so với tải
+      // toàn bộ object SavedJob rồi map.
+      const response = await savedJobService.ids();
+      return response.data;
     },
     // Chỉ sinh viên đã đăng nhập mới lưu/đánh dấu tin được
     enabled: !!getLocalAccessToken(),

@@ -85,8 +85,7 @@ export default function StudentApplicationDetailPage() {
     );
   }
 
-  const canWithdraw =
-    application.status === "PENDING" || application.status === "VIEWED";
+  const canWithdraw = application.status === "PENDING";
   const canReview = application.status === "COMPLETED";
 
   return (

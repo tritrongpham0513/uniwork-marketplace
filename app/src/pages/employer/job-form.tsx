@@ -46,6 +46,7 @@ import {
 } from "@/components/ui/select";
 import { DashboardLayout } from "@/components/layout/dashboard-layout";
 import { ErrorState } from "@/components/shared/empty-state";
+import { DatePicker } from "@/components/shared/date-picker";
 import {
   useCreateJob,
   useEmployerJob,
@@ -56,6 +57,7 @@ import {
   useJobCategories,
   useJobPositions,
   useProvinces,
+  useSkills,
 } from "@/features/jobs/hooks/useJobs";
 import {
   DAY_OF_WEEK_LABELS,
@@ -70,6 +72,7 @@ import {
   type WorkMode,
 } from "@/features/shared/types";
 import { PATHS } from "@/config/paths";
+import { todayIso } from "@/lib/date";
 import { showApiError, toast } from "@/lib/toast";
 
 /** 4 bước của form đăng tin */
@@ -102,6 +105,8 @@ interface FormState {
   branchName: string;
   deadline: string;
   schedules: JobSchedule[];
+  /** Danh sách kỹ năng đã chọn (public id) */
+  skillIds: string[];
 }
 
 const EMPTY_FORM: FormState = {
@@ -124,6 +129,7 @@ const EMPTY_FORM: FormState = {
   branchName: "",
   deadline: "",
   schedules: [],
+  skillIds: [],
 };
 
 const EMPLOYMENT_VALUES = Object.keys(
@@ -159,6 +165,7 @@ export default function EmployerJobFormPage() {
   const { data: positions = [] } = useJobPositions();
   const { data: provinces = [] } = useProvinces();
   const { data: districts = [] } = useDistricts(form.provinceId || undefined);
+  const { data: skills = [] } = useSkills();
 
   const { data: existingJob, isPending: loadingJob, isError } = useEmployerJob(
     id ?? ""
@@ -191,6 +198,7 @@ export default function EmployerJobFormPage() {
       branchName: existingJob.location.branchName ?? "",
       deadline: existingJob.deadline?.slice(0, 10) ?? "",
       schedules: [...existingJob.schedules],
+      skillIds: existingJob.skills.map((skill) => skill.id),
     });
   }
 
@@ -206,6 +214,24 @@ export default function EmployerJobFormPage() {
   const selectedPosition = positions.find((p) => p.id === form.positionId);
   const selectedProvince = provinces.find((p) => p.id === form.provinceId);
   const selectedDistrict = districts.find((d) => d.id === form.districtId);
+
+  /** Kỹ năng đã chọn — gửi lên API dưới dạng nested object { id, name }. */
+  const selectedSkills = useMemo(
+    () =>
+      skills
+        .filter((skill) => form.skillIds.includes(skill.id))
+        .map((skill) => ({ id: skill.id, name: skill.name })),
+    [skills, form.skillIds]
+  );
+
+  /** Bật/tắt một kỹ năng trong danh sách đã chọn. */
+  const toggleSkill = (skillId: string) => {
+    patch({
+      skillIds: form.skillIds.includes(skillId)
+        ? form.skillIds.filter((id) => id !== skillId)
+        : [...form.skillIds, skillId],
+    });
+  };
 
   /** Kiểm tra nội dung thiếu (dùng ở bước xem trước) */
   const missing = useMemo(() => {
@@ -265,7 +291,7 @@ export default function EmployerJobFormPage() {
       positionsCount: Number(form.positionsCount) || 1,
       positionsFilled: Number(form.positionsFilled) || 0,
       schedules: form.schedules,
-      skills: [],
+      skills: selectedSkills,
       deadline: form.deadline ? new Date(form.deadline).toISOString() : null,
     };
 
@@ -605,6 +631,57 @@ export default function EmployerJobFormPage() {
                           ))}
                         </div>
                       )}
+                    </Field>
+
+                    {/* KỸ NĂNG */}
+                    <Field>
+                      <FieldLegend variant="label">Kỹ năng</FieldLegend>
+                      <FieldDescription>
+                        Chọn các kỹ năng cần cho vị trí này — giúp ứng viên
+                        phù hợp nhận được tin tuyển dụng.
+                      </FieldDescription>
+
+                      {form.skillIds.length > 0 && (
+                        <div className="flex flex-wrap gap-2">
+                          {selectedSkills.map((skill) => (
+                            <Badge key={skill.id} className="gap-1.5">
+                              {skill.name}
+                              <button
+                                type="button"
+                                aria-label={`Xoá ${skill.name}`}
+                                className="cursor-pointer opacity-70 hover:opacity-100"
+                                onClick={() => toggleSkill(skill.id)}
+                              >
+                                <Trash2 className="size-3" />
+                              </button>
+                            </Badge>
+                          ))}
+                        </div>
+                      )}
+
+                      <div className="flex flex-wrap gap-1.5">
+                        {skills
+                          .filter((skill) => !form.skillIds.includes(skill.id))
+                          .map((skill) => (
+                            <Badge
+                              key={skill.id}
+                              variant="outline"
+                              role="button"
+                              tabIndex={0}
+                              className="cursor-pointer hover:bg-muted"
+                              onClick={() => toggleSkill(skill.id)}
+                              onKeyDown={(event) => {
+                                if (event.key === "Enter" || event.key === " ") {
+                                  event.preventDefault();
+                                  toggleSkill(skill.id);
+                                }
+                              }}
+                            >
+                              <Plus className="size-3" />
+                              {skill.name}
+                            </Badge>
+                          ))}
+                      </div>
                     </Field>
                   </FieldGroup>
                 </FieldSet>
@@ -1049,13 +1126,14 @@ export default function EmployerJobFormPage() {
                       <FieldLabel htmlFor="deadline">
                         Hạn nộp ứng tuyển
                       </FieldLabel>
-                      <Input
+                      <DatePicker
                         id="deadline"
-                        type="date"
                         value={form.deadline}
-                        onChange={(event) =>
-                          patch({ deadline: event.target.value })
+                        onChange={(value) =>
+                          patch({ deadline: value ?? "" })
                         }
+                        min={todayIso()}
+                        placeholder="Chọn hạn nộp"
                       />
                     </Field>
                   </FieldGroup>
@@ -1186,6 +1264,21 @@ export default function EmployerJobFormPage() {
                         {form.benefits.map((item, index) => (
                           <Badge key={`${item}-${index}`} variant="secondary">
                             {item}
+                          </Badge>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {selectedSkills.length > 0 && (
+                    <div>
+                      <h3 className="font-heading text-sm font-semibold text-foreground">
+                        Kỹ năng
+                      </h3>
+                      <div className="mt-2 flex flex-wrap gap-1.5">
+                        {selectedSkills.map((skill) => (
+                          <Badge key={skill.id} variant="secondary">
+                            {skill.name}
                           </Badge>
                         ))}
                       </div>

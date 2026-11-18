@@ -33,7 +33,6 @@ const STATUS_FILTERS: Array<{
 }> = [
   { value: "ALL", label: "Tất cả" },
   { value: "PENDING", label: "Đang chờ" },
-  { value: "VIEWED", label: "Đã xem" },
   { value: "SHORTLISTED", label: "Được duyệt sơ bộ" },
   { value: "ACCEPTED", label: "Đã nhận" },
   { value: "COMPLETED", label: "Hoàn thành" },
@@ -207,9 +206,7 @@ export default function StudentApplicationsPage() {
         {!isPending && !isError && visible.length > 0 && (
           <ul className="space-y-3">
             {visible.map((application) => {
-              const canWithdraw =
-                application.status === "PENDING" ||
-                application.status === "VIEWED";
+              const canWithdraw = application.status === "PENDING";
 
               return (
                 <li key={application.id}>

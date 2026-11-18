@@ -121,3 +121,19 @@ export const useUpdateApplicationStatus = () => {
     },
   });
 };
+
+/** Lưu ghi chú nội bộ về ứng viên (phía nhà tuyển dụng) */
+export const useUpdateApplicationNote = () => {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async ({ id, note }: { id: string; note: string }) => {
+      const response = await applicationService.updateNote(id, note);
+      return response.data;
+    },
+    onSuccess: (data: Application) => {
+      queryClient.setQueryData(APPLICATION_KEYS.employerDetail(data.id), data);
+      void queryClient.invalidateQueries({ queryKey: APPLICATION_KEYS.all });
+    },
+  });
+};

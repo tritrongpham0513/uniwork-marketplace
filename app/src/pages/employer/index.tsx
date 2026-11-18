@@ -42,8 +42,7 @@ export default function EmployerDashboardPage() {
       (job) => job.status === "OPEN" || job.status === "IN_PROGRESS"
     ).length;
     const pendingApplicants = applications.filter(
-      (application) =>
-        application.status === "PENDING" || application.status === "VIEWED"
+      (application) => application.status === "PENDING"
     ).length;
     const hired = applications.filter(
       (application) =>

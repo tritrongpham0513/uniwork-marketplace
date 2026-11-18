@@ -11,6 +11,13 @@ export const savedJobService = {
   },
 
   /**
+   * GET /api/v1/student/saved-jobs/ids
+   */
+  ids(): Promise<ApiResponse<string[]>> {
+    return http.get<ApiResponse<string[]>>("/api/v1/student/saved-jobs/ids");
+  },
+
+  /**
    * POST /api/v1/student/saved-jobs — lưu tin
    */
   save(jobId: string): Promise<ApiResponse<SavedJob>> {
