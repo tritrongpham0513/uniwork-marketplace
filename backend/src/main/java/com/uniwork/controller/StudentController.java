@@ -2,16 +2,19 @@ package com.uniwork.controller;
 
 import com.uniwork.constant.ApiEndpoints;
 import com.uniwork.dto.request.CreateApplicationRequest;
+import com.uniwork.dto.request.JobNotifyPreferenceRequest;
 import com.uniwork.dto.request.SaveJobRequest;
 import com.uniwork.dto.request.UpdateStudentProfileRequest;
 import com.uniwork.dto.response.ApiResponse;
 import com.uniwork.dto.response.ApplicationResponse;
 import com.uniwork.dto.response.CountResponse;
+import com.uniwork.dto.response.JobNotifyPreferenceResponse;
 import com.uniwork.dto.response.SavedJobResponse;
 import com.uniwork.dto.response.StudentProfileResponse;
 import com.uniwork.entity.User;
 import com.uniwork.security.CurrentUser;
 import com.uniwork.service.ApplicationService;
+import com.uniwork.service.JobNotifyService;
 import com.uniwork.service.ProfileService;
 import com.uniwork.service.SavedJobService;
 import io.swagger.v3.oas.annotations.Operation;
@@ -59,6 +62,7 @@ public class StudentController {
     private final ApplicationService applicationService;
     private final ProfileService profileService;
     private final SavedJobService savedJobService;
+    private final JobNotifyService jobNotifyService;
 
     // ------------------------------------------------------------------
     // ĐƠN ỨNG TUYỂN
@@ -170,5 +174,42 @@ public class StudentController {
 
         savedJobService.remove(jobId, user.getId());
         return ResponseEntity.ok(ApiResponse.success("Đã bỏ lưu tin.", null));
+    }
+
+    // ------------------------------------------------------------------
+    // TUỲ CHỌN THÔNG BÁO TIN TUYỂN DỤNG
+    // ------------------------------------------------------------------
+
+    @GetMapping("/job-notifications")
+    @Operation(summary = "Danh sách tuỳ chọn thông báo tin tuyển dụng đang bật")
+    public ResponseEntity<ApiResponse<List<JobNotifyPreferenceResponse>>> listJobNotifications(
+            @CurrentUser User user) {
+
+        return ResponseEntity.ok(ApiResponse.success(
+                "Lấy danh sách tuỳ chọn thông báo thành công",
+                jobNotifyService.list(user.getId())));
+    }
+
+    @PostMapping("/job-notifications")
+    @Operation(summary = "Bật thông báo tin tuyển dụng")
+    public ResponseEntity<ApiResponse<JobNotifyPreferenceResponse>> subscribeJobNotification(
+            @RequestBody JobNotifyPreferenceRequest request,
+            @CurrentUser User user) {
+
+        return ResponseEntity.status(HttpStatus.CREATED)
+                .body(ApiResponse.success(
+                        "Đã bật thông báo tin tuyển dụng.",
+                        jobNotifyService.subscribe(user.getId(), request)));
+    }
+
+    @DeleteMapping("/job-notifications")
+    @Operation(summary = "Tắt thông báo tin tuyển dụng")
+    public ResponseEntity<ApiResponse<Void>> unsubscribeJobNotification(
+            @RequestParam("categoryCode") String categoryCode,
+            @RequestParam(value = "provinceCode", required = false) String provinceCode,
+            @CurrentUser User user) {
+
+        jobNotifyService.unsubscribe(user.getId(), categoryCode, provinceCode);
+        return ResponseEntity.ok(ApiResponse.success("Đã tắt thông báo tin tuyển dụng.", null));
     }
 }

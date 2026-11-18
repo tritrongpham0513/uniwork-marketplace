@@ -95,7 +95,7 @@ public class ProfileServiceImpl implements ProfileService {
             profile.setYearOfStudy(request.getYearOfStudy().shortValue());
         }
         if (request.getProvinceId() != null) {
-            profile.setProvinceId(null);
+            profile.setProvinceId(resolveProvinceId(request.getProvinceId()));
         }
         if (request.getAddress() != null) {
             profile.setAddress(request.getAddress());

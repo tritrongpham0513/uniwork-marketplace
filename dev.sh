@@ -18,8 +18,12 @@ cd "$(dirname "$0")"
 
 COMPOSE_FILE="docker-compose.dev.yml"
 
+# Lệnh con (vd. "down") luôn được `shift` khỏi vị trí $1 trước khi
+# truyền "$@" cho docker compose — nếu không, docker hiểu nhầm tên lệnh
+# là tên service ("no such service: down").
 case "${1:-up}" in
   up)
+    shift || true
     docker compose -f "$COMPOSE_FILE" up --build "$@"
     ;;
   up-d)
@@ -27,16 +31,27 @@ case "${1:-up}" in
     docker compose -f "$COMPOSE_FILE" up -d --build "$@"
     ;;
   down)
+    shift
     docker compose -f "$COMPOSE_FILE" down "$@"
     ;;
+  reset)
+    # Xoá volume MySQL dev → Flyway migrate lại từ V1 (dùng khi đã SỬA
+    # file migration V3/V4/V5 đã từng được apply → "Migration checksum mismatch").
+    # Bản production (docker-compose.yml) không bị ảnh hưởng.
+    shift
+    docker compose -f "$COMPOSE_FILE" down -v "$@"
+    docker compose -f "$COMPOSE_FILE" up -d --build "$@"
+    ;;
   logs)
+    shift
     docker compose -f "$COMPOSE_FILE" logs -f "$@"
     ;;
   ps)
+    shift
     docker compose -f "$COMPOSE_FILE" ps "$@"
     ;;
   *)
-    echo "Dùng: $0 [up|up-d|down|logs|ps]" >&2
+    echo "Dùng: $0 [up|up-d|down|reset|logs|ps]" >&2
     exit 1
     ;;
 esac

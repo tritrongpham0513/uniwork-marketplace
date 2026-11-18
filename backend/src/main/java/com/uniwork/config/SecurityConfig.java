@@ -78,6 +78,12 @@ public class SecurityConfig {
                 .requestMatchers(HttpMethod.GET, "/api/jobs/public/**", "/api/public/**").permitAll()
                 .requestMatchers(HttpMethod.HEAD, "/api/jobs/public/**", "/api/public/**").permitAll()
 
+                // 4b. Tải file: cho phép khách (không cần token) vì ảnh đại diện &
+                //     logo hiển thị công khai. Quyền xem CV được kiểm tra trong
+                //     FileUploadController / FileStorageService theo vai trò.
+                .requestMatchers(HttpMethod.GET, ApiEndpoints.V1_FILES + "/**").permitAll()
+                .requestMatchers(HttpMethod.HEAD, ApiEndpoints.V1_FILES + "/**").permitAll()
+
                 // 5. Tài liệu Swagger / OpenAPI UI & Static Test Pages
                 .requestMatchers(
                     "/swagger-ui.html",

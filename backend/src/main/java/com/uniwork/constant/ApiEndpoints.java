@@ -29,5 +29,8 @@ public final class ApiEndpoints {
 
     // 6. Phân hệ Dữ liệu danh mục dùng chung
     public static final String V1_PUBLIC_MASTER = API_V1 + "/public";
+
+    // 7. Phân hệ File (upload CV / ảnh / logo)
+    public static final String V1_FILES = API_V1 + "/files";
 }
 

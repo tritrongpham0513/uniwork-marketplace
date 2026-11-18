@@ -135,6 +135,11 @@ expect_contains() {
   if printf '%s' "$haystack" | grep -q "$needle"; then ok "$label"; else fail "$label — không tìm thấy '$needle'"; fi
 }
 
+expect_not_contains() {
+  local haystack="$1" needle="$2" label="$3"
+  if printf '%s' "$haystack" | grep -q "$needle"; then fail "$label — vẫn còn '$needle'"; else ok "$label"; fi
+}
+
 # =====================================================================
 step "0. Kiểm tra kết nối"
 BODY=$(call GET "/public/categories")
@@ -457,6 +462,100 @@ expect_status 403 "$(status)" "sinh viên không được gọi API admin"
 
 BODY=$(call GET "/student/profile" "$EMPLOYER_TOKEN")
 expect_status 403 "$(status)" "NTD không được gọi API sinh viên"
+
+# =====================================================================
+step "14. Upload file (CV / ảnh / logo)"
+# Tạo file PDF giả (nội dung tối thiểu) để upload.
+# Lưu ý: dùng ĐƯỜNG DẪN TƯƠNG ĐỐI trong thư mục hiện tại — curl native trên
+# Windows (Git Bash) không mở được đường dẫn POSIX kiểu /tmp/... khi truyền
+# qua multipart (-F "file=@/tmp/xxx"), sẽ báo lỗi (26) Failed to open/read.
+TMP_WORK="./.smoke-tmp"
+rm -rf "$TMP_WORK"
+mkdir -p "$TMP_WORK"
+TMP_PDF="$TMP_WORK/cv.pdf"
+TMP_TXT="$TMP_WORK/cv.txt"
+printf '%%PDF-1.4\n1 0 obj<</Type/Catalog>>endobj\ntrailer<</Root 1 0 R>>\n%%%%EOF\n' > "$TMP_PDF"
+
+UPLOAD_STATUS=$(curl -s -o /tmp/body.json -w '%{http_code}' \
+  -X POST "$BASE_URL/files/upload?kind=CV" \
+  -H "Authorization: Bearer $STUDENT_TOKEN" \
+  -F "file=@$TMP_PDF;type=application/pdf")
+expect_status 201 "$UPLOAD_STATUS" "POST /files/upload (CV)"
+FILE_ID=$(jget "$(cat /tmp/body.json)" "data.id")
+FILE_URL=$(jget "$(cat /tmp/body.json)" "data.url")
+[ -n "$FILE_ID" ] && ok "upload trả về id file" || fail "upload không trả id file"
+[ -n "$FILE_URL" ] && ok "upload trả về url file" || fail "upload không trả url file"
+
+# Đọc lại file (chủ sợ hữu)
+GET_STATUS=$(curl -s -o /dev/null -w '%{http_code}' \
+  -H "Authorization: Bearer $STUDENT_TOKEN" "$BASE_URL/files/$FILE_ID")
+expect_status 200 "$GET_STATUS" "GET /files/{id} (chủ sở hữu)"
+
+# Xoá file
+DEL_STATUS=$(curl -s -o /dev/null -w '%{http_code}' -X DELETE \
+  -H "Authorization: Bearer $STUDENT_TOKEN" "$BASE_URL/files/$FILE_ID")
+expect_status 200 "$DEL_STATUS" "DELETE /files/{id}"
+
+# Upload sai định dạng (txt cho CV) -> 400
+printf 'hello' > "$TMP_TXT"
+BAD_STATUS=$(curl -s -o /dev/null -w '%{http_code}' \
+  -X POST "$BASE_URL/files/upload?kind=CV" \
+  -H "Authorization: Bearer $STUDENT_TOKEN" \
+  -F "file=@$TMP_TXT;type=text/plain")
+expect_status 400 "$BAD_STATUS" "upload sai định dạng bị từ chối (400)"
+
+# Upload không token -> 401
+NOAUTH_STATUS=$(curl -s -o /dev/null -w '%{http_code}' \
+  -X POST "$BASE_URL/files/upload?kind=CV" \
+  -F "file=@$TMP_PDF;type=application/pdf")
+expect_status 401 "$NOAUTH_STATUS" "upload không token trả 401"
+
+rm -rf "$TMP_WORK"
+
+# =====================================================================
+step "15. Ghi chú nội bộ của NTD"
+# Lấy đơn ứng tuyển đầu tiên của NTD
+APP_LIST=$(call GET "/employer/applications" "$EMPLOYER_TOKEN")
+APP_ID=$(jget "$APP_LIST" "data.0.id")
+if [ -n "$APP_ID" ]; then
+  BODY=$(call PATCH "/employer/applications/$APP_ID/note" "$EMPLOYER_TOKEN" '{"note":"Ghi chú smoke test — ưu tiên ca sáng."}')
+  expect_status 200 "$(status)" "PATCH /employer/applications/{id}/note"
+  expect_contains "$BODY" 'ưu tiên ca sáng' "ghi chú được lưu vào response"
+
+  BODY=$(call GET "/employer/applications/$APP_ID" "$EMPLOYER_TOKEN")
+  expect_status 200 "$(status)" "GET /employer/applications/{id}"
+  expect_contains "$BODY" 'ưu tiên ca sáng' "ghi chú được đọc lại"
+
+  # Sinh viên không được ghi chú nội bộ của NTD
+  BODY=$(call PATCH "/employer/applications/$APP_ID/note" "$STUDENT_TOKEN" '{"note":"hack"}')
+  expect_status 403 "$(status)" "sinh viên không được ghi chú nội bộ"
+else
+  fail "không có đơn ứng tuyển nào để test ghi chú nội bộ"
+fi
+
+# =====================================================================
+step "16. Bật thông báo tin tuyển dụng"
+BODY=$(call GET "/student/job-notifications" "$STUDENT_TOKEN")
+expect_status 200 "$(status)" "GET /student/job-notifications"
+
+BODY=$(call POST "/student/job-notifications" "$STUDENT_TOKEN" '{"categoryCode":"cat-fnb","provinceCode":"hcm"}')
+expect_status 201 "$(status)" "POST /student/job-notifications (bật thông báo)"
+expect_contains "$BODY" 'cat-fnb' "response chứa categoryCode"
+
+BODY=$(call GET "/student/job-notifications" "$STUDENT_TOKEN")
+expect_contains "$BODY" 'cat-fnb' "tuỳ chọn thông báo đã lưu"
+
+BODY=$(call DELETE "/student/job-notifications?categoryCode=cat-fnb&provinceCode=hcm" "$STUDENT_TOKEN")
+expect_status 200 "$(status)" "DELETE /student/job-notifications (tắt thông báo)"
+
+BODY=$(call GET "/student/job-notifications" "$STUDENT_TOKEN")
+expect_not_contains "$BODY" '"cat-fnb"' "tuỳ chọn thông báo đã được gỡ"
+
+# =====================================================================
+step "17. Danh sách id tin đã lưu"
+BODY=$(call GET "/student/saved-jobs/ids" "$STUDENT_TOKEN")
+expect_status 200 "$(status)" "GET /student/saved-jobs/ids"
+expect_contains "$BODY" '"data"' "saved-jobs/ids trả mảng id"
 
 # =====================================================================
 printf "\n${YELLOW}================================${NC}\n"

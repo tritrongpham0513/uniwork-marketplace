@@ -43,7 +43,7 @@ public class Application {
     @Column(name = "expected_salary", precision = 12, scale = 0)
     private java.math.BigDecimal expectedSalary;
 
-    /** PENDING | VIEWED | SHORTLISTED | ACCEPTED | COMPLETED | REJECTED | WITHDRAWN */
+    /** PENDING | SHORTLISTED | ACCEPTED | COMPLETED | REJECTED | WITHDRAWN */
     @Column(name = "status", nullable = false, length = 12)
     @Builder.Default
     private String status = "PENDING";

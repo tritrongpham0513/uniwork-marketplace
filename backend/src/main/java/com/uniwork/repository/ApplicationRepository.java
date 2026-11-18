@@ -40,6 +40,9 @@ public interface ApplicationRepository extends JpaRepository<Application, Long> 
 
     boolean existsByJobPostIdAndStudentUserId(Long jobPostId, Long studentUserId);
 
+    /** Nhà tuyển dụng có đơn ứng tuyển nào từ sinh viên này hay không. */
+    boolean existsByJobPostEmployerUserIdAndStudentUserId(Long employerUserId, Long studentUserId);
+
     long countByJobPostIdAndStatus(Long jobPostId, String status);
 
     long countByStatus(String status);

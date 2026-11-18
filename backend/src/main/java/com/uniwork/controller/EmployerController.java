@@ -33,6 +33,7 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import java.util.List;
+import java.util.Map;
 
 /**
  * Controller dành cho nhà tuyển dụng.
@@ -148,6 +149,20 @@ public class EmployerController {
         return ResponseEntity.ok(ApiResponse.success(
                 "Đã cập nhật trạng thái đơn ứng tuyển.",
                 applicationService.updateStatus(id, request, user.getId())));
+    }
+
+    @PatchMapping("/applications/{id}/note")
+    @Operation(summary = "Lưu ghi chú nội bộ về ứng viên")
+    public ResponseEntity<ApiResponse<ApplicationResponse>> updateApplicationNote(
+            @PathVariable("id") String id,
+            @RequestBody Map<String, String> body,
+            @CurrentUser User user) {
+
+        String note = body != null ? body.get("note") : null;
+
+        return ResponseEntity.ok(ApiResponse.success(
+                "Đã lưu ghi chú nội bộ.",
+                applicationService.updateNote(id, note, user.getId())));
     }
 
     // ------------------------------------------------------------------

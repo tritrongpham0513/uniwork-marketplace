@@ -37,7 +37,6 @@ public class ApplicationServiceImpl implements ApplicationService {
 
     /** Nhãn mặc định cho ghi chú khi NTD đổi trạng thái (khớp frontend). */
     private static final Map<String, String> DEFAULT_NOTES = Map.of(
-            "VIEWED", "Nhà tuyển dụng đã xem hồ sơ",
             "SHORTLISTED", "Được duyệt sơ bộ",
             "ACCEPTED", "Đã nhận ứng viên",
             "COMPLETED", "Công việc đã hoàn thành",
@@ -46,7 +45,6 @@ public class ApplicationServiceImpl implements ApplicationService {
     /** Nhãn hiển thị trạng thái cho sinh viên. */
     private static final Map<String, String> STATUS_LABELS = Map.of(
             "PENDING", "Đang chờ",
-            "VIEWED", "Đã xem hồ sơ",
             "SHORTLISTED", "Được duyệt sơ bộ",
             "ACCEPTED", "Đã nhận",
             "COMPLETED", "Hoàn thành",
@@ -54,7 +52,7 @@ public class ApplicationServiceImpl implements ApplicationService {
             "WITHDRAWN", "Đã rút");
 
     private static final List<String> VALID_STATUSES = List.of(
-            "PENDING", "VIEWED", "SHORTLISTED", "ACCEPTED", "COMPLETED", "REJECTED", "WITHDRAWN");
+            "PENDING", "SHORTLISTED", "ACCEPTED", "COMPLETED", "REJECTED", "WITHDRAWN");
 
     private final ApplicationRepository applicationRepository;
     private final ApplicationStatusHistoryRepository historyRepository;
@@ -166,11 +164,16 @@ public class ApplicationServiceImpl implements ApplicationService {
             throw ApiErrors.forbidden("Bạn không có quyền thao tác đơn ứng tuyển này.");
         }
 
-        if (!"PENDING".equals(application.getStatus()) && !"VIEWED".equals(application.getStatus())) {
+        if (!"PENDING".equals(application.getStatus())) {
             throw ApiErrors.badRequest("Đơn ứng tuyển đã được xử lý, không thể rút. Vui lòng liên hệ nhà tuyển dụng.");
         }
 
         pushStatus(application, "WITHDRAWN", "Sinh viên đã rút đơn", null);
+
+        // Giảm bộ đếm ứng viên trên tin (đã tăng khi sinh viên ứng tuyển)
+        JobPost job = application.getJobPost();
+        job.setApplicantCount(Math.max(0, (job.getApplicantCount() != null ? job.getApplicantCount() : 0) - 1));
+        jobPostRepository.save(job);
 
         // Thông báo cho nhà tuyển dụng biết ứng viên đã rút đơn
         notificationService.push(
@@ -263,6 +266,33 @@ public class ApplicationServiceImpl implements ApplicationService {
     }
 
     // ------------------------------------------------------------------
+    // GHI CHÚ NỘI BỘ
+    // ------------------------------------------------------------------
+
+    @Override
+    @Transactional
+    public ApplicationResponse updateNote(String applicationId, String note, Long employerUserId) {
+        Application application = applicationRepository.findBySlug(applicationId)
+                .orElseThrow(() -> ApiErrors.notFound("Không tìm thấy đơn ứng tuyển."));
+
+        if (!application.getJobPost().getEmployer().getUserId().equals(employerUserId)) {
+            throw ApiErrors.forbidden("Bạn không có quyền ghi chú đơn ứng tuyển này.");
+        }
+
+        String trimmed = note != null ? note.trim() : null;
+        if (trimmed != null && trimmed.length() > 500) {
+            throw ApiErrors.badRequest("Ghi chú không được vượt quá 500 ký tự.",
+                    ApiErrors.errors("note", "Ghi chú tối đa 500 ký tự"));
+        }
+
+        application.setEmployerNote(trimmed == null || trimmed.isEmpty() ? null : trimmed);
+        application.setUpdatedAt(LocalDateTime.now());
+        applicationRepository.save(application);
+
+        return toResponse(application);
+    }
+
+    // ------------------------------------------------------------------
     // HELPERS
     // ------------------------------------------------------------------
 
@@ -277,7 +307,9 @@ public class ApplicationServiceImpl implements ApplicationService {
             application.setEmployerNote(note);
             application.setRejectReason(note);
         }
-        if ("VIEWED".equals(status) && application.getReviewedAt() == null) {
+        // `reviewed_at` = lần đầu nhà tuyển dụng chủ động xử lý hồ sơ.
+        if (application.getReviewedAt() == null
+                && List.of("SHORTLISTED", "REJECTED").contains(status)) {
             application.setReviewedAt(now);
         }
         if (List.of("ACCEPTED", "REJECTED", "COMPLETED", "WITHDRAWN").contains(status)) {
@@ -298,15 +330,25 @@ public class ApplicationServiceImpl implements ApplicationService {
                 .build());
     }
 
-    /** Đồng bộ `positionsFilled` và trạng thái FILLED của tin tuyển dụng. */
+    /** Đồng bộ `positionsFilled` và trạng thái FILLED / IN_PROGRESS của tin tuyển dụng. */
     private void syncJobPositions(JobPost job) {
         long acceptedCount = applicationRepository.countByJobPostIdAndStatus(job.getId(), "ACCEPTED");
         short positionsCount = job.getPositionsCount() != null ? job.getPositionsCount() : (short) 1;
 
         job.setPositionsFilled((short) Math.min(acceptedCount, positionsCount));
-        if (acceptedCount >= positionsCount && "OPEN".equals(job.getStatus())) {
-            job.setStatus("FILLED");
+
+        if (acceptedCount >= positionsCount) {
+            // Đã tuyển đủ suất → đóng tin
+            if ("OPEN".equals(job.getStatus()) || "IN_PROGRESS".equals(job.getStatus())) {
+                job.setStatus("FILLED");
+            }
+        } else if (acceptedCount > 0) {
+            // Đã có ứng viên được nhận nhưng còn suất → tin đang tuyển dở
+            if ("OPEN".equals(job.getStatus())) {
+                job.setStatus("IN_PROGRESS");
+            }
         }
+
         jobPostRepository.save(job);
     }
 

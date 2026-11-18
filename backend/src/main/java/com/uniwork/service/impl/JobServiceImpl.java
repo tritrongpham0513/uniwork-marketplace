@@ -30,6 +30,7 @@ import com.uniwork.repository.ProvinceRepository;
 import com.uniwork.repository.SkillRepository;
 import com.uniwork.repository.UserRepository;
 import com.uniwork.repository.specification.JobPostSpecification;
+import com.uniwork.service.JobNotifyService;
 import com.uniwork.service.JobService;
 import com.uniwork.service.NotificationService;
 import com.uniwork.util.ApiErrors;
@@ -84,6 +85,7 @@ public class JobServiceImpl implements JobService {
     private final EmployerProfileRepository employerProfileRepository;
     private final UserRepository userRepository;
     private final NotificationService notificationService;
+    private final JobNotifyService jobNotifyService;
 
     // ------------------------------------------------------------------
     // ĐỌC
@@ -151,10 +153,15 @@ public class JobServiceImpl implements JobService {
     }
 
     @Override
-    @Transactional(readOnly = true)
+    @Transactional
     public JobResponse detail(String jobId) {
         JobPost job = jobPostRepository.findBySlugAndDeletedAtIsNull(jobId)
                 .orElseThrow(() -> ApiErrors.notFound("Không tìm thấy tin tuyển dụng này."));
+
+        // Tăng bộ đếm lượt xem khi mở chi tiết tin (fire-and-forget, không chặn response).
+        job.setViewCount((job.getViewCount() != null ? job.getViewCount() : 0) + 1);
+        jobPostRepository.save(job);
+
         return toResponse(job);
     }
 
@@ -279,11 +286,24 @@ public class JobServiceImpl implements JobService {
         if (request.getPositionsCount() != null && request.getPositionsCount() > 0) {
             job.setPositionsCount(request.getPositionsCount().shortValue());
         }
+        if (request.getPositionsFilled() != null && request.getPositionsFilled() >= 0) {
+            // Không cho vượt quá số suất đang tuyển
+            short max = job.getPositionsCount() != null ? job.getPositionsCount() : (short) 1;
+            job.setPositionsFilled((short) Math.min(request.getPositionsFilled(), max));
+        }
         if (request.getDeadline() != null) {
             job.setApplicationDeadline(DateTimeUtils.parseDateTime(request.getDeadline()));
         }
 
         applyLocation(job, request);
+
+        // Sửa tin đã được duyệt → tin quay lại hàng đợi duyệt của quản trị viên
+        // (khớp với hành vi của mock layer). `publishedAt` giữ nguyên để không
+        // mất mốc thời gian đăng tin ban đầu.
+        boolean backToReview = "OPEN".equals(job.getStatus());
+        if (backToReview) {
+            job.setStatus("PENDING_REVIEW");
+        }
 
         job = jobPostRepository.save(job);
 
@@ -292,6 +312,10 @@ public class JobServiceImpl implements JobService {
         }
         if (request.getSkills() != null) {
             replaceSkills(job, request);
+        }
+
+        if (backToReview) {
+            notifyAdminsAboutPendingJob(job, job.getEmployer());
         }
 
         return toResponse(job);
@@ -358,6 +382,11 @@ public class JobServiceImpl implements JobService {
         job = jobPostRepository.save(job);
 
         notifyEmployerAboutReview(job, action, reason);
+
+        // Tin được duyệt → báo cho các sinh viên đang bật thông báo theo dõi
+        if ("APPROVE".equalsIgnoreCase(action)) {
+            jobNotifyService.notifySubscribers(job);
+        }
 
         return toResponse(job);
     }

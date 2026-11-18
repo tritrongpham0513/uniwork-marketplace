@@ -15,7 +15,7 @@ import lombok.NoArgsConstructor;
 @AllArgsConstructor
 public class UpdateApplicationStatusRequest {
 
-    /** PENDING | VIEWED | SHORTLISTED | ACCEPTED | COMPLETED | REJECTED | WITHDRAWN */
+    /** PENDING | SHORTLISTED | ACCEPTED | COMPLETED | REJECTED | WITHDRAWN */
     private String status;
 
     /** Ghi chú của nhà tuyển dụng */

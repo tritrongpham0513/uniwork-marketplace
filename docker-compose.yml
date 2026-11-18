@@ -56,9 +56,16 @@ services:
       DEMO_ADMIN_PASSWORD: Admin@123
       # Cho phép truy cập từ frontend trong compose
       CORS_ALLOWED_ORIGINS: http://localhost:8000,http://localhost:5173,http://localhost:3000
+      # Lưu file upload (CV / ảnh / logo) — volume "uploads-data" để không mất
+      # dữ liệu khi container được build lại
+      APP_STORAGE_UPLOAD_DIR: /data/uploads
+      # URL công khai dùng để tạo link tải file
+      APP_PUBLIC_BASE_URL: http://localhost:8080
       TZ: UTC
     ports:
       - "8080:8080"
+    volumes:
+      - uploads-data:/data/uploads
 
   frontend:
     build:
@@ -78,3 +85,4 @@ services:
 
 volumes:
   mysql-data:
+  uploads-data:

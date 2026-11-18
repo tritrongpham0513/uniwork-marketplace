@@ -31,4 +31,11 @@ public interface ApplicationService {
 
     /** Nhà tuyển dụng đổi trạng thái đơn. */
     ApplicationResponse updateStatus(String applicationId, UpdateApplicationStatusRequest request, Long employerUserId);
+
+    /**
+     * Nhà tuyển dụng lưu ghi chú nội bộ về ứng viên.
+     *
+     * <p>Ghi chú chỉ hiển thị với nhà tuyển dụng, không gửi cho sinh viên.
+     */
+    ApplicationResponse updateNote(String applicationId, String note, Long employerUserId);
 }
