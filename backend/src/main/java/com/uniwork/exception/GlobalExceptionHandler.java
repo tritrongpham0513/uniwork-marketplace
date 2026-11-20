@@ -146,6 +146,22 @@ public class GlobalExceptionHandler {
         return ResponseEntity.status(HttpStatus.METHOD_NOT_ALLOWED).body(body);
     }
 
+    /**
+     * Lỗi nơi lưu trữ file (ghi / đọc / xoá) — trả `500` với thông điệp
+     * tiếng Việt thay vì để lỗi kỹ thuật lọt ra ngoài.
+     */
+    @ExceptionHandler(com.uniwork.storage.StorageException.class)
+    public ResponseEntity<ErrorResponse> handleStorageException(
+            com.uniwork.storage.StorageException ex) {
+        log.error("StorageException: {}", ex.getMessage(), ex);
+        ErrorResponse body = ErrorResponse.of(
+                HttpStatus.INTERNAL_SERVER_ERROR.value(),
+                "STORAGE_ERROR",
+                "Không lưu trữ được file. Vui lòng thử lại sau."
+        );
+        return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(body);
+    }
+
     @ExceptionHandler(Exception.class)
     public ResponseEntity<ErrorResponse> handleGeneralException(Exception ex) {
         log.error("Unhandled Exception: ", ex);

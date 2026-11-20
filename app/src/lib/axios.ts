@@ -22,7 +22,6 @@ import {
   type ApiError,
 } from "@/lib/api-error";
 import { toast } from "@/lib/toast";
-import { mockAdapter } from "@/lib/mock/adapter";
 
 // ============================================
 // TYPES & INTERFACES
@@ -58,9 +57,6 @@ const baseURL: string = env.API_URL_DEV;
 
 export const axiosInstance: AxiosInstance = axios.create({
   baseURL,
-  // Khi bật mock, mọi request được xử lý bởi mock adapter thay vì gọi
-  // mạng thật. Tắt bằng VITE_USE_MOCK_API=false khi backend sẵn sàng.
-  adapter: env.USE_MOCK_API ? mockAdapter : undefined,
 });
 
 // ============================================
@@ -91,11 +87,10 @@ axiosInstance.interceptors.request.use(
  * Tách khỏi `axiosInstance` chính để:
  *   - không bị interceptor response của `axiosInstance` xử lý lại
  *     (tránh vòng lặp refresh vô hạn khi token hết hạn),
- *   - vẫn dùng mock adapter khi `VITE_USE_MOCK_API=true`.
+ *   - không cần gắn `Authorization` (chỉ dùng refresh token trong body).
  */
 const refreshClient: AxiosInstance = axios.create({
   baseURL,
-  adapter: env.USE_MOCK_API ? mockAdapter : undefined,
 });
 
 // ============================================

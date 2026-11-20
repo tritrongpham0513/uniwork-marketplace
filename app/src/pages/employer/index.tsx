@@ -28,8 +28,12 @@ import { cn } from "cn";
 /** Mốc thời gian tham chiếu (tính 1 lần ngoài render để giữ render thuần khiết) */
 const REFERENCE_NOW = Date.now();
 
-/** Dữ liệu biểu đồ 7 ngày gần nhất (số tin đăng) */
-const WEEK_LABELS = ["T2", "T3", "T4", "T5", "T6", "T7", "CN"];
+/** Nhãn thứ trong tuần theo `Date.getDay()` (0 = Chủ nhật) */
+const WEEKDAY_LABELS = ["CN", "T2", "T3", "T4", "T5", "T6", "T7"];
+
+/** Khoá ngày dạng `YYYY-M-D` theo giờ địa phương — dùng để so khớp ngày đăng */
+const dayKey = (date: Date) =>
+  `${date.getFullYear()}-${date.getMonth() + 1}-${date.getDate()}`;
 
 export default function EmployerDashboardPage() {
   const { data: jobs = [], isPending: jobsPending } = useEmployerJobs();
@@ -58,14 +62,27 @@ export default function EmployerDashboardPage() {
 
   // Biểu đồ cột: số tin đăng theo 7 ngày gần nhất
   const chart = useMemo(() => {
-    const buckets = WEEK_LABELS.map((label) => ({ label, count: 0 }));
+    // Dựng 7 bucket theo ngày thực tế: từ 6 ngày trước tới hôm nay
+    const today = new Date(REFERENCE_NOW);
+    const buckets = Array.from({ length: 7 }, (_, offset) => {
+      const date = new Date(today);
+      date.setDate(today.getDate() - (6 - offset));
+      return {
+        label: WEEKDAY_LABELS[date.getDay()],
+        count: 0,
+        key: dayKey(date),
+      };
+    });
+
+    const bucketIndex = new Map(buckets.map((bucket, index) => [bucket.key, index]));
 
     for (const job of jobs) {
-      const daysAgo = Math.floor(
-        (REFERENCE_NOW - new Date(job.postedAt).getTime()) / 86400_000
-      );
-      const index = Math.max(0, 6 - daysAgo);
-      if (index < 7) buckets[index].count += 1;
+      const posted = new Date(job.postedAt);
+      if (Number.isNaN(posted.getTime())) continue;
+
+      const index = bucketIndex.get(dayKey(posted));
+      // Tin đăng ngoài 7 ngày gần nhất → bỏ qua (không gộp nhầm vào ô đầu)
+      if (index !== undefined) buckets[index].count += 1;
     }
 
     const max = Math.max(1, ...buckets.map((bucket) => bucket.count));
@@ -135,19 +152,19 @@ export default function EmployerDashboardPage() {
                 {isPending ? (
                   <div className="h-48 animate-pulse rounded-lg bg-muted/60" />
                 ) : (
-                  <div className="flex h-48 items-end gap-2 sm:gap-4">
+                  <div className="flex h-48 items-stretch gap-2 sm:gap-4">
                     {chart.buckets.map((bucket) => {
                       const heightPercent = (bucket.count / chart.max) * 100;
 
                       return (
                         <div
-                          key={bucket.label}
+                          key={bucket.key}
                           className="flex flex-1 flex-col items-center gap-2"
                         >
                           <span className="text-xs font-semibold text-foreground tabular-nums">
                             {bucket.count > 0 ? bucket.count : ""}
                           </span>
-                          <div className="flex w-full flex-1 items-end">
+                          <div className="flex w-full flex-1 flex-col justify-end">
                             <div
                               className={cn(
                                 "w-full rounded-t-lg transition-all",

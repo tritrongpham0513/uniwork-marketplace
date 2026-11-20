@@ -16,7 +16,8 @@ export const FILE_KEYS = {
  *
  * Trả về `upload(file, kind)` — hàm này:
  *   1. Kiểm tra dung lượng & định dạng phía client (báo lỗi tiếng Việt).
- *   2. Gọi API multipart.
+ *   2. Gọi API để lấy URL upload trực tiếp, PUT file lên nơi lưu trữ,
+ *      rồi xác nhận với backend.
  *   3. Báo toast thành công/thất bại.
  *
  * Component dùng `mutation.isPending` để disable nút trong lúc đang tải.

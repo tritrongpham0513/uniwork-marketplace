@@ -10,11 +10,13 @@ import com.uniwork.dto.response.ApiResponse;
 import com.uniwork.dto.response.JobCategoryResponse;
 import com.uniwork.dto.response.JobResponse;
 import com.uniwork.dto.response.ReviewResponse;
+import com.uniwork.dto.response.WorkHistoryResponse;
 import com.uniwork.entity.User;
 import com.uniwork.security.CurrentUser;
 import com.uniwork.service.AdminService;
 import com.uniwork.service.JobService;
 import com.uniwork.service.ReviewService;
+import com.uniwork.service.WorkHistoryService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -61,6 +63,7 @@ public class AdminController {
     private final AdminService adminService;
     private final JobService jobService;
     private final ReviewService reviewService;
+    private final WorkHistoryService workHistoryService;
 
     @GetMapping("/dashboard")
     @Operation(summary = "Số liệu tổng quan hệ thống")
@@ -183,5 +186,23 @@ public class AdminController {
 
         return ResponseEntity.ok(ApiResponse.success(
                 "Đã cập nhật đánh giá.", reviewService.setHidden(id, hidden)));
+    }
+
+    // ------------------------------------------------------------------
+    // KINH NGHIỆM LÀM VIỆC
+    // ------------------------------------------------------------------
+
+    /**
+     * GET /api/v1/admin/work-history?studentId=
+     * — tra cứu lịch sử làm việc của một sinh viên.
+     */
+    @GetMapping("/work-history")
+    @Operation(summary = "Tra cứu lịch sử làm việc của sinh viên")
+    public ResponseEntity<ApiResponse<List<WorkHistoryResponse>>> listWorkHistory(
+            @RequestParam("studentId") Long studentId) {
+
+        return ResponseEntity.ok(ApiResponse.success(
+                "Lấy lịch sử làm việc thành công",
+                workHistoryService.listForStudentByAdmin(studentId)));
     }
 }

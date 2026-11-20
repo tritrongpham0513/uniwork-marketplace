@@ -52,6 +52,9 @@ public class StudentProfileResponse {
 
     private List<StudentExperienceResponse> experiences;
 
+    /** Lịch sử làm việc do hệ thống tự ghi khi đơn ứng tuyển hoàn thành */
+    private List<WorkHistoryResponse> workHistories;
+
     private StudentJobPreferenceResponse jobPreferences;
 
     private Double avgRating;

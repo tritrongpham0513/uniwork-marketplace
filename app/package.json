@@ -12,13 +12,18 @@
     "preview": "vite preview",
     "verify:toast": "vite build --ssr scripts/verify-toast.ts --outDir .tmp-verify --logLevel error && node .tmp-verify/verify-toast.js",
     "verify:integration": "vite build --ssr scripts/verify-integration.ts --outDir .tmp-verify --logLevel error && node .tmp-verify/verify-integration.js",
-    "verify:mock-api": "vite build --ssr scripts/verify-mock-api.ts --outDir .tmp-verify --logLevel error && node .tmp-verify/verify-mock-api.js",
     "verify:e2e": "vite build --ssr scripts/verify-e2e.ts --outDir .tmp-verify --logLevel error && node .tmp-verify/verify-e2e.js",
     "smoke:browser": "node scripts/smoke-browser.mjs",
+    "verify:full-app": "node scripts/verify-full-app.mjs",
+    "verify:ui-fixes": "node scripts/verify-ui-fixes.mjs",
+    "verify:employer-chart": "node scripts/verify-employer-chart.mjs",
     "verify:realtime": "node scripts/verify-realtime-ws.mjs",
     "smoke:realtime": "node scripts/smoke-realtime-browser.mjs",
-    "seed:sql": "vite build --ssr scripts/generate-seed-sql.ts --outDir .tmp-seed --logLevel error && node .tmp-seed/generate-seed-sql.js",
-    "verify": "npm run verify:toast && npm run verify:integration && npm run verify:mock-api && npm run verify:e2e"
+    "verify:review-two-way": "node scripts/verify-review-two-way.mjs",
+    "smoke:review-two-way": "node scripts/smoke-review-two-way.mjs",
+    "verify:files-storage": "node scripts/verify-files-storage.mjs",
+    "smoke:files-upload": "node scripts/smoke-files-upload.mjs",
+    "verify": "npm run verify:toast && npm run verify:integration && npm run verify:e2e"
   },
   "dependencies": {
     "@base-ui/react": "^1.9.0",

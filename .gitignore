@@ -27,10 +27,13 @@ schema_parttime_marketplace_mysql.sql
 # Frontend build/test artifacts
 app/dist/
 app/.tmp-verify/
+app/.tmp-verify-*/
+app/.tmp-smoke-live/
 
-# Backend runtime uploads (file lưu ở local, không commit)
+# Backend runtime uploads (đã bỏ — file lưu trên Cloudflare R2)
 backend/uploads/
 backend/src/main/resources/static/uploads/
+backend/data/
 
 de-tai.txt
 

@@ -25,10 +25,6 @@ RUN pnpm install --frozen-lockfile || pnpm install
 # Copy source (bị bind-mount đè lại khi chạy compose)
 COPY . .
 
-# ARG để không báo "build-arg not consumed" khi compose truyền args
-ARG VITE_USE_MOCK_API=false
-ENV VITE_USE_MOCK_API=$VITE_USE_MOCK_API
-
 EXPOSE 5173
 
 # --host 0.0.0.0 để dev server nhận request từ host (không phải localhost trong container)

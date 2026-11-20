@@ -1,13 +1,19 @@
 package com.uniwork.service.impl;
 
+import com.uniwork.dto.request.ConfirmUploadRequest;
 import com.uniwork.dto.response.FileUploadResponse;
+import com.uniwork.dto.response.PresignUploadResponse;
 import com.uniwork.entity.FileUpload;
 import com.uniwork.entity.User;
 import com.uniwork.repository.ApplicationRepository;
 import com.uniwork.repository.FileUploadRepository;
 import com.uniwork.repository.UserRepository;
 import com.uniwork.service.FileStorageService;
+import com.uniwork.storage.StorageBuckets;
+import com.uniwork.storage.StorageProvider;
 import com.uniwork.util.ApiErrors;
+import com.uniwork.util.FileSignatureValidator;
+import com.uniwork.util.ImageResizer;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
@@ -16,33 +22,44 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.io.IOException;
-import java.io.InputStream;
-import java.nio.file.Files;
-import java.nio.file.Path;
-import java.nio.file.Paths;
-import java.nio.file.StandardCopyOption;
+import java.time.Duration;
 import java.time.LocalDateTime;
 import java.util.Locale;
 import java.util.UUID;
 
 /**
- * Triển khai lưu trữ file trên disk.
+ * Nghiện vụ lưu trữ & phục vụ file upload.
  *
- * <p>Thư mục lưu trữ cấu hình qua {@code app.storage.upload-dir}. Mỗi file
- * được lưu với tên ngẫu nhiên trong thư mục con theo {@code kind} để tránh
- * va chạm tên; extension gốc được giữ lại để trình duyệt xử lý đúng.
+ * <p>Ở tầng này không biết chi tiết file nằm ở đâu — mọi thao tác đọc/ghi đi
+ * qua {@link StorageProvider} (hiện là Cloudflare R2).
+ *
+ * <p>Quy trình upload trực tiếp (presigned):
+ * <ol>
+ *   <li>{@link #presign} — cấp URL có chữ ký + {@code storageKey}.</li>
+ *   <li>Client {@code PUT} file lên R2.</li>
+ *   <li>{@link #confirm} — kiểm tra file thực sự tồn tại (magic bytes + quota)
+ *       rồi ghi metadata vào DB.</li>
+ * </ol>
  */
 @Service
 @RequiredArgsConstructor
 @Slf4j
 public class FileStorageServiceImpl implements FileStorageService {
 
+    /** Số byte đầu đủ để nhận diện mọi chữ ký file (RIFF/WEBP cần 12 byte). */
+    private static final int SIGNATURE_LENGTH = 12;
+
+    /** Số file tối đa mỗi loại trong 1 giai đoạn (loại file cũ sẽ bị thay thế). */
+    private static final int MAX_FILES_PER_KIND = 10;
+
+    /** Tổng dung lượng tối đa mỗi user (20 MB) — chống đầy bucket R2 free tier. */
+    private static final long MAX_TOTAL_BYTES_PER_USER = 20L * 1024 * 1024;
+
     private final FileUploadRepository fileUploadRepository;
     private final UserRepository userRepository;
     private final ApplicationRepository applicationRepository;
-
-    @Value("${app.storage.upload-dir:./data/uploads}")
-    private String uploadDir;
+    private final StorageProvider storageProvider;
+    private final StorageBuckets storageBuckets;
 
     @Value("${app.public-base-url:http://localhost:8080}")
     private String publicBaseUrl;
@@ -50,8 +67,14 @@ public class FileStorageServiceImpl implements FileStorageService {
     @Value("${app.storage.public-path:/api/v1/files}")
     private String publicPath;
 
+    @Value("${app.storage.r2.presign-put-ttl-minutes:10}")
+    private long presignPutTtlMinutes;
+
+    @Value("${app.storage.r2.presign-get-ttl-minutes:5}")
+    private long presignGetTtlMinutes;
+
     // ------------------------------------------------------------------
-    // GHI
+    // GHI — LUỒNG MULTIPART (CỔNG)
     // ------------------------------------------------------------------
 
     @Override
@@ -61,46 +84,230 @@ public class FileStorageServiceImpl implements FileStorageService {
             throw ApiErrors.badRequest("Vui lòng chọn file cần tải lên.");
         }
 
-        String mimeType = resolveMimeType(file);
-        validateMimeType(mimeType, kind);
-        validateSize(file.getSize(), kind);
+        byte[] content = file.getBytes();
+
+        // Xác minh MIME type bằng magic bytes — KHÔNG tin Content-Type của client.
+        String mimeType = verifySignature(content, kind);
+
+        // Ảnh (avatar / logo) được resize + nén lại trước khi lưu.
+        if (kind.isPublic()) {
+            content = maybeResize(content, kind, mimeType);
+            mimeType = detectImageMime(content);
+        }
+
+        validateSize(content.length, kind);
+        enforceQuota(owner.getId(), kind, content.length);
 
         String originalName = sanitizeName(file.getOriginalFilename());
-        String extension = extractExtension(originalName);
+        String extension = FileSignatureValidator.extensionFor(mimeType);
+        String storageKey = buildStorageKey(kind, owner.getId(), extension);
+        String bucket = storageBuckets.forKind(kind.isPublic());
 
-        Path root = resolveRoot();
-        Path kindDir = root.resolve(kind.name().toLowerCase(Locale.ROOT));
-        Files.createDirectories(kindDir);
-
-        String storageKey = kind.name().toLowerCase(Locale.ROOT) + "-"
-                + UUID.randomUUID().toString().replace("-", "")
-                + extension;
-
-        Path target = kindDir.resolve(storageKey).normalize();
-        // Chặn path traversal: đường dẫn sau khi normalize phải nằm trong thư mục gốc.
-        if (!target.startsWith(root)) {
-            throw ApiErrors.badRequest("Tên file không hợp lệ.");
-        }
-
-        try (InputStream in = file.getInputStream()) {
-            Files.copy(in, target, StandardCopyOption.REPLACE_EXISTING);
-        } catch (IOException e) {
-            log.error("Không lưu được file lên disk: {}", target, e);
-            throw ApiErrors.badRequest("Không lưu được file. Vui lòng thử lại.");
-        }
+        storageProvider.put(bucket, storageKey, content, mimeType);
 
         FileUpload saved = fileUploadRepository.save(FileUpload.builder()
                 .slug("file-" + UUID.randomUUID().toString().substring(0, 16))
                 .ownerUserId(owner.getId())
                 .kind(kind.name())
                 .storageKey(storageKey)
+                .bucket(bucket)
+                .checksum(sha256(content))
                 .originalName(originalName)
                 .mimeType(mimeType)
-                .sizeBytes(file.getSize())
+                .sizeBytes((long) content.length)
                 .createdAt(LocalDateTime.now())
                 .build());
 
         return toResponse(saved);
+    }
+
+    // ------------------------------------------------------------------
+    // GHI — LUỒNG PRESIGNED
+    // ------------------------------------------------------------------
+
+    @Override
+    public PresignUploadResponse presign(Kind kind, User owner, String requestedContentType) {
+        // MIME type client dự kiến gửi. Nếu không hợp lệ → dùng mime mặc định
+        // của loại file. MIME type này được KÝ vào presigned URL nên client
+        // buộc phải gửi đúng header khi PUT (sai là 403 SignatureDoesNotMatch).
+        String mimeType = normalizeRequestedMime(kind, requestedContentType);
+
+        String extension = FileSignatureValidator.extensionFor(mimeType);
+        String storageKey = buildStorageKey(kind, owner.getId(), extension);
+        String bucket = storageBuckets.forKind(kind.isPublic());
+
+        Duration ttl = Duration.ofMinutes(Math.max(1, presignPutTtlMinutes));
+        String uploadUrl = storageProvider.presignPut(bucket, storageKey, mimeType, ttl);
+
+        return PresignUploadResponse.builder()
+                .uploadUrl(uploadUrl)
+                .storageKey(storageKey)
+                .bucket(bucket)
+                .contentType(mimeType)
+                .expiresInSeconds((int) ttl.toSeconds())
+                .maxSizeBytes(kind.getMaxSizeBytes())
+                .publicUrl(kind.isPublic() ? storageProvider.publicUrl(bucket, storageKey) : null)
+                .build();
+    }
+
+    /**
+     * Chuẩn hoá MIME type client yêu cầu.
+     *
+     * @param kind    loại file
+     * @param contentType MIME type do client gửi lên
+     * @return MIME type hợp lệ (fallback về mime đầu tiên của loại file)
+     */
+    private String normalizeRequestedMime(Kind kind, String contentType) {
+        String normalized = FileSignatureValidator.normalizeContentType(contentType);
+        if (normalized != null && kind.getAllowedMimeTypes().contains(normalized)) {
+            return normalized;
+        }
+        return kind.getAllowedMimeTypes().get(0);
+    }
+
+    @Override
+    @Transactional
+    public FileUploadResponse confirm(ConfirmUploadRequest request, User owner) {
+        Kind kind;
+        try {
+            kind = Kind.valueOf(request.getKind().trim().toUpperCase(Locale.ROOT));
+        } catch (IllegalArgumentException | NullPointerException e) {
+            throw ApiErrors.badRequest(
+                    "Loại file không hợp lệ. Chỉ hỗ trợ: CV, AVATAR, LOGO.",
+                    ApiErrors.errors("kind", "Loại file không hợp lệ."));
+        }
+
+        String storageKey = request.getStorageKey().trim();
+
+        // Chặt chồng user: storageKey luôn có dạng {kind}/{ownerUserId}/{file}
+        // → user không thể confirm file của người khác.
+        String expectedPrefix = kind.name().toLowerCase(Locale.ROOT) + "/" + owner.getId() + "/";
+        if (!storageKey.startsWith(expectedPrefix)) {
+            throw ApiErrors.forbidden("Bạn không có quyền xác nhận file này.");
+        }
+
+        String bucket = storageBuckets.forKind(kind.isPublic());
+
+        if (!storageProvider.exists(bucket, storageKey)) {
+            throw ApiErrors.badRequest(
+                    "Chưa tìm thấy file đã tải lên. Vui lòng thử lại.",
+                    ApiErrors.errors("file", "File không tồn tại."));
+        }
+
+        long size = storageProvider.sizeOf(bucket, storageKey);
+        if (size < 0) {
+            size = storageProvider.read(bucket, storageKey).length;
+        }
+        if (size > kind.getMaxSizeBytes()) {
+            throw ApiErrors.badRequest(
+                    "Dung lượng " + kind.getLabel() + " vượt quá giới hạn "
+                            + formatSize(kind.getMaxSizeBytes()) + " (file hiện tại " + formatSize(size) + ").",
+                    ApiErrors.errors("file", "File quá lớn."));
+        }
+
+        // Xác minh lại magic bytes — client có thể đã khai báo sai Content-Type
+        // hoặc tải lên file không đúng định dạng sau khi nhận presigned URL.
+        byte[] head = storageProvider.readHead(bucket, storageKey, SIGNATURE_LENGTH);
+        String detected = FileSignatureValidator.detectMimeType(head);
+        if (detected == null || !kind.getAllowedMimeTypes().contains(detected)) {
+            // Xoá file không hợp lệ để không giữ rác trong bucket.
+            storageProvider.delete(bucket, storageKey);
+            throw ApiErrors.badRequest(
+                    "Định dạng file không hợp lệ cho " + kind.getLabel() + ". "
+                            + "Chỉ chấp nhận: " + readableMimeTypes(kind) + ".",
+                    ApiErrors.errors("file", "Định dạng file không được hỗ trợ."));
+        }
+
+        // Ảnh (avatar / logo): đọc về, resize + nén lại rồi ghi đè lại.
+        // Nhờ vậy dung lượng & băng thông giảm mạnh dù client gửi ảnh gốc 2MB.
+        if (kind.isPublic()) {
+            byte[] original = storageProvider.read(bucket, storageKey);
+            byte[] resized = resizeImage(original);
+            if (resized != null && resized.length < original.length) {
+                storageProvider.put(bucket, storageKey, resized, detectImageMime(resized));
+                detected = detectImageMime(resized);
+                size = resized.length;
+            }
+        }
+
+        enforceQuota(owner.getId(), kind, size);
+
+        String originalName = sanitizeName(request.getFileName());
+        String checksum = checksumOf(storageProvider, bucket, storageKey);
+
+        FileUpload saved = fileUploadRepository.save(FileUpload.builder()
+                .slug("file-" + UUID.randomUUID().toString().substring(0, 16))
+                .ownerUserId(owner.getId())
+                .kind(kind.name())
+                .storageKey(storageKey)
+                .bucket(bucket)
+                .checksum(checksum)
+                .originalName(originalName)
+                .mimeType(detected)
+                .sizeBytes(size)
+                .createdAt(LocalDateTime.now())
+                .build());
+
+        return toResponse(saved);
+    }
+
+    /** Tính SHA-256 của nội dung file (hex) — bỏ qua nếu tính không được. */
+    private String checksumOf(StorageProvider provider, String bucket, String storageKey) {
+        try {
+            byte[] content = provider.read(bucket, storageKey);
+            return sha256(content);
+        } catch (Exception e) {
+            log.warn("Không tính được checksum cho file bucket={} key={}", bucket, storageKey, e);
+            return null;
+        }
+    }
+
+    /** Tính SHA-256 của mảng byte (hex). */
+    private String sha256(byte[] content) {
+        try {
+            byte[] digest = java.security.MessageDigest.getInstance("SHA-256").digest(content);
+            StringBuilder hex = new StringBuilder(digest.length * 2);
+            for (byte b : digest) {
+                hex.append(String.format("%02x", b));
+            }
+            return hex.toString();
+        } catch (java.security.NoSuchAlgorithmException e) {
+            log.warn("Không có sẵn thuật toán SHA-256: {}", e.getMessage());
+            return null;
+        }
+    }
+
+    /**
+     * Resize ảnh nếu là loại file ảnh (avatar / logo).
+     *
+     * @param content nội dung ảnh gốc
+     * @return nội dung đã resize, hoặc {@code null} nếu không resize được
+     */
+    private byte[] resizeImage(byte[] content) {
+        ImageResizer.Result result = ImageResizer.resize(content);
+        return result == null ? null : result.content();
+    }
+
+    /**
+     * Resize ảnh + trả về cả nội dung lẫn MIME type mới.
+     *
+     * @param content  nội dung ảnh gốc
+     * @param kind     loại file
+     * @param mimeType MIME type hiện tại
+     * @return nội dung đã xử lý
+     */
+    private byte[] maybeResize(byte[] content, Kind kind, String mimeType) {
+        if (!kind.isPublic() || !mimeType.startsWith("image/")) {
+            return content;
+        }
+        byte[] resized = resizeImage(content);
+        return resized == null ? content : resized;
+    }
+
+    /** MIME type của ảnh sau resize (dùng khi ghi đè file lên nơi lưu trữ). */
+    private String detectImageMime(byte[] content) {
+        String detected = FileSignatureValidator.detectMimeType(content);
+        return detected != null && detected.startsWith("image/") ? detected : "image/png";
     }
 
     // ------------------------------------------------------------------
@@ -152,20 +359,6 @@ public class FileStorageServiceImpl implements FileStorageService {
         return false;
     }
 
-    @Override
-    public Path resolvePath(FileUploadResponse file) {
-        Path root = resolveRoot();
-        // File được lưu trong thư mục con theo kind: <root>/<kind>/<storageKey>
-        Path target = root.resolve(file.getKind().toLowerCase(Locale.ROOT))
-                .resolve(file.getStorageKey())
-                .normalize();
-        // Chặn path traversal: đường dẫn sau khi normalize phải nằm trong thư mục gốc.
-        if (!target.startsWith(root)) {
-            throw ApiErrors.notFound("Không tìm thấy file.");
-        }
-        return target;
-    }
-
     // ------------------------------------------------------------------
     // XOÁ
     // ------------------------------------------------------------------
@@ -182,6 +375,10 @@ public class FileStorageServiceImpl implements FileStorageService {
 
         file.setDeletedAt(LocalDateTime.now());
         fileUploadRepository.save(file);
+
+        // Xoá vật lý khỏi nơi lưu trữ (soft-delete trong DB để giữ lịch sử).
+        storageProvider.delete(bucketOf(file), file.getStorageKey());
+
         return true;
     }
 
@@ -189,39 +386,30 @@ public class FileStorageServiceImpl implements FileStorageService {
     // HELPERS
     // ------------------------------------------------------------------
 
-    private Path resolveRoot() {
-        return Paths.get(uploadDir).toAbsolutePath().normalize();
-    }
-
     /**
-     * Xác định mime type: ưu tiên header do client gửi, nhưng phải nằm trong
-     * whitelist — nếu không thì suy ra từ extension.
+     * Xác minh MIME type bằng magic bytes.
+     *
+     * @param content nội dung file
+     * @param kind    loại file kỳ vọng
+     * @return MIME type thật của file
      */
-    private String resolveMimeType(MultipartFile file) {
-        String contentType = file.getContentType();
-        if (contentType != null && !contentType.isBlank()) {
-            String normalized = contentType.toLowerCase(Locale.ROOT).trim();
-            // Bỏ charset nếu có (ví dụ "text/plain;charset=UTF-8")
-            int semicolon = normalized.indexOf(';');
-            if (semicolon > 0) {
-                normalized = normalized.substring(0, semicolon).trim();
-            }
-            if (!normalized.isEmpty() && !"application/octet-stream".equals(normalized)) {
-                return normalized;
-            }
-        }
-        return guessMimeFromExtension(extractExtension(file.getOriginalFilename()));
-    }
-
-    private void validateMimeType(String mimeType, Kind kind) {
-        if (!kind.getAllowedMimeTypes().contains(mimeType)) {
+    private String verifySignature(byte[] content, Kind kind) {
+        String detected = FileSignatureValidator.detectMimeType(content);
+        if (detected == null) {
             throw ApiErrors.badRequest(
-                    "Định dạng file không hợp lệ cho " + kind.getLabel() + ". "
-                            + "Chỉ chấp nhận: " + String.join(", ", kind.getAllowedMimeTypes()) + ".",
+                    "Không đọc được định dạng của file. Chỉ chấp nhận: " + readableMimeTypes(kind) + ".",
                     ApiErrors.errors("file", "Định dạng file không được hỗ trợ."));
         }
+        if (!kind.getAllowedMimeTypes().contains(detected)) {
+            throw ApiErrors.badRequest(
+                    "Định dạng file không hợp lệ cho " + kind.getLabel() + ". "
+                            + "Chỉ chấp nhận: " + readableMimeTypes(kind) + ".",
+                    ApiErrors.errors("file", "Định dạng file không được hỗ trợ."));
+        }
+        return detected;
     }
 
+    /** Kiểm tra dung lượng tối đa theo loại file. */
     private void validateSize(long sizeBytes, Kind kind) {
         long max = kind.getMaxSizeBytes();
         if (sizeBytes > max) {
@@ -230,6 +418,49 @@ public class FileStorageServiceImpl implements FileStorageService {
                             + formatSize(max) + " (file hiện tại " + formatSize(sizeBytes) + ").",
                     ApiErrors.errors("file", "File quá lớn."));
         }
+    }
+
+    /**
+     * Kiểm tra quota theo user: số file mỗi loại + tổng dung lượng.
+     *
+     * @param ownerUserId id chủ file
+     * @param kind        loại file đang upload
+     * @param incomingSize dung lượng file mới (byte)
+     */
+    private void enforceQuota(Long ownerUserId, Kind kind, long incomingSize) {
+        var existing = fileUploadRepository.findByOwnerUserIdAndKindAndDeletedAtIsNull(ownerUserId, kind.name());
+        if (existing.size() >= MAX_FILES_PER_KIND) {
+            throw ApiErrors.badRequest(
+                    "Bạn đã tải lên tối đa " + MAX_FILES_PER_KIND + " " + kind.getLabel()
+                            + ". Vui lòng xoá file cũ trước khi tải thêm.",
+                    ApiErrors.errors("file", "Quá nhiều file."));
+        }
+
+        long total = 0;
+        for (String otherKind : java.util.List.of(Kind.CV.name(), Kind.AVATAR.name(), Kind.LOGO.name())) {
+            for (FileUpload file : fileUploadRepository
+                    .findByOwnerUserIdAndKindAndDeletedAtIsNull(ownerUserId, otherKind)) {
+                total += file.getSizeBytes() == null ? 0 : file.getSizeBytes();
+            }
+        }
+
+        if (total + incomingSize > MAX_TOTAL_BYTES_PER_USER) {
+            throw ApiErrors.badRequest(
+                    "Tổng dung lượng file đã tải lên vượt quá giới hạn "
+                            + formatSize(MAX_TOTAL_BYTES_PER_USER) + ".",
+                    ApiErrors.errors("file", "Vượt quá dung lượng cho phép."));
+        }
+    }
+
+    /**
+     * Sinh khóa đối tượng: {@code {kind}/{ownerUserId}/{uuid}.{ext}}.
+     *
+     * <p>Chặt chồng user giúp backend xác minh chủ sở hữu chỉ bằng cách so
+     * tiền tố — không cần tra cứu thêm.
+     */
+    private String buildStorageKey(Kind kind, Long ownerUserId, String extension) {
+        return kind.name().toLowerCase(Locale.ROOT) + "/" + ownerUserId + "/"
+                + UUID.randomUUID().toString().replace("-", "") + extension;
     }
 
     /** Bỏ ký tự lạ khỏi tên file gốc, giới hạn độ dài. */
@@ -247,32 +478,11 @@ public class FileStorageServiceImpl implements FileStorageService {
         return name.length() > 200 ? name.substring(name.length() - 200) : name;
     }
 
-    /** Lấy extension (kèm dấu chấm) từ tên file, chỉ giữ ký tự chữ/số an toàn. */
-    private String extractExtension(String fileName) {
-        if (fileName == null) {
-            return "";
-        }
-        int dot = fileName.lastIndexOf('.');
-        if (dot < 0 || dot == fileName.length() - 1) {
-            return "";
-        }
-        String ext = fileName.substring(dot + 1).toLowerCase(Locale.ROOT);
-        if (!ext.matches("[a-z0-9]{1,10}")) {
-            return "";
-        }
-        return "." + ext;
-    }
-
-    private String guessMimeFromExtension(String extension) {
-        return switch (extension) {
-            case ".pdf" -> "application/pdf";
-            case ".doc" -> "application/msword";
-            case ".docx" -> "application/vnd.openxmlformats-officedocument.wordprocessingml.document";
-            case ".png" -> "image/png";
-            case ".jpg", ".jpeg" -> "image/jpeg";
-            case ".webp" -> "image/webp";
-            default -> "application/octet-stream";
-        };
+    /** Danh sách MIME type dễ đọc cho thông báo lỗi. */
+    private String readableMimeTypes(Kind kind) {
+        return String.join(", ", kind.getAllowedMimeTypes().stream()
+                .map(Kind::labelOfMimeType)
+                .toList());
     }
 
     private String formatSize(long bytes) {
@@ -282,6 +492,13 @@ public class FileStorageServiceImpl implements FileStorageService {
         return (bytes / 1024.0) + " KB";
     }
 
+    /**
+     * URL công khai để tải file.
+     *
+     * <p>Giữ nguyên format cũ ({@code {base}/api/v1/files/{slug}}) để không phải
+     * migrate dữ liệu — endpoint {@code GET /files/{id}} sẽ redirect tới nơi
+     * lưu trữ thật (presigned GET hoặc CDN).
+     */
     private FileUploadResponse toResponse(FileUpload file) {
         return FileUploadResponse.builder()
                 .id(file.getSlug())
@@ -291,6 +508,15 @@ public class FileStorageServiceImpl implements FileStorageService {
                 .sizeBytes(file.getSizeBytes())
                 .kind(file.getKind())
                 .storageKey(file.getStorageKey())
+                .bucket(file.getBucket())
                 .build();
+    }
+
+    /** Bucket chứa file theo loại — dùng khi xoá file cũ (chưa có cột bucket). */
+    private String bucketOf(FileUpload file) {
+        if (file.getBucket() != null) {
+            return file.getBucket();
+        }
+        return storageBuckets.forKind(!"CV".equals(file.getKind()));
     }
 }

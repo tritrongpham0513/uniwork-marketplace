@@ -1,4 +1,5 @@
-import { Link } from "react-router";
+import { Link, useNavigate } from "react-router";
+import { useState } from "react";
 import {
   ArrowRight,
   BadgeCheck,
@@ -148,6 +149,8 @@ const TESTIMONIALS = [
 
 export function HomePage() {
   const { user } = useAuth();
+  const navigate = useNavigate();
+  const [heroKeyword, setHeroKeyword] = useState("");
   const { data: categories = [] } = useJobCategories();
   const { data: provinces = [] } = useProvinces();
   const { data: benchmarks = [] } = useSalaryBenchmarks();
@@ -170,19 +173,29 @@ export function HomePage() {
     sort: "salary_desc",
   });
 
-  const provinceCounts = (latestJobs?.items ?? []).reduce<
-    Record<string, number>
-  >((acc, job) => {
-    acc[job.location.provinceId] = (acc[job.location.provinceId] ?? 0) + 1;
-    return acc;
-  }, {});
+  // Số liệu theo tỉnh / nhóm việc phải tính trên TOÀN BỘ tin tuyển dụng,
+  // không phải trên 6 tin mới nhất — nếu không mọi tỉnh ngoài TP.HCM sẽ hiện "0 việc làm".
+  const { data: allJobs } = useJobs({
+    ...DEFAULT_FILTERS,
+    pageSize: 100,
+    sort: "newest",
+  });
 
-  const categoryCounts = (latestJobs?.items ?? []).reduce<
-    Record<string, number>
-  >((acc, job) => {
-    acc[job.category.id] = (acc[job.category.id] ?? 0) + 1;
-    return acc;
-  }, {});
+  const provinceCounts = (allJobs?.items ?? []).reduce<Record<string, number>>(
+    (acc, job) => {
+      acc[job.location.provinceId] = (acc[job.location.provinceId] ?? 0) + 1;
+      return acc;
+    },
+    {}
+  );
+
+  const categoryCounts = (allJobs?.items ?? []).reduce<Record<string, number>>(
+    (acc, job) => {
+      acc[job.category.id] = (acc[job.category.id] ?? 0) + 1;
+      return acc;
+    },
+    {}
+  );
 
   const renderJobList = (
     jobs: Job[] | undefined,
@@ -250,7 +263,18 @@ export function HomePage() {
               </p>
 
               {/* Ô tìm kiếm */}
-              <div className="mt-6">
+              <form
+                className="mt-6"
+                onSubmit={(event) => {
+                  event.preventDefault();
+                  const keyword = heroKeyword.trim();
+                  navigate(
+                    keyword
+                      ? `${PATHS.JOBS.ROOT}?keyword=${encodeURIComponent(keyword)}`
+                      : PATHS.JOBS.ROOT
+                  );
+                }}
+              >
                 <InputGroup className="shadow-sm">
                   <InputGroupAddon>
                     <Search className="size-4" />
@@ -258,19 +282,16 @@ export function HomePage() {
                   <InputGroupInput
                     placeholder="Tìm việc làm theo vị trí, quán ăn, khu vực..."
                     aria-label="Tìm việc làm"
+                    value={heroKeyword}
+                    onChange={(event) => setHeroKeyword(event.target.value)}
                   />
                   <InputGroupAddon align="inline-end">
-                    <Button
-                      size="sm"
-                      className="cursor-pointer"
-                      nativeButton={false}
-                      render={<Link to={PATHS.JOBS.ROOT} />}
-                    >
+                    <Button type="submit" size="sm" className="cursor-pointer">
                       Tìm việc
                     </Button>
                   </InputGroupAddon>
                 </InputGroup>
-              </div>
+              </form>
 
               {/* Gợi ý nhanh */}
               <div className="mt-3 flex flex-wrap items-center gap-2 text-xs">
@@ -342,21 +363,28 @@ export function HomePage() {
                 </CardHeader>
                 <CardContent className="divide-y divide-border/60 p-0">
                   {(latestJobs?.items ?? []).slice(0, 4).map((job) => (
-                    <Link
+                    <div
                       key={job.id}
-                      to={PATHS.JOBS.DETAIL(job.id)}
                       className="flex items-center gap-3 px-4 py-3 transition-colors hover:bg-muted/40"
                     >
                       <div className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
                         <TrendingUp className="size-4" />
                       </div>
                       <div className="min-w-0 flex-1">
-                        <p className="truncate text-sm font-medium text-foreground">
+                        <Link
+                          to={PATHS.JOBS.DETAIL(job.id)}
+                          className="block truncate text-sm font-medium text-foreground transition-colors hover:text-primary"
+                        >
                           {job.title}
-                        </p>
+                        </Link>
                         <p className="truncate text-xs text-muted-foreground">
                           {job.location.district} ·{" "}
-                          {job.employer.name}
+                          <Link
+                            to={PATHS.EMPLOYER.PUBLIC_PROFILE(job.employerId)}
+                            className="underline-offset-4 transition-colors hover:text-primary hover:underline"
+                          >
+                            {job.employer.name}
+                          </Link>
                         </p>
                       </div>
                       <span className="shrink-0 text-xs font-semibold text-primary">
@@ -364,7 +392,7 @@ export function HomePage() {
                           ? `${Math.round(job.salaryMin / 1000)}k`
                           : job.salaryMin}
                       </span>
-                    </Link>
+                    </div>
                   ))}
                 </CardContent>
               </Card>

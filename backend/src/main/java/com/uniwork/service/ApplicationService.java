@@ -29,6 +29,14 @@ public interface ApplicationService {
     /** Chi tiết đơn (nhà tuyển dụng sở hữu tin). */
     ApplicationResponse detailForEmployer(String applicationId, Long employerUserId);
 
+    /**
+     * User id của sinh viên ứng tuyển trong đơn.
+     *
+     * <p>Kiểm tra quyền: nhà tuyển dụng phải sở hữu tin của đơn đó, nếu không
+     * trả 403. Dùng để phân quyền xem đánh giá của ứng viên.
+     */
+    Long studentUserIdOf(String applicationId, Long employerUserId);
+
     /** Nhà tuyển dụng đổi trạng thái đơn. */
     ApplicationResponse updateStatus(String applicationId, UpdateApplicationStatusRequest request, Long employerUserId);
 

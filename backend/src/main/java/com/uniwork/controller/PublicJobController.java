@@ -20,7 +20,7 @@ import java.util.List;
 /**
  * Controller tin tuyển dụng công khai — không cần đăng nhập.
  *
- * <p>Khớp 100% với route mock {@code app/src/lib/mock/router.ts}:
+ * <p>Phục vụ các route public dùng chung cho cả khách và người đã đăng nhập:
  * <ul>
  *   <li>{@code GET /api/v1/jobs/public}</li>
  *   <li>{@code GET /api/v1/jobs/public/related}</li>

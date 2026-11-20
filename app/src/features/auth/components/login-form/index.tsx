@@ -23,7 +23,7 @@ import {
 import { useLogin } from "@/features/auth/hooks";
 import { saveAuthSession } from "@/utils/authStorage";
 import { toast } from "@/lib/toast";
-import { DEMO_ACCOUNTS } from "@/lib/mock/handlers/auth";
+import { DEMO_ACCOUNTS } from "@/features/auth/constants/demo-accounts";
 
 interface LoginFormProps extends React.ComponentProps<"form"> {
   onSubmitSuccess?: (data: LoginSchema) => void;
@@ -144,7 +144,7 @@ function LoginForm({ className, onSubmitSuccess, ...props }: LoginFormProps) {
                   href="#"
                   className="text-xs text-muted-foreground underline-offset-4 hover:text-foreground hover:underline"
                 >
-                  Quôn mật khẩu?
+                  Quên mật khẩu?
                 </a>
               </div>
               <div className="relative">
@@ -241,7 +241,7 @@ function LoginForm({ className, onSubmitSuccess, ...props }: LoginFormProps) {
           </FieldDescription>
         </Field>
 
-        {/* Tài khoản demo — giúp trình bày nhanh không cần backend */}
+        {/* Tài khoản demo — điền nhanh để thử các luồng theo vai trò */}
         <Field className="rounded-xl border border-border/60 bg-muted/40 p-3">
           <FieldLabel className="text-[11px] font-semibold tracking-wide text-muted-foreground uppercase">
             Tài khoản demo

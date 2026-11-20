@@ -25,6 +25,29 @@ export interface UploadedFile {
   kind: FileKind;
 }
 
+/**
+ * Kết quả cấp URL upload trực tiếp từ backend.
+ *
+ * Backend cấp URL có chữ ký (presigned PUT) — client `PUT` file thẳng lên
+ * nơi lưu trữ (Cloudflare R2) mà không đi qua API.
+ */
+export interface PresignedUpload {
+  /** URL có chữ ký để PUT file. */
+  uploadUrl: string;
+  /** Khóa đối tượng — gửi lại khi confirm. */
+  storageKey: string;
+  /** Bucket đích. */
+  bucket: string;
+  /** MIME type đã ký vào URL — client PHẢI gửi đúng header này khi PUT. */
+  contentType: string;
+  /** Số giây còn hiệu lực của uploadUrl. */
+  expiresInSeconds: number;
+  /** Dung lượng tối đa được phép (byte). */
+  maxSizeBytes: number;
+  /** URL công khai (chỉ có với avatar / logo). */
+  publicUrl: string | null;
+}
+
 /** Giới hạn dung lượng (byte) — khớp với backend. */
 export const FILE_SIZE_LIMITS: Record<FileKind, number> = {
   CV: 5 * 1024 * 1024,
@@ -80,21 +103,30 @@ export const validateFile = (file: File, kind: FileKind): string | null => {
   const mimeType = file.type || extensionMime;
 
   if (!allowed.includes(mimeType)) {
-    const readable = allowed
-      .map((mime) => {
-        if (mime === "application/pdf") return "PDF";
-        if (mime === "application/msword") return "DOC";
-        if (mime.includes("officedocument")) return "DOCX";
-        if (mime === "image/png") return "PNG";
-        if (mime === "image/jpeg") return "JPG/JPEG";
-        if (mime === "image/webp") return "WEBP";
-        return mime;
-      })
-      .join(", ");
+    const readable = allowed.map(mimeToReadableLabel).join(", ");
     return `Định dạng file không hợp lệ cho ${label}. Chỉ chấp nhận: ${readable}.`;
   }
 
   return null;
+};
+
+const mimeToReadableLabel = (mime: string): string => {
+  switch (mime) {
+    case "application/pdf":
+      return "PDF";
+    case "application/msword":
+      return "DOC";
+    case "application/vnd.openxmlformats-officedocument.wordprocessingml.document":
+      return "DOCX";
+    case "image/png":
+      return "PNG";
+    case "image/jpeg":
+      return "JPG/JPEG";
+    case "image/webp":
+      return "WEBP";
+    default:
+      return mime;
+  }
 };
 
 const guessMimeFromExtension = (fileName: string): string => {
@@ -118,19 +150,133 @@ const guessMimeFromExtension = (fileName: string): string => {
   }
 };
 
+/**
+ * Upload file lên nơi lưu trữ qua 1 request PUT có chữ ký.
+ *
+ * Dùng `XMLHttpRequest` thay `fetch` để có sự kiện `progress` → hiển thị
+ * % tải lên trên UI.
+ *
+ * @param presign thông tin URL upload từ backend
+ * @param file    file cần tải lên
+ * @param onProgress callback nhận % đã tải (0 – 100)
+ */
+const putToPresignedUrl = (
+  presign: PresignedUpload,
+  file: File,
+  onProgress?: (percent: number) => void
+): Promise<void> => {
+  return new Promise<void>((resolve, reject) => {
+    const xhr = new XMLHttpRequest();
+    xhr.open("PUT", presign.uploadUrl, true);
+
+    // BẮT BUỘC: phải đúng Content-Type đã được ký trong URL.
+    // Sai header → R2 trả 403 SignatureDoesNotMatch.
+    xhr.setRequestHeader("Content-Type", presign.contentType);
+
+    if (onProgress && xhr.upload) {
+      xhr.upload.onprogress = (event) => {
+        if (event.lengthComputable && event.total > 0) {
+          onProgress(Math.round((event.loaded / event.total) * 100));
+        }
+      };
+    }
+
+    xhr.onload = () => {
+      if (xhr.status >= 200 && xhr.status < 300) {
+        onProgress?.(100);
+        resolve();
+        return;
+      }
+      reject(
+        new Error(
+          `Không tải lên được file lên nơi lưu trữ (HTTP ${xhr.status}). Vui lòng thử lại.`
+        )
+      );
+    };
+
+    xhr.onerror = () =>
+      reject(
+        new Error(
+          "Không kết nối được tới nơi lưu trữ file. Kiểm tra kết nối mạng rồi thử lại."
+        )
+      );
+
+    xhr.ontimeout = () =>
+      reject(new Error("Tải lên file quá thời gian cho phép. Vui lòng thử lại."));
+
+    xhr.send(file);
+  });
+};
+
 export const filesService = {
   /**
-   * POST /api/v1/files/upload — multipart/form-data
+   * POST /api/v1/files/presign — xin URL upload trực tiếp.
    *
-   * <p>Không tự set `Content-Type` — axios/browser tự gắn boundary khi gặp
-   * `FormData` (nếu set thủ công sẽ thiếu boundary và server không parse được).
+   * @param kind        loại file
+   * @param contentType MIME type client dự kiến gửi (được ký vào URL)
    */
-  upload(file: File, kind: FileKind): Promise<ApiResponse<UploadedFile>> {
-    const formData = new FormData();
-    formData.append("file", file);
-    formData.append("kind", kind);
+  presign(
+    kind: FileKind,
+    contentType?: string
+  ): Promise<ApiResponse<PresignedUpload>> {
+    const query = new URLSearchParams({ kind });
+    if (contentType) {
+      query.set("contentType", contentType);
+    }
+    return http.post<ApiResponse<PresignedUpload>>(
+      `/api/v1/files/presign?${query.toString()}`
+    );
+  },
 
-    return http.post<ApiResponse<UploadedFile>>("/api/v1/files/upload", formData);
+  /**
+   * POST /api/v1/files/confirm — xác nhận file đã upload, nhận về metadata.
+   *
+   * @param storageKey khóa đối tượng
+   * @param kind       loại file
+   * @param fileName   tên file gốc
+   */
+  confirm(
+    storageKey: string,
+    kind: FileKind,
+    fileName: string
+  ): Promise<ApiResponse<UploadedFile>> {
+    return http.post<ApiResponse<UploadedFile>>("/api/v1/files/confirm", {
+      storageKey,
+      kind,
+      fileName,
+    });
+  },
+
+  /**
+   * Upload file — luồng chính.
+   *
+   * Thứ tự:
+   *   1. `POST /files/presign` → nhận URL có chữ ký.
+   *   2. `PUT` file thẳng lên Cloudflare R2 — backend không nhận file.
+   *   3. `POST /files/confirm` → backend kiểm tra magic bytes + ghi metadata.
+   *
+   * @param file       file cần tải lên
+   * @param kind       loại file
+   * @param onProgress callback nhận % đã tải (0 – 100)
+   */
+  async upload(
+    file: File,
+    kind: FileKind,
+    onProgress?: (percent: number) => void
+  ): Promise<ApiResponse<UploadedFile>> {
+    // Client phải gửi đúng Content-Type đã ký — dùng mime của file nếu khớp
+    // whitelist, nếu không thì để backend tự chọn mime mặc định.
+    const requestedMime = file.type || guessMimeFromExtension(file.name);
+    const contentType = FILE_MIME_TYPES[kind].includes(requestedMime)
+      ? requestedMime
+      : undefined;
+
+    const response = await filesService.presign(kind, contentType);
+    const presign = response.data;
+
+    await putToPresignedUrl(presign, file, onProgress);
+
+    return filesService.confirm(presign.storageKey, kind, file.name);
   },
 
   /**

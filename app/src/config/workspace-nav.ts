@@ -60,6 +60,12 @@ export const WORKSPACE_NAV: Record<RoleType, WorkspaceNavConfig> = {
         icon: CheckCircle2,
       },
       {
+        id: "student-reviews",
+        label: "Đánh giá",
+        to: PATHS.STUDENT.REVIEWS,
+        icon: Star,
+      },
+      {
         id: "student-saved",
         label: "Việc đã lưu",
         to: PATHS.SAVED,

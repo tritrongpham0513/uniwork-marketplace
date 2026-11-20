@@ -14,7 +14,7 @@ import java.util.List;
  * {"timestamp", "status", "success": false, "code", "message", "errors": [{"field", "message"}]}
  *
  * <p>Khớp 100% với envelope lỗi mà frontend đọc ở
- * {@code app/src/lib/mock/errors.ts} và {@code app/src/lib/api-error.ts}.
+ * {@code app/src/lib/api-error.ts}.
  */
 @Data
 @Builder

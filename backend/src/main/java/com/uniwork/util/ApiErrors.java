@@ -9,7 +9,7 @@ import java.util.List;
 /**
  * Tiện ích tạo lỗi nghiệp vụ kèm danh sách lỗi field (đúng shape envelope
  * {@code { timestamp, status, success, code, message, errors[] }} } mà frontend
- * đọc ở {@code app/src/lib/mock/errors.ts}).
+ * đọc ở {@code app/src/lib/api-error.ts}).
  */
 public final class ApiErrors {
 

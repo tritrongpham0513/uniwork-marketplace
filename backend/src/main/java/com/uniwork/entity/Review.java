@@ -70,9 +70,13 @@ public class Review {
     @Column(name = "comment", nullable = false, length = 1000)
     private String comment;
 
-    /** Phản hồi của đối tượng bị đánh giá */
+    /** Phản hồi của đối tượng bị đánh giá (reviewee) */
     @Column(name = "reply", length = 1000)
     private String reply;
+
+    /** Phản hồi của người viết đánh giá (reviewer) — cho đánh giá 2 chiều */
+    @Column(name = "reviewer_reply", length = 1000)
+    private String reviewerReply;
 
     /** Admin có thể ẩn đánh giá vi phạm */
     @Column(name = "is_hidden", nullable = false)

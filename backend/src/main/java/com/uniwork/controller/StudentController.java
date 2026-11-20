@@ -9,14 +9,18 @@ import com.uniwork.dto.response.ApiResponse;
 import com.uniwork.dto.response.ApplicationResponse;
 import com.uniwork.dto.response.CountResponse;
 import com.uniwork.dto.response.JobNotifyPreferenceResponse;
+import com.uniwork.dto.response.ReviewResponse;
 import com.uniwork.dto.response.SavedJobResponse;
 import com.uniwork.dto.response.StudentProfileResponse;
+import com.uniwork.dto.response.WorkHistoryResponse;
 import com.uniwork.entity.User;
 import com.uniwork.security.CurrentUser;
 import com.uniwork.service.ApplicationService;
 import com.uniwork.service.JobNotifyService;
 import com.uniwork.service.ProfileService;
+import com.uniwork.service.ReviewService;
 import com.uniwork.service.SavedJobService;
+import com.uniwork.service.WorkHistoryService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -47,6 +51,7 @@ import java.util.List;
  *   <li>{@code PATCH  /api/v1/student/applications/{id}/withdraw}</li>
  *   <li>{@code GET    /api/v1/student/profile}</li>
  *   <li>{@code PUT    /api/v1/student/profile}</li>
+ *   <li>{@code GET    /api/v1/student/reviews}</li>
  *   <li>{@code GET    /api/v1/student/saved-jobs}</li>
  *   <li>{@code POST   /api/v1/student/saved-jobs}</li>
  *   <li>{@code DELETE /api/v1/student/saved-jobs/{jobId}}</li>
@@ -63,6 +68,8 @@ public class StudentController {
     private final ProfileService profileService;
     private final SavedJobService savedJobService;
     private final JobNotifyService jobNotifyService;
+    private final ReviewService reviewService;
+    private final WorkHistoryService workHistoryService;
 
     // ------------------------------------------------------------------
     // ĐƠN ỨNG TUYỂN
@@ -133,6 +140,54 @@ public class StudentController {
         return ResponseEntity.ok(ApiResponse.success(
                 "Đã cập nhật hồ sơ.",
                 profileService.updateStudentProfile(user.getId(), request)));
+    }
+
+    // ------------------------------------------------------------------
+    // KINH NGHIỆM LÀM VIỆC (HỆ THỐNG TỰ GHI NHẬN)
+    // ------------------------------------------------------------------
+
+    @GetMapping("/work-history")
+    @Operation(summary = "Lịch sử làm việc của tôi (hệ thống tự ghi nhận)")
+    public ResponseEntity<ApiResponse<List<WorkHistoryResponse>>> listWorkHistory(
+            @CurrentUser User user) {
+
+        return ResponseEntity.ok(ApiResponse.success(
+                "Lấy lịch sử làm việc thành công",
+                workHistoryService.listForStudent(user.getId())));
+    }
+
+    // ------------------------------------------------------------------
+    // ĐÁNH GIÁ TỪ NHÀ TUYỂN DỤNG
+    // ------------------------------------------------------------------
+
+    @GetMapping("/reviews")
+    @Operation(summary = "Danh sách đánh giá sinh viên đã nhận từ nhà tuyển dụng")
+    public ResponseEntity<ApiResponse<List<ReviewResponse>>> listReviews(
+            @CurrentUser User user) {
+
+        return ResponseEntity.ok(ApiResponse.success(
+                "Lấy danh sách đánh giá thành công",
+                reviewService.listForStudent(user.getId())));
+    }
+
+    /**
+     * POST /api/v1/student/reviews/{id}/reply — sinh viên phản hồi lại nhà tuyển dụng.
+     *
+     * <p>Chỉ sinh viên là người bị đánh giá (`reviewee`) mới phản hồi được —
+     * service tự kiểm tra quyền, sai thì trả `403`.
+     */
+    @PostMapping("/reviews/{id}/reply")
+    @Operation(summary = "Sinh viên phản hồi lại đánh giá đã nhận")
+    public ResponseEntity<ApiResponse<ReviewResponse>> replyReview(
+            @PathVariable("id") String id,
+            @RequestBody(required = false) java.util.Map<String, String> body,
+            @CurrentUser User user) {
+
+        String content = body != null ? body.get("reply") : null;
+
+        return ResponseEntity.ok(ApiResponse.success(
+                "Đã gửi phản hồi.",
+                reviewService.replyAsReviewee(id, content, user.getId())));
     }
 
     // ------------------------------------------------------------------

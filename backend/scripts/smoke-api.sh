@@ -23,6 +23,9 @@ PASS=0
 FAIL=0
 FAILED_STEPS=()
 
+# Mã đơn ứng tuyển dùng ở các bước sau — có thể rỗng nếu bước ứng tuyển bị bỏ qua.
+APPLICATION_ID=""
+
 GREEN='\033[0;32m'
 RED='\033[0;31m'
 YELLOW='\033[1;33m'
@@ -140,6 +143,11 @@ expect_not_contains() {
   if printf '%s' "$haystack" | grep -q "$needle"; then fail "$label — vẫn còn '$needle'"; else ok "$label"; fi
 }
 
+expect_equal() {
+  local want="$1" got="$2" label="$3"
+  if [ "$want" = "$got" ]; then ok "$label"; else fail "$label — mong đợi '$want', nhận '$got'"; fi
+}
+
 # =====================================================================
 step "0. Kiểm tra kết nối"
 BODY=$(call GET "/public/categories")
@@ -163,6 +171,12 @@ BODY=$(call POST "/auth/login" "" '{"email":"admin@viejob.vn","password":"Admin@
 expect_status 200 "$(status)" "đăng nhập quản trị viên"
 ADMIN_TOKEN=$(jget "$BODY" "data.accessToken")
 [ -n "$ADMIN_TOKEN" ] && ok "nhận access token admin" || fail "thiếu access token admin"
+
+# NTD thứ 2 — dùng để kiểm tra phân quyền xem kinh nghiệm làm việc.
+BODY=$(call POST "/auth/login" "" '{"email":"hai.nv@retail.vn","password":"Employer@123"}')
+expect_status 200 "$(status)" "đăng nhập NTD thứ 2"
+OTHER_EMPLOYER_TOKEN=$(jget "$BODY" "data.accessToken")
+[ -n "$OTHER_EMPLOYER_TOKEN" ] && ok "nhận access token NTD thứ 2" || fail "thiếu access token NTD thứ 2"
 
 # Sai mật khẩu -> 401
 BODY=$(call POST "/auth/login" "" '{"email":"student@viejob.vn","password":"WrongPassword"}')
@@ -556,6 +570,124 @@ step "17. Danh sách id tin đã lưu"
 BODY=$(call GET "/student/saved-jobs/ids" "$STUDENT_TOKEN")
 expect_status 200 "$(status)" "GET /student/saved-jobs/ids"
 expect_contains "$BODY" '"data"' "saved-jobs/ids trả mảng id"
+
+# =====================================================================
+step "18. Đánh giá 2 chiều — xem & phân quyền"
+BODY=$(call GET "/student/reviews" "$STUDENT_TOKEN")
+expect_status 200 "$(status)" "GET /student/reviews"
+expect_contains "$BODY" '"targetType":"STUDENT"' "sinh viên thấy đánh giá dành cho sinh viên"
+
+BODY=$(call GET "/employer/reviews" "$EMPLOYER_TOKEN")
+expect_status 200 "$(status)" "GET /employer/reviews"
+expect_contains "$BODY" '"targetType":"EMPLOYER"' "NTD thấy đánh giá dành cho NTD"
+
+# Endpoint chung phải bị ràng buộc theo vai trò
+BODY=$(call GET "/reviews?targetType=STUDENT" "$EMPLOYER_TOKEN")
+expect_status 403 "$(status)" "NTD không được xem đánh giá dành cho sinh viên qua /reviews"
+
+BODY=$(call GET "/reviews?targetType=EMPLOYER" "$STUDENT_TOKEN")
+expect_status 403 "$(status)" "sinh viên không được xem đánh giá dành cho NTD qua /reviews"
+
+# `targetUserId` của client bị bỏ qua -> chỉ thấy đánh giá của chính mình
+BODY=$(call GET "/reviews?targetType=STUDENT&targetUserId=5" "$STUDENT_TOKEN")
+expect_status 200 "$(status)" "GET /reviews với targetUserId khác vẫn trả 200"
+expect_not_contains "$BODY" '"targetUserId":5' "targetUserId của client bị bỏ qua"
+
+if [ -n "$APP_ID" ]; then
+  BODY=$(call GET "/employer/applications/$APP_ID/reviews" "$EMPLOYER_TOKEN")
+  expect_status 200 "$(status)" "GET /employer/applications/{id}/reviews"
+  expect_contains "$BODY" '"targetType":"STUDENT"' "trả đánh giá uy tín ứng viên"
+fi
+
+# =====================================================================
+step "19. Phản hồi 2 chiều cho đánh giá"
+
+# Lấy id đánh giá đầu tiên mà sinh viên đã nhận + giá trị `reviewerReply` của chính đánh giá đó.
+BODY=$(call GET "/student/reviews" "$STUDENT_TOKEN")
+REVIEW_ID=$(echo "$BODY" | node -e 'let s="";process.stdin.on("data",d=>s+=d).on("end",()=>{const r=JSON.parse(s).data?.[0];process.stdout.write(r?r.id:"")})')
+REVIEWER_REPLY_BEFORE=$(echo "$BODY" | node -e 'let s="";process.stdin.on("data",d=>s+=d).on("end",()=>{const r=JSON.parse(s).data?.[0];process.stdout.write(r&&r.reviewerReply?r.reviewerReply:"")})')
+
+if [ -n "$REVIEW_ID" ]; then
+  STAMP="Smoke 2 chieu $(date +%s)"
+  BODY=$(call POST "/student/reviews/$REVIEW_ID/reply" "$STUDENT_TOKEN" "{\"reply\":\"$STAMP\"}")
+  expect_status 200 "$(status)" "sinh viên phản hồi đánh giá đã nhận"
+  expect_contains "$BODY" "$STAMP" "nội dung phản hồi được lưu vào ô reply"
+
+  # Ô reviewerReply không được bị ghi đè.
+  AFTER=$(echo "$BODY" | node -e 'let s="";process.stdin.on("data",d=>s+=d).on("end",()=>{const r=JSON.parse(s).data;process.stdout.write(r&&r.reviewerReply?r.reviewerReply:"")})')
+  if [ "$AFTER" = "$REVIEWER_REPLY_BEFORE" ]; then
+    ok "ô reviewerReply không bị ghi đè"
+  else
+    fail "ô reviewerReply không bị ghi đè — '$REVIEWER_REPLY_BEFORE' -> '$AFTER'"
+  fi
+
+  # SV không được phản hồi đánh giá của SV khác -> 403.
+  BODY=$(call POST "/student/reviews/rev-004/reply" "$STUDENT_TOKEN" '{"reply":"Xin phép"}')
+  expect_status 403 "$(status)" "sinh viên không phản hồi được đánh giá của SV khác"
+
+  # NTD phản hồi lại đánh giá mình đã viết -> ghi vào ô reviewerReply.
+  STAMP2="Smoke NTD $(date +%s)"
+  BODY=$(call POST "/employer/reviews/rev-004/reviewer-reply" "$EMPLOYER_TOKEN" "{\"reply\":\"$STAMP2\"}")
+  expect_status 200 "$(status)" "NTD phản hồi đánh giá mình đã viết"
+  expect_contains "$BODY" "$STAMP2" "nội dung phản hồi được lưu vào ô reviewerReply"
+
+  # NTD không được phản hồi đánh giá không thuộc mình -> 403.
+  BODY=$(call POST "/employer/reviews/rev-001/reviewer-reply" "$EMPLOYER_TOKEN" '{"reply":"Xin phép"}')
+  expect_status 403 "$(status)" "NTD không phản hồi được đánh giá không thuộc mình"
+else
+  expect_status 200 "$(status)" "GET /student/reviews (không có đánh giá để test)"
+fi
+
+# =====================================================================
+step "20. Kinh nghiệm làm việc tự động"
+
+# Lấy 1 đơn ứng tuyển của NTD demo để test (đã có sẵn trong seed hoặc vừa tạo).
+if [ -z "$APPLICATION_ID" ]; then
+  APP_LIST=$(call GET "/employer/applications" "$EMPLOYER_TOKEN")
+  APPLICATION_ID=$(jget "$APP_LIST" "data.0.id")
+fi
+
+if [ -n "$APPLICATION_ID" ]; then
+  # Chuyển đơn sang COMPLETED (nếu chưa) -> hệ thống tự ghi kinh nghiệm.
+  BODY=$(call PATCH "/employer/applications/$APPLICATION_ID" "$EMPLOYER_TOKEN" '{"status":"ACCEPTED"}')
+  BODY=$(call PATCH "/employer/applications/$APPLICATION_ID" "$EMPLOYER_TOKEN" '{"status":"COMPLETED"}')
+  expect_status 200 "$(status)" "NTD chuyển đơn sang COMPLETED"
+
+  BODY=$(call GET "/employer/applications/$APPLICATION_ID/work-history" "$EMPLOYER_TOKEN")
+  expect_status 200 "$(status)" "GET /employer/applications/{id}/work-history"
+  expect_contains "$BODY" "$APPLICATION_ID" "kinh nghiệm gắn với đơn vừa hoàn thành"
+
+  # Idempotent: gọi lại PATCH COMPLETED -> vẫn chỉ 1 dòng cho đơn này.
+  BODY=$(call PATCH "/employer/applications/$APPLICATION_ID" "$EMPLOYER_TOKEN" '{"status":"COMPLETED"}')
+  expect_status 200 "$(status)" "NTD gửi lại COMPLETED (idempotent)"
+
+  BODY=$(call GET "/employer/applications/$APPLICATION_ID/work-history" "$EMPLOYER_TOKEN")
+  COUNT=$(echo "$BODY" | node -e 'let s="";process.stdin.on("data",d=>s+=d).on("end",()=>{const j=JSON.parse(s);const id=process.argv[1];process.stdout.write(String((j.data||[]).filter(w=>w.applicationId===id).length))})' "$APPLICATION_ID")
+  expect_equal "1" "$COUNT" "1 đơn chỉ sinh 1 dòng kinh nghiệm (idempotent)"
+
+  # NTD khác (chưa từng nhận đơn của SV) -> 403.
+  BODY=$(call GET "/employer/applications/$APPLICATION_ID/work-history" "$OTHER_EMPLOYER_TOKEN")
+  expect_status 403 "$(status)" "NTD không liên quan không xem được kinh nghiệm ứng viên"
+
+  # Không đăng nhập -> 401.
+  NOAUTH_STATUS=$(curl -s -o /dev/null -w '%{http_code}' "$BASE_URL/employer/applications/$APPLICATION_ID/work-history")
+  expect_status 401 "$NOAUTH_STATUS" "không token thì xem kinh nghiệm trả 401"
+else
+  fail "không có đơn ứng tuyển nào để test kinh nghiệm làm việc"
+fi
+
+# Sinh viên xem được lịch sử làm việc của mình.
+BODY=$(call GET "/student/work-history" "$STUDENT_TOKEN")
+expect_status 200 "$(status)" "GET /student/work-history"
+
+# Hồ sơ sinh viên kèm `workHistories`.
+BODY=$(call GET "/student/profile" "$STUDENT_TOKEN")
+expect_status 200 "$(status)" "GET /student/profile"
+expect_contains "$BODY" '"workHistories"' "hồ sơ SV có trường workHistories"
+
+# Admin tra cứu được lịch sử làm việc của sinh viên.
+BODY=$(call GET "/admin/work-history?studentId=1" "$ADMIN_TOKEN")
+expect_status 200 "$(status)" "GET /admin/work-history?studentId="
 
 # =====================================================================
 printf "\n${YELLOW}================================${NC}\n"

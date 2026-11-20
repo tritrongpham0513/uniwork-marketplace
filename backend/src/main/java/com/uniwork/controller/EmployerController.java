@@ -9,12 +9,14 @@ import com.uniwork.dto.response.ApplicationResponse;
 import com.uniwork.dto.response.EmployerProfileResponse;
 import com.uniwork.dto.response.JobResponse;
 import com.uniwork.dto.response.ReviewResponse;
+import com.uniwork.dto.response.WorkHistoryResponse;
 import com.uniwork.entity.User;
 import com.uniwork.security.CurrentUser;
 import com.uniwork.service.ApplicationService;
 import com.uniwork.service.JobService;
 import com.uniwork.service.ProfileService;
 import com.uniwork.service.ReviewService;
+import com.uniwork.service.WorkHistoryService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -49,6 +51,8 @@ import java.util.Map;
  *   <li>{@code PATCH  /api/v1/employer/applications/{id}}</li>
  *   <li>{@code GET    /api/v1/employer/profile}</li>
  *   <li>{@code PUT    /api/v1/employer/profile}</li>
+ *   <li>{@code GET    /api/v1/employer/reviews}</li>
+ *   <li>{@code GET    /api/v1/employer/applications/{id}/reviews}</li>
  *   <li>{@code PATCH  /api/v1/employer/reviews/{id}/reply}</li>
  * </ul>
  */
@@ -63,6 +67,7 @@ public class EmployerController {
     private final ApplicationService applicationService;
     private final ProfileService profileService;
     private final ReviewService reviewService;
+    private final WorkHistoryService workHistoryService;
 
     // ------------------------------------------------------------------
     // TIN TUYỂN DỤNG
@@ -195,13 +200,47 @@ public class EmployerController {
     @GetMapping("/reviews")
     @Operation(summary = "Danh sách đánh giá dành cho nhà tuyển dụng")
     public ResponseEntity<ApiResponse<List<ReviewResponse>>> listReviews(@CurrentUser User user) {
+        // Chỉ trả về đánh giá CHƯA bị ẩn (BR-07.9) — đánh giá bị admin ẩn
+        // không được lộ ra trên trang quản lý của nhà tuyển dụng.
         return ResponseEntity.ok(ApiResponse.success(
                 "Lấy danh sách đánh giá thành công",
-                reviewService.list("EMPLOYER", user.getId(), false)));
+                reviewService.list("EMPLOYER", user.getId(), true)));
+    }
+
+    @GetMapping("/applications/{applicationId}/reviews")
+    @Operation(summary = "Đánh giá sinh viên ứng tuyển đã nhận từ nhà tuyển dụng khác")
+    public ResponseEntity<ApiResponse<List<ReviewResponse>>> listApplicationReviews(
+            @PathVariable("applicationId") String applicationId,
+            @CurrentUser User user) {
+
+        // Quyền: chỉ NTD sở hữu tin của đơn mới xem được đánh giá ứng viên.
+        Long studentUserId = applicationService.studentUserIdOf(applicationId, user.getId());
+
+        return ResponseEntity.ok(ApiResponse.success(
+                "Lấy danh sách đánh giá thành công",
+                reviewService.listForStudent(studentUserId)));
+    }
+
+    /**
+     * GET /api/v1/employer/applications/{applicationId}/work-history
+     * — lịch sử làm việc của ứng viên trong đơn ứng tuyển này.
+     *
+     * <p>Quyền: chỉ NTD sở hữu tin của đơn, hoặc NTD đã từng nhận đơn ứng
+     * tuyển của sinh viên này (cùng quy tắc với quyền đọc CV).
+     */
+    @GetMapping("/applications/{applicationId}/work-history")
+    @Operation(summary = "Kinh nghiệm làm việc của ứng viên")
+    public ResponseEntity<ApiResponse<List<WorkHistoryResponse>>> listApplicationWorkHistory(
+            @PathVariable("applicationId") String applicationId,
+            @CurrentUser User user) {
+
+        return ResponseEntity.ok(ApiResponse.success(
+                "Lấy kinh nghiệm làm việc của ứng viên thành công",
+                workHistoryService.listForApplication(applicationId, user.getId())));
     }
 
     @PatchMapping("/reviews/{id}/reply")
-    @Operation(summary = "Trả lời đánh giá")
+    @Operation(summary = "Trả lời đánh giá (người bị đánh giá)")
     public ResponseEntity<ApiResponse<ReviewResponse>> replyReview(
             @PathVariable("id") String id,
             @RequestParam(required = false) String reply,
@@ -212,7 +251,7 @@ public class EmployerController {
 
         return ResponseEntity.ok(ApiResponse.success(
                 "Đã gửi trả lời.",
-                reviewService.reply(id, content, user.getId())));
+                reviewService.replyAsReviewee(id, content, user.getId())));
     }
 
     /**
@@ -232,6 +271,24 @@ public class EmployerController {
 
         return ResponseEntity.ok(ApiResponse.success(
                 "Đã gửi trả lời.",
-                reviewService.reply(id, content, user.getId())));
+                reviewService.replyAsReviewee(id, content, user.getId())));
+    }
+
+    /**
+     * POST /api/v1/employer/reviews/{id}/reviewer-reply — NTD phản hồi lại đánh giá
+     * mà chính NTD đã viết (trường hợp NTD đánh giá sinh viên).
+     */
+    @PostMapping("/reviews/{id}/reviewer-reply")
+    @Operation(summary = "Phản hồi lại đánh giá đã viết (người viết đánh giá)")
+    public ResponseEntity<ApiResponse<ReviewResponse>> replyAsReviewer(
+            @PathVariable("id") String id,
+            @RequestBody(required = false) java.util.Map<String, String> body,
+            @CurrentUser User user) {
+
+        String content = body != null ? body.get("reply") : null;
+
+        return ResponseEntity.ok(ApiResponse.success(
+                "Đã gửi phản hồi.",
+                reviewService.replyAsReviewer(id, content, user.getId())));
     }
 }

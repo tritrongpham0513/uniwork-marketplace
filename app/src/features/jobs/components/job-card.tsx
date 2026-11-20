@@ -86,7 +86,12 @@ export function JobCard({
         </div>
 
         <p className="flex items-center gap-1.5 text-sm text-muted-foreground">
-          {job.employer.name}
+          <Link
+            to={PATHS.EMPLOYER.PUBLIC_PROFILE(job.employerId)}
+            className="underline-offset-4 transition-colors hover:text-primary hover:underline"
+          >
+            {job.employer.name}
+          </Link>
           {job.employer.verified && (
             <CheckCircle2
               className="size-3.5 text-primary"

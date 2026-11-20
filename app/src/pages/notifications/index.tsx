@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { Link } from "react-router";
+import { useQueryClient } from "@tanstack/react-query";
 import {
   Bell,
   BellOff,
@@ -22,6 +23,7 @@ import {
   useMarkRead,
   useNotifications,
 } from "@/features/notifications/hooks";
+import { invalidateByNotificationType } from "@/features/notifications/hooks/invalidate";
 import {
   NOTIFICATION_TYPE_LABELS,
   type Notification,
@@ -55,6 +57,7 @@ const formatRelative = (iso: string): string => {
 
 export default function NotificationsPage() {
   const [tab, setTab] = useState<"all" | "unread">("all");
+  const queryClient = useQueryClient();
 
   const {
     data: notifications = [],
@@ -72,9 +75,19 @@ export default function NotificationsPage() {
       ? notifications.filter((n) => !n.isRead)
       : notifications;
 
+  /**
+   * Mở một thông báo.
+   *
+   * Invalidate dữ liệu liên quan (theo loại thông báo) **trước** khi điều hướng —
+   * kể cả khi thông báo đã đọc — để trang đích luôn hiển thị dữ liệu mới nhất.
+   * Nếu chỉ invalidate trong `onSuccess` của mutation thì sẽ chậm tới lúc
+   * API "đánh dấu đã đọc" trả về, và trang đích có thể render cache cũ.
+   */
   const handleOpen = (notification: Notification) => {
+    invalidateByNotificationType(queryClient, notification.type);
+
     if (!notification.isRead) {
-      markRead.mutate(notification.id);
+      markRead.mutate({ id: notification.id, type: notification.type });
     }
   };
 
@@ -224,7 +237,10 @@ export default function NotificationsPage() {
                         onClick={(event) => {
                           event.preventDefault();
                           event.stopPropagation();
-                          markRead.mutate(notification.id);
+                          markRead.mutate({
+                            id: notification.id,
+                            type: notification.type,
+                          });
                         }}
                       >
                         <CheckCheck className="size-4" />

@@ -4,6 +4,7 @@ import { notificationService } from "../services/notifications.service";
 import { jobNotifyService } from "../services/job-notify.service";
 import { getLocalAccessToken } from "@/utils/authStorage";
 import { NOTIFICATION_KEYS } from "./keys";
+import { invalidateByNotificationType } from "./invalidate";
 
 export { NOTIFICATION_KEYS };
 export { useNotificationSocket } from "./useNotificationSocket";
@@ -33,16 +34,23 @@ export const useNotificationCount = () =>
     refetchOnWindowFocus: false,
   });
 
-/** Đánh dấu 1 thông báo đã đọc */
+/**
+ * Đánh dấu 1 thông báo đã đọc.
+ *
+ * `type` là loại thông báo (`REVIEW`, `APPLICATION`, ...) để invalidate đúng
+ * nhóm dữ liệu liên quan. Ví dụ bấm thông báo "Bạn nhận được đánh giá mới"
+ * -> phải refetch danh sách đánh giá, nếu không trang đích vẫn hiện cache cũ.
+ */
 export const useMarkRead = () => {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: async (id: string) => {
+    mutationFn: async ({ id }: { id: string; type?: string | null }) => {
       await notificationService.markRead(id);
     },
-    onSuccess: () => {
+    onSuccess: (_data, variables) => {
       void queryClient.invalidateQueries({ queryKey: NOTIFICATION_KEYS.all });
+      invalidateByNotificationType(queryClient, variables.type);
     },
   });
 };

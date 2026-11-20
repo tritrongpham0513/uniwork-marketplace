@@ -218,6 +218,17 @@ export function PublicEmployerPage() {
                             </p>
                           </div>
                         )}
+
+                        {review.reviewerReply && (
+                          <div className="mt-2.5 rounded-lg border-l-2 border-border bg-muted/30 p-3">
+                            <p className="text-xs font-semibold text-foreground">
+                              Phản hồi của sinh viên
+                            </p>
+                            <p className="mt-1 text-sm text-pretty text-muted-foreground">
+                              {review.reviewerReply}
+                            </p>
+                          </div>
+                        )}
                       </li>
                     ))}
                   </ul>

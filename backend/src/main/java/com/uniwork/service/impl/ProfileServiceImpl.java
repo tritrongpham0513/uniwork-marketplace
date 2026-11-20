@@ -8,6 +8,7 @@ import com.uniwork.dto.response.ReviewResponse;
 import com.uniwork.dto.response.StudentExperienceResponse;
 import com.uniwork.dto.response.StudentJobPreferenceResponse;
 import com.uniwork.dto.response.StudentProfileResponse;
+import com.uniwork.dto.response.WorkHistoryResponse;
 import com.uniwork.entity.EmployerProfile;
 import com.uniwork.entity.Province;
 import com.uniwork.entity.Review;
@@ -22,9 +23,11 @@ import com.uniwork.repository.StudentExperienceRepository;
 import com.uniwork.repository.StudentJobPreferenceRepository;
 import com.uniwork.repository.StudentProfileRepository;
 import com.uniwork.repository.UserRepository;
+import com.uniwork.repository.WorkAssignmentRepository;
 import com.uniwork.service.JobService;
 import com.uniwork.service.ProfileService;
 import com.uniwork.service.ReviewService;
+import com.uniwork.service.WorkHistoryService;
 import com.uniwork.util.ApiErrors;
 import com.uniwork.util.DateTimeUtils;
 import lombok.RequiredArgsConstructor;
@@ -49,8 +52,10 @@ public class ProfileServiceImpl implements ProfileService {
     private final UserRepository userRepository;
     private final ProvinceRepository provinceRepository;
     private final ReviewRepository reviewRepository;
+    private final WorkAssignmentRepository workAssignmentRepository;
     private final JobService jobService;
     private final ReviewService reviewService;
+    private final WorkHistoryService workHistoryService;
 
     // ------------------------------------------------------------------
     // SINH VIÊN
@@ -281,6 +286,10 @@ public class ProfileServiceImpl implements ProfileService {
                         .build())
                 .toList();
 
+        // Lịch sử làm việc do hệ thống tự ghi khi đơn ứng tuyển hoàn thành.
+        List<WorkHistoryResponse> workHistories = workHistoryService
+                .listForStudent(profile.getUserId());
+
         StudentJobPreferenceResponse preferences = preferenceRepository.findByStudentId(profile.getUserId())
                 .map(p -> StudentJobPreferenceResponse.builder()
                         .categoryIds(p.getCategoryIds())
@@ -315,6 +324,7 @@ public class ProfileServiceImpl implements ProfileService {
                 .cvUrl(profile.getCvUrl())
                 .skills(profile.getSkills() != null ? profile.getSkills() : List.of())
                 .experiences(experiences)
+                .workHistories(workHistories)
                 .jobPreferences(preferences)
                 .avgRating(profile.getAvgRating() != null ? profile.getAvgRating().doubleValue() : 0.0)
                 .ratingCount(profile.getRatingCount() != null ? profile.getRatingCount() : 0)

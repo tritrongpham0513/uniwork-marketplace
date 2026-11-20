@@ -1,34 +1,20 @@
 /**
  * Cấu hình môi trường runtime.
  *
- * `USE_MOCK_API` quyết định frontend gọi API thật (backend Spring Boot)
- * hay gọi tầng mock nội bộ.
+ * Frontend **luôn gọi API thật** của backend Spring Boot — không còn tầng mock
+ * trong bất kỳ bản build nào.
  *
- * - `true`  → dùng mock adapter (mặc định, để demo offline)
- * - `false` → gọi `VITE_API_URL_DEV` thật
- *
- * Khi backend team hoàn thiện API, chỉ cần đặt `VITE_USE_MOCK_API=false`
- * trong `.env` — không phải sửa một dòng service nào.
+ * - `API_URL_DEV` rỗng (mặc định) → request chạy **cùng origin** với app:
+ *   - dev: Vite proxy `/api` → backend (xem `vite.config.ts`)
+ *   - production: nginx proxy `/api` → backend (xem `nginx.conf`)
+ * - Chỉ khi chạy app ở domain khác hẳn với API (ví dụ `pnpm dev` ngoài Docker
+ *   trong khi backend chạy ở port khác) mới cần đặt `VITE_API_URL_DEV`.
  */
-const rawMockFlag = import.meta.env.VITE_USE_MOCK_API;
-
-const parseBool = (value: string | undefined, fallback: boolean): boolean => {
-  if (value === undefined || value === "") return fallback;
-  return value === "true" || value === "1";
-};
-
 export const env = {
-  /** Base URL gốc — service thêm tiền tố `/api/v1` */
-  API_URL_DEV: import.meta.env.VITE_API_URL_DEV ?? "http://localhost:8000",
-  API_URL_PROD:
-    import.meta.env.VITE_API_URL_PROD ?? "http://localhost:8000",
+  /** Base URL gốc — service thêm tiền tố `/api/v1`. Rỗng = same-origin. */
+  API_URL_DEV: import.meta.env.VITE_API_URL_DEV ?? "",
   CLIENT_ID_GOOGLE: import.meta.env.VITE_CLIENT_ID_GOOGLE,
   REDIRECT_URI_GOOGLE: import.meta.env.VITE_REDIRECT_URI_GOOGLE,
-  /** Bật mock API giả lập (mặc định true) */
-  USE_MOCK_API: parseBool(rawMockFlag, true),
-  /** Độ trễ mô phỏng network (ms) — để UI có loading state thật */
-  MOCK_MIN_DELAY: Number(import.meta.env.VITE_MOCK_MIN_DELAY ?? 250),
-  MOCK_MAX_DELAY: Number(import.meta.env.VITE_MOCK_MAX_DELAY ?? 600),
 } as const;
 
 export type Env = typeof env;

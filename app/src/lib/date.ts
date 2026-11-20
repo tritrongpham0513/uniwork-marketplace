@@ -2,7 +2,7 @@ import { format, parseISO } from "date-fns";
 
 /**
  * Chuỗi ngày chuẩn của hệ thống: `yyyy-MM-dd` (không giờ, không múi giờ).
- * Dùng chung cho form state, payload API và mock data.
+ * Dùng chung cho form state và payload API.
  */
 export const ISO_DATE_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
 

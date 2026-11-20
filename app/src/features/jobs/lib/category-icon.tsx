@@ -13,7 +13,7 @@ import {
 import { cn } from "cn";
 
 /**
- * Bảng tra icon lucide theo tên (mảng `icon` trong `mocks/categories.ts`).
+ * Bảng tra icon lucide theo tên (trường `icon` của nhóm việc trong API).
  * Cho phép render icon động cho nhóm việc mà không cần thêm lib.
  */
 const ICON_MAP: Record<string, LucideIcon> = {

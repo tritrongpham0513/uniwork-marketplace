@@ -149,8 +149,8 @@ docker compose up --build
 | `backend` | `8080` | Spring Boot 3.3.5 / Java 17 (JRE image) |
 | `frontend` | `8000` | Nginx serve SPA + reverse proxy `/api` → `backend:8080` |
 
-Frontend trong Compose được build với `VITE_USE_MOCK_API=false` nên gọi **API thật** qua nginx.
-Volume `uploads-data` giữ file upload (CV / ảnh / logo) qua các lần rebuild.
+Frontend gọi **API thật** qua nginx reverse proxy (cùng origin → không lo CORS).
+File upload (CV / ảnh / logo) lưu trên **Cloudflare R2** → không mất khi rebuild container.
 
 ### Tài khoản demo (seed sẵn trong DB)
 
@@ -160,8 +160,9 @@ Volume `uploads-data` giữ file upload (CV / ảnh / logo) qua các lần rebui
 | Nhà tuyển dụng | `employer@viejob.vn` | `Employer@123` |
 | Quản trị viên | `admin@viejob.vn` | `Admin@123` |
 
-Dữ liệu seed = **full parity** với `app/src/mocks/*` (22 users, 45 tin tuyển dụng, 7 đơn ứng tuyển có timeline, 5 đánh giá, 6 thông báo, tin đã lưu, master data).
-Regenerate bằng: `cd app && pnpm seed:sql`.
+Dữ liệu seed nằm trong `backend/src/main/resources/db/migration/` (`V3__seed_demo_data.sql` + `V7` + `V9`):
+22 users, 45 tin tuyển dụng, 9 đơn ứng tuyển có timeline, đánh giá 2 chiều, thông báo, tin đã lưu, master data.
+Đây là **SQL tĩnh do backend sở hữu** — muốn đổi dữ liệu thì sửa trực tiếp file SQL và `./dev.sh reset`.
 
 ### Smoke test API
 
@@ -280,8 +281,7 @@ Mở trình duyệt:
 > backend dev **crash loop** với log `Migration checksum mismatch for migration version N`.
 > Cách xử lý: `./dev.sh reset` (xoá volume `mysql-dev-data` → migrate lại từ V1).
 > Bản production dùng volume riêng (`mysql-data`) nên không bị ảnh hưởng.
-> Lưu ý: seed V3 sinh từ `app/src/mocks/*` với đồng hồ deterministic (`app/src/mocks/time.ts`)
-> nên **không** sinh ra checksum mới mỗi lần `pnpm seed:sql`.
+> Lưu ý: seed V3/V7/V9 là **SQL tĩnh** (không sinh ra từ script) → checksum ổn định qua mọi lần rebuild.
 - **Chạy verify/lint trên host** (nhanh hơn container): `cd app && pnpm lint && pnpm verify`
 
 ---
@@ -292,7 +292,7 @@ Mở trình duyệt:
 | --- | --- | --- |
 | Frontend lint | `cd app && pnpm lint` | 0 error, 0 warning |
 | Frontend type-check + build | `cd app && pnpm build` | PASSED |
-| Frontend verify (4 suite) | `cd app && pnpm verify` | toast + integration + mock-api + e2e — **PASSED** |
+| Frontend verify (3 suite) | `cd app && pnpm verify` | toast + integration + e2e (API thật) — **PASSED** |
 | Browser smoke (app thật + API thật) | `cd app && SMOKE_BASE_URL=http://localhost:8000 pnpm smoke:browser` | **11/11 PASSED** — không còn lỗi console |
 | Backend compile (Docker) | `docker run … mvn clean compile` | PASSED |
 | Backend schema + seed (Docker) | `docker compose up --build` | Flyway V1→V4, Hibernate `ddl-auto: validate` OK |
@@ -320,29 +320,34 @@ Smoke test phủ đủ vòng đời nghiệp vụ:
 
 ### Upload file (CV / ảnh đại diện / logo)
 
-Không dùng URL giả — file được lưu thật trên disk và phục vụ qua API:
+File được lưu thật trên **Cloudflare R2** (S3-compatible) qua luồng presigned — browser `PUT` thẳng lên R2, backend không nhận nội dung file:
 
 ```
-POST   /api/v1/files/upload?kind=CV|AVATAR|LOGO   (multipart: file)  → 201
-GET    /api/v1/files/{id}                                              → 200 (stream file)
-DELETE /api/v1/files/{id}                                              → 200 (xoá mềm)
+POST   /api/v1/files/presign?kind=CV|AVATAR|LOGO&contentType=  → 200 (uploadUrl + storageKey)
+PUT    <uploadUrl>                                              → 200 (đẩy thẳng lên R2)
+POST   /api/v1/files/confirm                                    → 201 (metadata)
+GET    /api/v1/files/{id}                                       → 302 (redirect tới presigned GET / CDN)
+DELETE /api/v1/files/{id}                                       → 200 (xoá mềm)
 ```
 
-- Thư mục lưu: `app.storage.upload-dir` (`./data/uploads` khi chạy local, `/data/uploads` trong Docker + volume `uploads-data`).
-- `kind=CV` là **tài nguyên riêng tư**: chỉ chủ sở hữu, admin, và NTD đã nhận đơn ứng tuyển từ sinh viên đó mới đọc được.
-  `AVATAR` / `LOGO` là ảnh công khai.
-- Backend dùng **user không-root** (`spring`) → Dockerfile `chown -R spring:spring /data` để container ghi được file.
-- Frontend: `src/features/files/` (`files.service.ts` + `useUploadFile` / `useDeleteFile`), mock tương ứng ở `src/lib/mock/handlers/files.ts`.
+- Cấu hình qua env: `R2_ENDPOINT`, `R2_ACCESS_KEY`, `R2_SECRET_KEY`, `R2_BUCKET_PUBLIC`, `R2_BUCKET_PRIVATE`.
+- `kind=CV` là **tài nguyên riêng tư**: chỉ chủ sở hữu, admin, và NTD đã nhận đơn ứng tuyển từ sinh viên đó mới đọc được (qua presigned GET có hạn).
+  `AVATAR` / `LOGO` là ảnh công khai (bucket public, có thể gắn Cloudflare CDN).
+- Backend xác minh **magic bytes** (không tin `Content-Type` của client) và resize ảnh về ≤ 512px.
+- Frontend: `src/features/files/` (`files.service.ts` + `useUploadFile` / `useDeleteFile`) — gọi thẳng API thật.
 
 > **Lưu ý Windows/Git Bash**: `curl -F "file=@/tmp/x.pdf"` sẽ lỗi `(26) Failed to open/read local data from file`
 > vì curl native không hiểu đường dẫn POSIX. Luôn dùng **đường dẫn tương đối** trong thư mục hiện tại
 > (`-F "file=@./cv.pdf"`) — `backend/scripts/smoke-api.sh` đã xử lý sẵn.
 
-### Dữ liệu seed deterministic
+### Dữ liệu seed do backend sở hữu
 
-`cd app && pnpm seed:sql` sinh `backend/src/main/resources/db/migration/V3__seed_demo_data.sql`.
-Mọi timestamp bám cố định vào `app/src/mocks/time.ts` (`MOCK_NOW`) → **output giống nhau mọi lần**,
-không gây `Migration checksum mismatch` cho Flyway khi rebuild container.
+Dữ liệu demo nằm trong `backend/src/main/resources/db/migration/`:
+`V3__seed_demo_data.sql` (người dùng, tin tuyển dụng, đơn ứng tuyển, đánh giá, thông báo, master data)
++ `V7__seed_review_replies.sql` + `V9__seed_work_histories.sql`.
+
+Đây là **SQL tĩnh** → checksum ổn định, không gây `Migration checksum mismatch` cho Flyway khi rebuild container.
+Muốn đổi dữ liệu demo: sửa trực tiếp file SQL → `./dev.sh reset` (xoá volume `mysql-dev-data` → migrate lại từ V1).
 
 ---
 

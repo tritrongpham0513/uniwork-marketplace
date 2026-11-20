@@ -15,9 +15,7 @@ import {
 } from "@/lib/realtime/notification-broadcast";
 import { notificationService } from "../services/notifications.service";
 import { NOTIFICATION_KEYS } from "./keys";
-import { APPLICATION_KEYS } from "@/features/applications/hooks";
-import { EMPLOYER_JOB_KEYS } from "@/features/employer/hooks";
-import { ADMIN_KEYS } from "@/features/admin/hooks";
+import { invalidateByNotificationType } from "./invalidate";
 
 /**
  * 🔌 Hook kết nối realtime cho thông báo.
@@ -57,13 +55,20 @@ export const useNotificationSocket = ({
   const clientRef = useRef<RealtimeNotificationClient | null>(null);
   const [status, setStatus] = useState<RealtimeStatus>("idle");
 
-  /** Đồng bộ các query liên quan sau khi có thông báo mới. */
-  const invalidateRelated = useCallback(() => {
-    void queryClient.invalidateQueries({ queryKey: NOTIFICATION_KEYS.all });
-    void queryClient.invalidateQueries({ queryKey: APPLICATION_KEYS.all });
-    void queryClient.invalidateQueries({ queryKey: EMPLOYER_JOB_KEYS.all });
-    void queryClient.invalidateQueries({ queryKey: ADMIN_KEYS.jobs() });
-  }, [queryClient]);
+  /**
+   * Đồng bộ các query liên quan sau khi có thông báo mới.
+   *
+   * Invalidate theo **loại thông báo** để chỉ refetch đúng phần cần thiết.
+   * Quan trọng: thông báo `REVIEW` phải invalidate `REVIEW_KEYS` + `PROFILE_KEYS`,
+   * nếu không thì trang `/student/reviews` dùng cache cũ và không hiện đánh giá mới.
+   */
+  const invalidateRelated = useCallback(
+    (type?: string | null) => {
+      void queryClient.invalidateQueries({ queryKey: NOTIFICATION_KEYS.all });
+      invalidateByNotificationType(queryClient, type);
+    },
+    [queryClient]
+  );
 
   /** Hiển thị toast cho một thông báo. */
   const showToast = useCallback(
@@ -79,14 +84,18 @@ export const useNotificationSocket = ({
           ? {
               children: "Xem",
               onClick: () => {
+                // Invalidate TRƯỚC khi điều hướng. Query ở trang đích phải
+                // được đánh dấu stale ngay để refetch, nếu không sẽ dùng
+                // cache cũ (còn "fresh" trong `staleTime`) và người dùng không
+                // thấy dữ liệu mới — đúng lỗi "bấm thông báo đánh giá mới
+                // nhưng danh sách review không có".
+                invalidateRelated(payload.type);
+
                 // Đánh dấu đã đọc rồi điều hướng — thứ tự này quan trọng để
                 // badge không bật lại sau khi người dùng đã xem.
-                void notificationService
-                  .markRead(payload.id)
-                  .then(() => invalidateRelated())
-                  .catch(() => {
-                    /* Không chặn điều hướng vì lỗi đánh dấu đã đọc. */
-                  });
+                void notificationService.markRead(payload.id).catch(() => {
+                  /* Không chặn điều hướng vì lỗi đánh dấu đã đọc. */
+                });
 
                 navigate(payload.link as string);
               },
@@ -103,7 +112,7 @@ export const useNotificationSocket = ({
   /** Xử lý một thông báo đến (từ socket hoặc từ tab khác). */
   const handleNotification = useCallback(
     (payload: RealtimeNotification) => {
-      invalidateRelated();
+      invalidateRelated(payload.type);
 
       // Chỉ tab đang được focus mới hiển thị toast để tránh trùng lặp.
       if (!shouldShowToast()) return;
@@ -114,8 +123,8 @@ export const useNotificationSocket = ({
   );
 
   useEffect(() => {
-    // Chế độ mock không có WebSocket server -> không mở socket.
-    if (!enabled || env.USE_MOCK_API) {
+    // Chỉ mở socket khi đã đăng nhập.
+    if (!enabled) {
       clientRef.current?.close();
       clientRef.current = null;
       return;

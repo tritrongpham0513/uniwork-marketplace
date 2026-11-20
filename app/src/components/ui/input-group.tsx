@@ -51,6 +51,13 @@ function InputGroupAddon({
       data-align={align}
       className={cn(inputGroupAddonVariants({ align }), className)}
       onClick={(e) => {
+        // Event của nội dung render qua portal (Popover/Select) vẫn được React
+        // bubble lên đây dù DOM không nằm trong addon → bỏ qua, tránh cướp
+        // focus khỏi control đang thao tác (ví dụ: dropdown tháng/năm của
+        // Calendar bị đóng ngay khi thả chuột).
+        if (!e.currentTarget.contains(e.target as Node)) {
+          return
+        }
         if ((e.target as HTMLElement).closest("button")) {
           return
         }

@@ -2,7 +2,7 @@
 
 Frontend của đồ án **VieJob Marketplace** — nền tảng kết nối việc làm bán thời gian cho sinh viên.
 
-> Ứng dụng chạy độc lập hoàn toàn: toàn bộ API được **mock ở tầng transport (Axios adapter)** với in-memory database, trong khi backend Spring Boot được phát triển song song.
+> Frontend **luôn gọi API thật** của backend Spring Boot (MySQL) qua reverse proxy — không có tầng mock nào trong bất kỳ bản build nào.
 
 - **Stack**: React 19 · TypeScript · Vite 8 · Tailwind CSS v4 · TanStack Query v5 · React Router v8 · shadcn UI (`@base-ui/react`)
 - **Design system**: shadcn preset chuẩn (`base-luma`, base color `zinc`) — không hardcode `amber-*` / `orange-*`
@@ -24,26 +24,28 @@ pnpm dev              # http://localhost:5173
 | `pnpm preview` | Chạy thử bản build                                                |
 | `pnpm lint`    | ESLint (flat config + React Compiler rules) — 0 error, 0 warning  |
 | `pnpm format`  | Prettier                                                          |
-| `pnpm verify`  | Chạy toàn bộ bộ kiểm chứng (toast → integration → mock API → E2E) |
+| `pnpm verify`  | Chạy toàn bộ bộ kiểm chứng (toast → integration → E2E qua API thật) |
 
 ### Biến môi trường
 
 File `.env` ở thư mục `app/`:
 
 ```env
-VITE_API_URL_DEV=http://localhost:8000
-VITE_USE_MOCK_API=true
+VITE_API_URL_DEV=
 ```
 
-| Biến                    | Mặc định                | Ý nghĩa                                                            |
-| ----------------------- | ----------------------- | ------------------------------------------------------------------ |
-| `VITE_USE_MOCK_API`     | `true`                  | `true` → dùng mock adapter; `false` → gọi API thật của Spring Boot |
-| `VITE_API_URL_DEV`      | `http://localhost:8000` | Base URL của backend khi tắt mock                                  |
-| `VITE_MOCK_MIN_DELAY`   | `250`                   | Độ trễ mô phỏng network tối thiểu (ms)                             |
-| `VITE_MOCK_MAX_DELAY`   | `600`                   | Độ trễ mô phỏng network tối đa (ms)                                |
-| `VITE_CLIENT_ID_GOOGLE` | —                       | Client ID Google OAuth (dùng cho luồng đăng nhập Google)           |
+| Biến                    | Mặc định | Ý nghĩa                                                                       |
+| ----------------------- | -------- | ----------------------------------------------------------------------------- |
+| `VITE_API_URL_DEV`      | rỗng     | Base URL của backend. Rỗng = **same-origin** → request đi qua reverse proxy  |
+| `VITE_CLIENT_ID_GOOGLE` | —        | Client ID Google OAuth (dùng cho luồng đăng nhập Google)                       |
 
-**Chuyển sang API thật** chỉ cần đặt `VITE_USE_MOCK_API=false` — không phải sửa một dòng service nào, vì mọi service đều gọi qua `axiosInstance` tại `src/lib/axios.ts`.
+**Rỗng = same-origin** là cấu hình mặc định và là cách chạy đúng:
+
+- dev (`pnpm dev`): Vite proxy `/api` → backend (xem `vite.config.ts`)
+- production: nginx proxy `/api` → backend (xem `nginx.conf`)
+
+Chỉ đặt `VITE_API_URL_DEV` khi chạy app ở origin **khác hẳn** với API (ví dụ `pnpm dev` ngoài Docker
+trong khi backend chạy ở port khác) — khi đó request sẽ là cross-origin và CORS của backend quyết định.
 
 ### Giao diện sáng / tối
 
@@ -62,42 +64,25 @@ VITE_USE_MOCK_API=true
 | Nhà tuyển dụng | `employer@viejob.vn` | `Employer@123` | `/employer` |
 | Quản trị viên  | `admin@viejob.vn`    | `Admin@123`    | `/admin`    |
 
-Ở màn hình đăng nhập có nút bấm nhanh để điền sẵn tài khoản demo. Ngoài ra, mock API **tự tạo tài khoản** khi đăng nhập bằng email lạ chưa tồn tại (vai trò được suy ra từ tiền tố email: `admin*` → ADMIN, `employer*`/`company*` → EMPLOYER, còn lại → STUDENT) — thuận tiện cho việc demo nhanh.
-
-Dữ liệu mock nằm trong RAM nên **F5 sẽ reset về trạng thái seed** (đủ dữ liệu để demo đầy đủ luồng).
+Ở màn hình đăng nhập có nút bấm nhanh để điền sẵn tài khoản demo (hằng số ở `src/features/auth/constants/demo-accounts.ts`).
+Dữ liệu demo do **backend migration** seed (`V3__seed_demo_data.sql` + `V7` + `V9`) — dữ liệu nằm trong MySQL nên **không bị reset khi F5**.
 
 ---
 
-## 3. Tầng MOCK API
+## 3. Tầng API (transport)
 
-```
-src/lib/mock/
-├── adapter.ts        # Axios adapter — chặn request ở tầng transport
-├── router.ts         # Định tuyến path → handler
-├── db.ts             # In-memory database (seed từ src/mocks/*)
-├── errors.ts         # MockHttpError + envelope lỗi chuẩn backend
-└── handlers/
-    ├── auth.ts       # đăng ký / đăng nhập / Google / /me / refresh
-    ├── jobs.ts       # danh sách, lọc, chi tiết, CRUD tin (NTD + Admin duyệt)
-    ├── applications.ts # ứng tuyển, duyệt đơn, đánh giá, thông báo, hồ sơ, tin lưu
-    ├── admin.ts      # dashboard, user, nhóm việc, master data
-    └── files.ts      # upload/xoá file, ghi chú NTD, bật thông báo tin tuyển dụng, saved-jobs/ids
-```
+Mọi service gọi qua `axiosInstance` tại `src/lib/axios.ts`:
 
-> `src/mocks/time.ts` là **đồng hồ deterministic** (`MOCK_NOW`) — mọi timestamp seed đều bám về đây
-> nên `pnpm seed:sql` cho ra file giống nhau mọi lần (tránh lỗi Flyway checksum mismatch).
+- Gắn header `Authorization: Bearer <access_token>` tự động.
+- Tự refresh token khi gặp `401` (dùng `refreshClient` riêng để tránh vòng lặp).
+- Chuẩn hoá mọi lỗi về `ApiError` thống nhất (`src/lib/api-error.ts`).
 
-### Nguyên tắc thiết kế
+**Envelope bắt buộc** (khớp Spring Boot backend):
 
-1. **Mock ở tầng transport, không phải ở tầng service.** Toàn bộ `src/features/*/services/*` vẫn gọi `http.get/post/...` như bình thường — chỉ có `axiosInstance` bị gắn `mockAdapter`.
-2. **Envelope giống hệt backend Spring Boot.**
-   - Thành công: `{ success: true, message: string, data: T }`
-   - Lỗi: `{ timestamp, status, success: false, code, message, errors?: [{ field, message }] }`
-3. **Stateful.** Đăng tin → Admin duyệt → Sinh viên ứng tuyển → Nhà tuyển dụng duyệt đơn → đánh giá 2 chiều đều có hiệu lực ngay trong phiên.
-4. **Có độ trễ mô phỏng** (250–600 ms) để UI hiển thị loading state thật.
-5. **Phân quyền thật trong router**: route yêu cầu token sẽ trả `401` nếu thiếu/sai token; handler kiểm tra chủ sở dữ liệu và trả `403` nếu truy cập chéo vai trò.
+- Thành công: `{ success: true, message: string, data: T }`
+- Lỗi: `{ timestamp, status, success: false, code, message, errors?: [{ field, message }] }`
 
-### Bảng định tuyến mock (rút gọn)
+### Bảng định tuyến API (rút gọn)
 
 | Nhóm           | Endpoint                                                                                                                                                                                                                  |
 | -------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -108,7 +93,7 @@ src/lib/mock/
 | Đánh giá       | `POST /reviews`, `GET /reviews?targetType=&targetUserId=`                                                                                                                                                                 |
 | Thông báo      | `GET /notifications`, `GET /notifications/unread-count`, `PATCH /notifications/{id}/read`, `POST /notifications/read-all`                                                                                                 |
 | WebSocket      | `POST /ws/ticket` — cấp vé kết nối 1 lần, hạn 60s (xem mục 7.5)                                                                                                                                                        |
-| File           | `POST /files/upload?kind=CV\|AVATAR\|LOGO`, `GET /files/{id}`, `DELETE /files/{id}`                                                                                                                                     |
+| File           | `POST /files/upload?kind=CV\|AVATAR\|LOGO`, `POST /files/presign?kind=&contentType=`, `POST /files/confirm`, `GET /files/{id}`, `DELETE /files/{id}`                                                                            |
 | Quản trị       | `GET /admin/dashboard`, `GET /admin/users`, `PATCH /admin/users/{id}`, `GET /admin/jobs`, `PATCH /admin/jobs/{id}/review`, `GET/POST /admin/categories`, `PUT/DELETE /admin/categories/{id}`, `PATCH /admin/reviews/{id}` |
 
 ---
@@ -147,8 +132,7 @@ src/
 ├── config/             # paths, env
 ├── features/           # auth, jobs, applications, employer, admin, reviews, notifications, profile, saved-jobs
 ├── hooks/              # useDebounce, useMediaQuery, useLocalStorage...
-├── lib/                # axios, api-error, toast, query-client, mock/*
-├── mocks/              # Dữ liệu seed: users, employers, jobs, categories, applications, reviews, notifications
+├── lib/                # axios, api-error, toast, query-client, realtime/*
 ├── pages/              # 1 file = 1 route (public / student / employer / admin)
 ├── types/              # global ambient types
 └── utils/              # authStorage, format helpers
@@ -168,17 +152,18 @@ src/
 pnpm verify
 ```
 
-Chạy 4 suite:
+Chạy 3 suite:
 
 | Suite         | Script                    | Nội dung                                                                                                                                                                                                                                                                                                   |
 | ------------- | ------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | Toast & Error | `pnpm verify:toast`       | `normalizeApiError` (mapping status → kind), toast facade (dedupe theo `id`, merge trong 2s, rate limit), `showApiError` (bỏ qua validation/handled/silent)                                                                                                                                                |
 | Tích hợp HTTP | `pnpm verify:integration` | Chạy HTTP server thật trong Node, kiểm tra interceptor, normalize lỗi, retry, header Authorization                                                                                                                                                                                                         |
-| **Mock API**  | `pnpm verify:mock-api`    | **47 test**: envelope `{ success, message, data }` & envelope lỗi; đăng nhập/đăng ký 3 vai trò; phân quyền 401/403/404; lọc & phân trang tin; NTD đăng tin → Admin duyệt → SV ứng tuyển → NTD duyệt đơn → đánh giá 2 chiều → trả lời đánh giá; quản lý thông báo; CRUD nhóm việc; khoá/đổi role người dùng |
-| **E2E**       | `pnpm verify:e2e`         | **26 test**: chạy đúng đường đi của app — `service` → `axiosInstance` → `mockAdapter` → `router` — assert `ApiResponse<T>` khớp kiểu dữ liệu mà service khai báo (đặc biệt `data.accessToken`, `data.user`), qua lại 3 vai trò; gồm upload file, ghi chú NTD, bật/tắt thông báo tin tuyển dụng, danh sách id tin đã lưu |
+| **E2E**       | `pnpm verify:e2e`         | **33 test**: chạy đúng đường đi của app — `service` → `axiosInstance` → HTTP → **backend thật** → MySQL — assert `ApiResponse<T>` khớp kiểu dữ liệu mà service khai báo (đặc biệt `data.accessToken`, `data.user`), qua lại 3 vai trò; gồm nộp đơn → rút đơn, ghi chú NTD, đăng tin → Admin duyệt, upload file, bật/tắt thông báo tin tuyển dụng, danh sách id tin đã lưu, phân quyền 403, endpoint lỗi 404 |
 
-> Mock seed dùng **đồng hồ cố định** (`src/mocks/time.ts` → `MOCK_NOW`) để `pnpm seed:sql` luôn sinh ra
-> `V3__seed_demo_data.sql` giống hệt nhau → Flyway không báo `Migration checksum mismatch` khi rebuild container.
+> **Cần backend đang chạy** cho `verify:e2e`: `docker compose up --build` (bản production, `:8080`)
+> hoặc `./dev.sh up-d` (bản dev, `:8081`). Mặc định gọi `http://localhost:8080`;
+> đổi bằng `API_URL=http://localhost:8081 pnpm verify:e2e`.
+> Script **không idempotent** (ghi vào DB thật) → reset DB (`docker compose down -v`) khi cần chạy lại từ trạng thái sạch.
 
 Ngoài ra có 2 script realtime (cần backend đang chạy, xem mục 7.5):
 
@@ -218,7 +203,7 @@ docker compose up --build
 - SPA: <http://localhost:8000> (nginx reverse proxy `/api` → backend)
 - Swagger: <http://localhost:8080/swagger-ui.html>
 
-Compose build frontend với `VITE_USE_MOCK_API=false` → app gọi **API thật**.
+App gọi **API thật** qua nginx reverse proxy (cùng origin → không lo CORS).
 
 Tài khoản demo:
 
@@ -245,21 +230,22 @@ Chạy song song với bản production ở mục 7.1. Xem chi tiết ở `../RE
 
 Biến môi trường dev (đặt trong `docker-compose.dev.yml`):
 
-| Biến                    | Giá trị                    | Ý nghĩa                                                     |
+| Biến                    | Giá trì                    | Ý nghĩa                                                     |
 | ----------------------- | -------------------------- | ----------------------------------------------------------- |
-| `VITE_USE_MOCK_API`     | `false`                    | Gọi API thật (Vite proxy chuyển tiếp tới backend)          |
-| `VITE_API_URL_DEV`      | `http://localhost:5173`    | Base URL browser dùng — cùng origin nên đi qua proxy       |
 | `VITE_DEV_PROXY_TARGET` | `http://backend:8080`      | Đích proxy **bên trong container** (tên service DNS)       |
 | `VITE_DEV_POLLING`      | `true`                     | Bật polling cho watcher (Docker Desktop trên Windows)       |
+
+> `VITE_API_URL_DEV` **không cần đặt** ở bản dev → request chạy cùng origin với Vite dev server
+> và được proxy `/api` chuyển tiếp tới backend.
 
 > **Lưu ý**: thêm dependency mới trong `package.json` → phải rebuild image
 > (`docker compose -f docker-compose.dev.yml build frontend`), vì `node_modules`
 > của host là bản Windows không chạy được trong container Linux.
 
-### 7.2. Chạy frontend dev độc lập (vẫn dùng mock)
+### 7.2. Chạy frontend dev ngoài Docker
 
-1. Đặt `VITE_USE_MOCK_API=true` trong `.env` (mặc định).
-2. `pnpm dev`
+1. Backend phải đang chạy (bản dev `:8081` hoặc production `:8080`).
+2. `pnpm dev` → Vite proxy `/api` → `http://localhost:8080` (đổi đích proxy bằng `VITE_DEV_PROXY_TARGET`).
 
 ### 7.3. Contract API
 
@@ -283,16 +269,16 @@ Không cần sửa service nào — `src/features/*/services/*` đã dùng đún
 
 Token: `Authorization: Bearer <access_token>`; refresh qua `POST /api/v1/auth/refresh` với body `{ refresh_token }`.
 
-### 7.4. Sinh lại dữ liệu seed
+### 7.4. Dữ liệu seed
 
-```bash
-pnpm seed:sql
-```
+Dữ liệu demo do **backend migration** quản lý — nằm trong
+`../backend/src/main/resources/db/migration/`:
+`V3__seed_demo_data.sql` (user, hồ sơ, tin tuyển dụng, đơn ứng tuyển + timeline, đánh giá, thông báo, tin đã lưu, master data)
++ `V7__seed_review_replies.sql` + `V9__seed_work_histories.sql`.
 
-Sinh `../backend/src/main/resources/db/migration/V3__seed_demo_data.sql` từ đúng `src/mocks/*` (full parity: user, hồ sơ, tin tuyển dụng, đơn ứng tuyển + timeline, đánh giá, thông báo, tin đã lưu, master data). Sau khi đổi dataset mock, nhớ `docker compose down -v && docker compose up --build` để Flyway seed lại từ đầu.
-
-> **Deterministic**: seed dùng đồng hồ cố định `src/mocks/time.ts` (`MOCK_NOW`) → file SQL sinh ra **giống nhau mọi lần**,
-> nên rebuild container không bị lỗi `Migration checksum mismatch for migration version 3`.
+Đây là **SQL tĩnh** → checksum ổn định, không gây `Migration checksum mismatch` khi rebuild container.
+Muốn đổi dữ liệu demo: sửa trực tiếp file SQL → `docker compose down -v && docker compose up --build`
+(hoặc `./dev.sh reset` cho bản dev) để Flyway migrate lại từ V1.
 
 ### 7.4b. Upload file (CV / ảnh đại diện / logo)
 
@@ -301,7 +287,7 @@ Không dùng URL giả (`pravatar.cc`, `ui-avatars.com`, `viejob.vn/cv/...`) —
 ```ts
 // src/features/files/services/files.service.ts
 const res = await filesService.upload(file, "CV"); // kind: CV | AVATAR | LOGO
-// → { id, url, fileName, mimeType, sizeBytes, kind }
+// → { id, url, fileName, mimeType, sizeBytes, kind, bucket }
 ```
 
 | Hook                        | Việc                                    |
@@ -311,6 +297,37 @@ const res = await filesService.upload(file, "CV"); // kind: CV | AVATAR | LOGO
 
 Nơi dùng: hồ sơ sinh viên (CV + ảnh đại diện), hồ sơ tổ chức (logo NTD), trang ứng tuyển (CV).
 Ảnh đại diện & logo là ảnh công khai; CV là tài nguyên riêng tư (chỉ chủ sở hữu, admin và NTD đã nhận đơn mới đọc được).
+
+**Luồng upload (2 bước, backend không nhận file):**
+
+1. `POST /api/v1/files/presign?kind=CV&contentType=application/pdf` → `{ uploadUrl, storageKey, contentType, expiresInSeconds }`
+2. Client `PUT uploadUrl` với file — header `Content-Type` **phải đúng bằng** giá trị backend đã ký (sai là `403 SignatureDoesNotMatch`).
+3. `POST /api/v1/files/confirm` (body `storageKey`, `kind`, `fileName`) → backend kiểm tra magic bytes + ghi metadata → trả `{ id, url, ... }`.
+
+> Nơi lưu trữ file duy nhất là **Cloudflare R2**. Luồng multipart (`POST /files/upload`)
+> vẫn còn (backend đọc bytes rồi đẩy lên R2) nhưng client không dùng.
+
+**Kiểm chứng:**
+
+```bash
+cd app
+API_URL=http://localhost:8080/api/v1 pnpm verify:files-storage
+API_URL=http://localhost:8081/api/v1 pnpm verify:files-storage
+```
+
+15 assert: upload CV, bucket `private`, cấu trúc `storageKey`, quyền tải CV (chủ sở hữu /
+khách / NTD), magic bytes chặn file giả dạng, resize ảnh ≤ 512px, xoá file + giải phóng quota.
+
+Kiểm chứng trên UI thật (Chrome):
+
+```bash
+cd app
+SMOKE_BASE_URL=http://localhost:8000 pnpm smoke:files-upload
+```
+
+7 assert: upload avatar + CV qua trang hồ sơ, file giả dạng bị chặn, không lỗi console.
+
+> Chi tiết cấu hình R2 (2 bucket, CORS, quota) xem `AGENTS.md` → mục "Lưu trữ file (V10)".
 
 ### 7.5. Realtime thông báo (WebSocket)
 
@@ -370,7 +387,7 @@ SMOKE_BASE_URL=http://localhost:5173 SMOKE_API_URL=http://localhost:8081 \
 ```bash
 pnpm lint      # 0 error, 0 warning
 pnpm build     # type-check + production build
-pnpm verify    # 4/4 suite PASSED (toast, integration, mock API, E2E)
+pnpm verify    # 3/3 suite PASSED (toast, integration, E2E qua API thật)
 ```
 
 Demo nên trình bày theo thứ tự: **Sinh viên tìm & ứng tuyển tin → Nhà tuyển dụng duyệt đơn → đánh giá 2 chiều → Quản trị viên duyệt tin & quản lý danh mục/người dùng**.

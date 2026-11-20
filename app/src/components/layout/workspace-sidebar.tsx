@@ -51,6 +51,7 @@ import { useEmployerApplications } from "@/features/applications/hooks";
 import { useEmployerJobs } from "@/features/employer/hooks";
 import { useAdminDashboard } from "@/features/admin/hooks";
 import { useSavedJobIds } from "@/features/saved-jobs/hooks";
+import { useStudentReviews } from "@/features/reviews/hooks";
 import type { RoleType } from "@/features/shared/types";
 import { cn } from "cn";
 
@@ -75,6 +76,7 @@ const ROLE_ICON: Record<RoleType, LucideIcon> = {
 function StudentNavBadge({ itemId }: { itemId: string }) {
   const { data: applications = [] } = useStudentApplications();
   const { data: savedIds = [] } = useSavedJobIds();
+  const { data: reviews = [] } = useStudentReviews();
 
   if (itemId === "student-applications") {
     const pending = applications.filter((a) => a.status === "PENDING").length;
@@ -84,6 +86,12 @@ function StudentNavBadge({ itemId }: { itemId: string }) {
   if (itemId === "student-saved") {
     return savedIds.length > 0 ? (
       <SidebarMenuBadge>{savedIds.length}</SidebarMenuBadge>
+    ) : null;
+  }
+
+  if (itemId === "student-reviews") {
+    return reviews.length > 0 ? (
+      <SidebarMenuBadge>{reviews.length}</SidebarMenuBadge>
     ) : null;
   }
 

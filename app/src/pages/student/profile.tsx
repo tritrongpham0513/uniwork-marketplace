@@ -1,4 +1,5 @@
 import { useMemo, useRef, useState } from "react";
+import { Link } from "react-router";
 import {
   Briefcase,
   Camera,
@@ -44,6 +45,7 @@ import {
 import { DashboardLayout } from "@/components/layout/dashboard-layout";
 import { ErrorState } from "@/components/shared/empty-state";
 import { DatePicker } from "@/components/shared/date-picker";
+import { RatingStars } from "@/components/shared/rating-stars";
 import {
   EMPLOYMENT_TYPE_LABELS,
   GENDER_LABELS,
@@ -56,10 +58,12 @@ import {
   useStudentProfile,
   useUpdateStudentProfile,
 } from "@/features/profile/hooks";
+import { useStudentWorkHistory } from "@/features/work-history/hooks";
 import { useJobCategories, useProvinces, useSkills } from "@/features/jobs/hooks/useJobs";
 import { useDeleteFile, useUploadFile } from "@/features/files/hooks";
 import { formatDateVi, todayIso } from "@/lib/date";
 import { showApiError, toast } from "@/lib/toast";
+import { PATHS } from "@/config/paths";
 
 import { cn } from "cn";
 
@@ -93,6 +97,8 @@ export default function StudentProfilePage() {
   const { data: categories = [] } = useJobCategories();
   const { data: provinces = [] } = useProvinces();
   const { data: skills = [] } = useSkills();
+  // Kinh nghiệm làm việc do hệ thống tự ghi nhận (đơn ứng tuyển hoàn thành)
+  const { data: workHistories = [] } = useStudentWorkHistory();
 
   const [form, setForm] = useState<StudentProfile | null>(null);
   const [skillInput, setSkillInput] = useState("");
@@ -329,6 +335,22 @@ export default function StudentProfilePage() {
               <p className="text-sm text-muted-foreground">
                 {form.major} · {form.university}
               </p>
+
+              {/* Điểm đánh giá từ nhà tuyển dụng — dẫn tới trang /student/reviews */}
+              {form.ratingCount > 0 && (
+                <Link
+                  to={PATHS.STUDENT.REVIEWS}
+                  className="mt-1.5 inline-flex items-center gap-1.5 text-sm text-muted-foreground underline-offset-4 hover:text-foreground hover:underline"
+                >
+                  <RatingStars
+                    value={form.avgRating}
+                    size="xs"
+                    showValue
+                    count={form.ratingCount}
+                  />
+                  Xem đánh giá
+                </Link>
+              )}
             </div>
           </div>
 
@@ -1064,6 +1086,74 @@ export default function StudentProfilePage() {
                   <Plus className="size-4" />
                   Thêm kinh nghiệm
                 </Button>
+              )}
+            </CardContent>
+          </Card>
+
+          {/* ===== KINH NGHIỆM TỰ HỆ THỐNG GHI NHẬN ===== */}
+          <Card className="border-border/60">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2 font-heading text-base">
+                <Briefcase className="size-4 text-primary" />
+                Kinh nghiệm đã hoàn thành trên VieJob
+              </CardTitle>
+              <CardDescription>
+                VieJob tự động ghi nhận mỗi công việc mà nhà tuyển dụng xác nhận
+                bạn đã hoàn thành. Nhà tuyển dụng khác có thể xem mục này khi
+                xét duyệt hồ sơ của bạn.
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-3">
+              {workHistories.length === 0 && (
+                <p className="text-sm text-muted-foreground">
+                  Chưa có công việc nào được ghi nhận. Khi bạn hoàn thành một
+                  công việc, nhà tuyển dụng sẽ xác nhận và mục này tự động cập
+                  nhật.
+                </p>
+              )}
+
+              {workHistories.length > 0 && (
+                <ul className="space-y-3">
+                  {workHistories.map((item) => (
+                    <li
+                      key={item.id}
+                      className="rounded-lg border border-border bg-muted/30 p-3"
+                    >
+                      <div className="flex flex-wrap items-start justify-between gap-2">
+                        <div className="min-w-0">
+                          <p className="text-sm font-semibold text-foreground">
+                            {item.positionName || item.jobTitle}
+                          </p>
+                          <p className="text-xs text-muted-foreground">
+                            {item.companyName}
+                          </p>
+                        </div>
+                        {item.rating != null && (
+                          <RatingStars
+                            value={item.rating}
+                            size="xs"
+                            showValue
+                          />
+                        )}
+                      </div>
+
+                      <p className="mt-1 text-xs text-muted-foreground">
+                        {item.jobTitle}
+                      </p>
+
+                      <p className="mt-1.5 text-xs text-muted-foreground">
+                        {formatDateVi(item.startedAt)} —{" "}
+                        {formatDateVi(item.completedAt)}
+                      </p>
+
+                      {item.note && (
+                        <p className="mt-1.5 text-xs text-muted-foreground">
+                          “{item.note}”
+                        </p>
+                      )}
+                    </li>
+                  ))}
+                </ul>
               )}
             </CardContent>
           </Card>

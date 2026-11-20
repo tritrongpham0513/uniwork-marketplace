@@ -213,6 +213,40 @@ export interface StudentExperience {
   description: string;
 }
 
+/**
+ * Kinh nghiệm làm việc do hệ thống tự ghi nhận.
+ *
+ * <p>Mỗi lần nhà tuyển dụng đánh dấu đơn ứng tuyển là `COMPLETED`, VieJob
+ * tự tạo 1 mục kinh nghiệm cho ứng viên — nhà tuyển dụng khác có thể xem
+ * để đánh giá uy tín người ứng tuyển.
+ */
+export interface WorkHistory {
+  id: string;
+  /** Id hồ sơ sinh viên (slug) — dùng để lọc theo ứng viên */
+  studentId: string;
+  /** Slug của đơn ứng tuyển đã sinh ra kinh nghiệm này */
+  applicationId: string | null;
+  /** Slug của tin tuyển dụng (null nếu tin đã bị xoá) */
+  jobId: string | null;
+  /** Tên tin tuyển dụng tại thời điểm hoàn thành */
+  jobTitle: string;
+  /** Tên nhà tuyển dụng tại thời điểm hoàn thành */
+  companyName: string;
+  /** Chức danh tại thời điểm hoàn thành */
+  positionName: string;
+  /** Thời điểm bắt đầu làm việc (ISO-8601) */
+  startedAt: string | null;
+  /** Thời điểm hoàn thành công việc (ISO-8601) */
+  completedAt: string;
+  salaryType: SalaryType | null;
+  salaryMin: number | null;
+  salaryMax: number | null;
+  /** Ghi chú của nhà tuyển dụng khi đánh dấu hoàn thành */
+  note: string | null;
+  /** Điểm đánh giá (1–5) nếu đã có đánh giá */
+  rating: number | null;
+}
+
 export interface StudentJobPreference {
   categoryIds: string[];
   employmentTypes: EmploymentType[];
@@ -240,6 +274,8 @@ export interface StudentProfile {
   cvUrl: string | null;
   skills: string[];
   experiences: StudentExperience[];
+  /** Lịch sử làm việc do hệ thống tự ghi nhận (đơn ứng tuyển hoàn thành) */
+  workHistories: WorkHistory[];
   jobPreferences: StudentJobPreference;
   avgRating: number;
   ratingCount: number;
@@ -333,7 +369,10 @@ export interface Review {
   targetName: string;
   rating: number;
   comment: string;
+  /** Phản hồi của người BỊ đánh giá (reviewee) */
   reply: string | null;
+  /** Phản hồi của người VIẾT đánh giá (reviewer) — đánh giá 2 chiều */
+  reviewerReply: string | null;
   isHidden: boolean;
   createdAt: string;
 }

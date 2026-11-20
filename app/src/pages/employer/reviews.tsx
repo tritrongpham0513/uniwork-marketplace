@@ -1,23 +1,12 @@
-import { useMemo, useState } from "react";
-import { MessageSquare, Send } from "lucide-react";
-import { Button } from "@/components/ui/button";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
+import { useMemo } from "react";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
-import { Textarea } from "@/components/ui/textarea";
-import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { DashboardLayout } from "@/components/layout/dashboard-layout";
 import { RatingStars } from "@/components/shared/rating-stars";
+import { ReviewThread } from "@/components/shared/review-thread";
 import { EmptyState, ErrorState } from "@/components/shared/empty-state";
 import { useEmployerProfile } from "@/features/profile/hooks";
-import { useReplyReview, useReviews } from "@/features/reviews/hooks";
-
-import { showApiError, toast } from "@/lib/toast";
+import { useEmployerReviews, useReplyReview } from "@/features/reviews/hooks";
 import type { Review } from "@/features/shared/types";
 
 /** Tính phân bố số sao 1–5 */
@@ -37,35 +26,21 @@ export default function EmployerReviewsPage() {
     isPending,
     isError,
     refetch,
-  } = useReviews({ targetType: "EMPLOYER" });
+  } = useEmployerReviews();
   const replyReview = useReplyReview();
 
-  const [replyTarget, setReplyTarget] = useState<Review | null>(null);
-  const [replyText, setReplyText] = useState("");
-
-  const reviews = useMemo(
-    () => allReviews.filter((review) => review.targetUserId === profile?.userId),
-    [allReviews, profile]
-  );
+  // Endpoint riêng đã lọc sẵn theo NTD đang đăng nhập + ẩn đánh giá bị ẩn.
+  const reviews = allReviews;
 
   const distribution = useMemo(() => buildDistribution(reviews), [reviews]);
   const total = reviews.length;
 
-  const handleReply = async () => {
-    if (!replyTarget) return;
-    if (!replyText.trim()) {
-      toast.warning("Vui lòng nhập nội dung trả lời.");
-      return;
-    }
-
-    try {
-      await replyReview.mutateAsync({ id: replyTarget.id, reply: replyText.trim() });
-      toast.success("Đã gửi trả lời đánh giá.");
-      setReplyTarget(null);
-      setReplyText("");
-    } catch (error) {
-      showApiError(error);
-    }
+  /**
+   * NTD là người BỊ đánh giá trong các đánh giá này (SV đánh giá NTD) ->
+   * được phản hồi vào ô `reply` (phía reviewee).
+   */
+  const handleReply = async (id: string, reply: string) => {
+    await replyReview.mutateAsync({ id, reply });
   };
 
   return (
@@ -154,121 +129,19 @@ export default function EmployerReviewsPage() {
             <ul className="space-y-3">
               {reviews.map((review) => (
                 <li key={review.id}>
-                  <Card className="border-border/60">
-                    <CardContent className="space-y-3 p-4">
-                      <div className="flex flex-wrap items-start justify-between gap-3">
-                        <div className="flex items-center gap-3">
-                          <div className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-sm font-semibold text-primary">
-                            {review.fromName.slice(0, 2).toUpperCase()}
-                          </div>
-                          <div>
-                            <p className="text-sm font-semibold text-foreground">
-                              {review.fromName}
-                            </p>
-                            <p className="text-xs text-muted-foreground">
-                              {review.jobTitle
-                                ? `Vị trí: ${review.jobTitle}`
-                                : "Đánh giá tổng quát"}
-                            </p>
-                          </div>
-                        </div>
-
-                        <div className="text-right">
-                          <RatingStars value={review.rating} />
-                          <p className="mt-0.5 text-xs text-muted-foreground">
-                            {new Date(review.createdAt).toLocaleDateString("vi-VN")}
-                          </p>
-                        </div>
-                      </div>
-
-                      <p className="text-sm leading-relaxed text-muted-foreground">
-                        “{review.comment}”
-                      </p>
-
-                      {review.reply && (
-                        <div className="rounded-lg border-l-2 border-primary bg-muted/40 p-3">
-                          <p className="mb-1 text-xs font-semibold text-primary">
-                            Phản hồi của bạn
-                          </p>
-                          <p className="text-sm text-muted-foreground">
-                            {review.reply}
-                          </p>
-                        </div>
-                      )}
-
-                      {!review.reply && (
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => {
-                            setReplyTarget(review);
-                            setReplyText("");
-                          }}
-                        >
-                          <MessageSquare className="size-4" />
-                          Trả lời
-                        </Button>
-                      )}
-                    </CardContent>
-                  </Card>
+                  <ReviewThread
+                    review={review}
+                    canReply="reviewee"
+                    counterpartName={review.fromName}
+                    isPending={replyReview.isPending}
+                    onSubmit={(reply) => handleReply(review.id, reply)}
+                  />
                 </li>
               ))}
             </ul>
           )}
         </div>
       </div>
-
-      <Dialog
-        open={replyTarget !== null}
-        onOpenChange={(open) => {
-          if (!open) setReplyTarget(null);
-        }}
-      >
-        <DialogContent className="sm:max-w-lg">
-          <DialogHeader>
-            <DialogTitle>Trả lời đánh giá</DialogTitle>
-          </DialogHeader>
-
-          {replyTarget && (
-            <div className="space-y-4">
-              <div className="rounded-lg bg-muted/40 p-3">
-                <RatingStars value={replyTarget.rating} className="mb-1.5" />
-                <p className="text-sm text-muted-foreground">
-                  “{replyTarget.comment}”
-                </p>
-              </div>
-
-              <Textarea
-                value={replyText}
-                onChange={(event) => setReplyText(event.target.value)}
-                rows={4}
-                maxLength={500}
-                placeholder="Viết phản hồi của bạn tới sinh viên..."
-              />
-              <p className="text-xs text-muted-foreground">
-                {replyText.length}/500 ký tự
-              </p>
-            </div>
-          )}
-
-          <DialogFooter>
-            <Button
-              variant="outline"
-              onClick={() => setReplyTarget(null)}
-              disabled={replyReview.isPending}
-            >
-              Huỷ
-            </Button>
-            <Button
-              onClick={handleReply}
-              disabled={replyReview.isPending}
-            >
-              <Send className="size-4" />
-              {replyReview.isPending ? "Đang gửi..." : "Gửi trả lời"}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
     </DashboardLayout>
   );
 }

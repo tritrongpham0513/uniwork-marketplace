@@ -22,7 +22,24 @@
         <jjwt.version>0.12.5</jjwt.version>
         <junit-jupiter.version>5.10.2</junit-jupiter.version>
         <maven-surefire-plugin.version>3.1.2</maven-surefire-plugin.version>
+        <!-- AWS SDK v2 (S3 client + presigner) — dùng cho Cloudflare R2 (S3-compatible) -->
+        <aws.sdk.version>2.42.26</aws.sdk.version>
+        <!-- Thumbnailator — resize ảnh avatar/logo server-side -->
+        <thumbnailator.version>0.4.21</thumbnailator.version>
     </properties>
+
+    <dependencyManagement>
+        <dependencies>
+            <!-- BOM của AWS SDK v2 — quản lý version cho toàn bộ module (s3, presigner…) -->
+            <dependency>
+                <groupId>software.amazon.awssdk</groupId>
+                <artifactId>bom</artifactId>
+                <version>${aws.sdk.version}</version>
+                <type>pom</type>
+                <scope>import</scope>
+            </dependency>
+        </dependencies>
+    </dependencyManagement>
 
     <dependencies>
         <!-- 1. Web RESTful API -->
@@ -143,6 +160,21 @@
         <dependency>
             <groupId>org.flywaydb</groupId>
             <artifactId>flyway-mysql</artifactId>
+        </dependency>
+
+        <!-- 13. AWS SDK v2 — S3 client + presigner cho Cloudflare R2 (S3-compatible).
+             `S3Presigner` nằm trong module `s3` (không có artifact `presigner` riêng).
+             R2 là nơi lưu trữ file duy nhất nên dependency này luôn cần. -->
+        <dependency>
+            <groupId>software.amazon.awssdk</groupId>
+            <artifactId>s3</artifactId>
+        </dependency>
+
+        <!-- 14. Thumbnailator — resize ảnh avatar/logo server-side (MIT, free) -->
+        <dependency>
+            <groupId>net.coobird</groupId>
+            <artifactId>thumbnailator</artifactId>
+            <version>${thumbnailator.version}</version>
         </dependency>
     </dependencies>
 

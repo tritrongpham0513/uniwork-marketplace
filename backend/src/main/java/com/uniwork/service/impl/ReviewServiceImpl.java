@@ -12,6 +12,7 @@ import com.uniwork.repository.EmployerProfileRepository;
 import com.uniwork.repository.ReviewRepository;
 import com.uniwork.repository.StudentProfileRepository;
 import com.uniwork.repository.UserRepository;
+import com.uniwork.repository.WorkAssignmentRepository;
 import com.uniwork.service.NotificationService;
 import com.uniwork.service.ReviewService;
 import com.uniwork.util.ApiErrors;
@@ -41,6 +42,7 @@ public class ReviewServiceImpl implements ReviewService {
     private final EmployerProfileRepository employerProfileRepository;
     private final UserRepository userRepository;
     private final NotificationService notificationService;
+    private final WorkAssignmentRepository workAssignmentRepository;
 
     @Override
     @Transactional
@@ -126,6 +128,13 @@ public class ReviewServiceImpl implements ReviewService {
 
         review = reviewRepository.save(review);
 
+        // Điền điểm đánh giá vào lịch sử làm việc của ứng viên (nếu có).
+        // Chỉ điểm của NTD đánh giá sinh viên mới được ghi — đó là đánh giá
+        // về công việc ứng viên đã hoàn thành.
+        if (!targetIsEmployer) {
+            syncWorkHistoryRating(application.getId(), request.getRating());
+        }
+
         recalculateRating(reviewee.getId());
 
         notificationService.push(
@@ -133,7 +142,7 @@ public class ReviewServiceImpl implements ReviewService {
                 "REVIEW",
                 "Bạn nhận được đánh giá mới",
                 fromName + " đã đánh giá " + request.getRating() + " sao cho công việc của bạn.",
-                targetIsEmployer ? "/employer/reviews" : "/student/profile");
+                targetIsEmployer ? "/employer/reviews" : "/student/reviews");
 
         return toResponse(review);
     }
@@ -165,18 +174,99 @@ public class ReviewServiceImpl implements ReviewService {
     }
 
     @Override
+    @Transactional(readOnly = true)
+    public List<ReviewResponse> listForStudent(Long studentUserId) {
+        return reviewRepository
+                .findByRevieweeIdAndTargetTypeAndIsHiddenFalseOrderByCreatedAtDesc(
+                        studentUserId, "STUDENT")
+                .stream()
+                .map(this::toResponse)
+                .toList();
+    }
+
+    @Override
     @Transactional
+    @Deprecated
     public ReviewResponse reply(String reviewId, String replyText, Long employerUserId) {
+        return replyAsReviewee(reviewId, replyText, employerUserId);
+    }
+
+    @Override
+    @Transactional
+    public ReviewResponse replyAsReviewee(String reviewId, String replyText, Long userId) {
         Review review = findByPublicId(reviewId);
 
-        if (!review.getReviewee().getId().equals(employerUserId)) {
-            throw ApiErrors.forbidden("Bạn không có quyền trả lời đánh giá này.");
+        // Chỉ NGƯỜI BỊ ĐÁNH GIÁ mới được phản hồi vào ô `reply`.
+        if (!review.getReviewee().getId().equals(userId)) {
+            throw ApiErrors.forbidden("Bạn không có quyền phản hồi đánh giá này.");
         }
 
-        review.setReply(replyText != null && !replyText.isBlank() ? replyText.trim() : null);
+        review.setReply(normalizeReply(replyText));
         review = reviewRepository.save(review);
 
+        // Báo cho người viết đánh giá biết đã có phản hồi.
+        notifyCounterpart(review, review.getReviewer(), "Phản hồi đánh giá mới",
+                review.getTargetName() + " đã phản hồi đánh giá của bạn.",
+                review.getTargetType());
+
         return toResponse(review);
+    }
+
+    @Override
+    @Transactional
+    public ReviewResponse replyAsReviewer(String reviewId, String replyText, Long userId) {
+        Review review = findByPublicId(reviewId);
+
+        // Chỉ NGƯỜI VIẾT ĐÁNH GIÁ mới được phản hồi vào ô `reviewerReply`.
+        if (!review.getReviewer().getId().equals(userId)) {
+            throw ApiErrors.forbidden("Bạn không có quyền phản hồi đánh giá này.");
+        }
+
+        review.setReviewerReply(normalizeReply(replyText));
+        review = reviewRepository.save(review);
+
+        // Báo cho người bị đánh giá biết đã có phản hồi.
+        notifyCounterpart(review, review.getReviewee(), "Phản hồi đánh giá mới",
+                review.getFromName() + " đã phản hồi đánh giá của bạn.",
+                review.getTargetType());
+
+        return toResponse(review);
+    }
+
+    /** Chuẩn hoá nội dung phản hồi: trim, rỗng -> null. */
+    private String normalizeReply(String replyText) {
+        return replyText != null && !replyText.isBlank() ? replyText.trim() : null;
+    }
+
+    /**
+     * Ghi điểm đánh giá của nhà tuyển dụng vào dòng lịch sử làm việc tương ứng.
+     *
+     * <p>Dòng lịch sử được tạo khi đơn chuyển sang {@code COMPLETED} nên có thể
+     * chưa tồn tại — trường hợp này bỏ qua (không lỗi).
+     */
+    private void syncWorkHistoryRating(Long applicationId, Integer rating) {
+        workAssignmentRepository.findByApplicationId(applicationId).ifPresent(row -> {
+            row.setRating(rating.shortValue());
+            workAssignmentRepository.save(row);
+        });
+    }
+
+    /**
+     * Gửi thông báo cho bên đối diện khi có phản hồi mới.
+     *
+     * <p>Link trỏ tới trang đánh giá của bên nhận để họ đọc ngay.
+     */
+    private void notifyCounterpart(Review review, User receiver, String title,
+                                   String body, String targetType) {
+        if (receiver == null) {
+            return;
+        }
+
+        String link = "STUDENT".equalsIgnoreCase(targetType)
+                ? "/student/reviews"
+                : "/employer/reviews";
+
+        notificationService.push(receiver.getId(), "REVIEW", title, body, link);
     }
 
     @Override
@@ -241,6 +331,7 @@ public class ReviewServiceImpl implements ReviewService {
                 .rating(review.getRating() != null ? review.getRating().intValue() : null)
                 .comment(review.getComment())
                 .reply(review.getReply())
+                .reviewerReply(review.getReviewerReply())
                 .isHidden(Boolean.TRUE.equals(review.getIsHidden()))
                 .createdAt(DateTimeUtils.toIso(review.getCreatedAt()))
                 .build();

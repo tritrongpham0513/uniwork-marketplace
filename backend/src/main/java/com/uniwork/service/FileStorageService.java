@@ -1,23 +1,33 @@
 package com.uniwork.service;
 
+import com.uniwork.dto.request.ConfirmUploadRequest;
 import com.uniwork.dto.response.FileUploadResponse;
+import com.uniwork.dto.response.PresignUploadResponse;
 import com.uniwork.entity.User;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.io.IOException;
-import java.nio.file.Path;
 import java.util.List;
 
 /**
- * Nghiện vụ lưu trữ & phục vụ file upload.
+ * Nghiệp vụ lưu trữ & phục vụ file upload.
  *
  * <p>Các quy tắc được áp dụng:
  * <ul>
  *   <li>Chỉ nhận mime type thuộc whitelist (PDF, DOCX, ảnh).</li>
  *   <li>Giới hạn dung lượng riêng cho CV (5MB) và ảnh (2MB).</li>
- *   <li>Tên file lưu trên disk là chuỗi ngẫu nhiên, giữ nguyên extension gốc,
- *       không chứa ký tự đường dẫn (chặn path traversal).</li>
+ *   <li>Khóa đối tượng có dạng {@code {kind}/{ownerUserId}/{uuid}.{ext}} —
+ *       chặt chồng user, không ai đoán được key của người khác.</li>
+ *   <li>MIME type được xác minh bằng magic bytes, không tin header của client.</li>
  * </ul>
+ *
+ * <p>Hai luồng upload được hỗ trợ:
+ * <ol>
+ *   <li><b>Presigned (chính)</b> — {@link #presign} + {@link #confirm}. Client
+ *       PUT thẳng lên Cloudflare R2, backend không nhận nội dung file.</li>
+ *   <li><b>Cổng (multipart)</b> — {@link #store(MultipartFile, Kind, User)}.
+ *       Dùng khi client cũ không hỗ trợ presigned.</li>
+ * </ol>
  */
 public interface FileStorageService {
 
@@ -53,6 +63,11 @@ public interface FileStorageService {
             return maxSizeBytes;
         }
 
+        /** Ảnh công khai (avatar / logo) hay tài nguyên riêng tư (CV)? */
+        public boolean isPublic() {
+            return this != CV;
+        }
+
         /** Tên hiển thị lỗi thân thiện cho người dùng. */
         public String getLabel() {
             return switch (this) {
@@ -61,16 +76,51 @@ public interface FileStorageService {
                 case LOGO -> "logo";
             };
         }
+
+        /** Nhãn tiếng Việt cho MIME type — dùng trong thông báo lỗi. */
+        public static String labelOfMimeType(String mimeType) {
+            if (mimeType == null) {
+                return "không xác định";
+            }
+            return switch (mimeType) {
+                case "application/pdf" -> "PDF";
+                case "application/msword" -> "DOC";
+                case "application/vnd.openxmlformats-officedocument.wordprocessingml.document" -> "DOCX";
+                case "image/png" -> "PNG";
+                case "image/jpeg" -> "JPG/JPEG";
+                case "image/webp" -> "WEBP";
+                default -> mimeType;
+            };
+        }
     }
 
     /**
-     * Lưu file lên disk và ghi metadata vào DB.
+     * Lưu file lên nơi lưu trữ và ghi metadata vào DB.
      *
      * @param file  file multipart do client gửi lên
      * @param kind  mục đích sử dụng của file
      * @param owner chủ sở hữu file (người đang đăng nhập)
      */
     FileUploadResponse store(MultipartFile file, Kind kind, User owner) throws IOException;
+
+    /**
+     * Cấp URL upload trực tiếp (presigned PUT) — client tự PUT file lên nơi
+     * lưu trữ, backend không nhận nội dung file.
+     *
+     * @param kind             loại file
+     * @param owner            chủ sở hữu file
+     * @param requestedContentType MIME type client dự kiến gửi (có thể null)
+     * @return thông tin URL upload
+     */
+    PresignUploadResponse presign(Kind kind, User owner, String requestedContentType);
+
+    /**
+     * Xác nhận file đã upload và ghi metadata vào DB.
+     *
+     * @param request thông tin file (storageKey, kind, tên file)
+     * @param owner   chủ sở hữu file
+     */
+    FileUploadResponse confirm(ConfirmUploadRequest request, User owner);
 
     /** Lấy metadata file theo public id (slug) — chỉ trả file chưa bị xoá. */
     FileUploadResponse findByPublicId(String publicId);
@@ -95,7 +145,4 @@ public interface FileStorageService {
      * @return {@code true} nếu xoá thành công
      */
     boolean remove(String publicId, User owner);
-
-    /** Đường dẫn tuyệt đối trên disk của file (dùng để stream nội dung). */
-    Path resolvePath(FileUploadResponse file);
 }

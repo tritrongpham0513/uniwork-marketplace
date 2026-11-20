@@ -16,6 +16,7 @@ import com.uniwork.repository.StudentProfileRepository;
 import com.uniwork.repository.UserRepository;
 import com.uniwork.service.ApplicationService;
 import com.uniwork.service.NotificationService;
+import com.uniwork.service.WorkHistoryService;
 import com.uniwork.util.ApiErrors;
 import com.uniwork.util.DateTimeUtils;
 import lombok.RequiredArgsConstructor;
@@ -60,6 +61,7 @@ public class ApplicationServiceImpl implements ApplicationService {
     private final StudentProfileRepository studentProfileRepository;
     private final UserRepository userRepository;
     private final NotificationService notificationService;
+    private final WorkHistoryService workHistoryService;
 
     // ------------------------------------------------------------------
     // SINH VIÊN
@@ -226,6 +228,19 @@ public class ApplicationServiceImpl implements ApplicationService {
     }
 
     @Override
+    @Transactional(readOnly = true)
+    public Long studentUserIdOf(String applicationId, Long employerUserId) {
+        Application application = applicationRepository.findBySlug(applicationId)
+                .orElseThrow(() -> ApiErrors.notFound("Không tìm thấy đơn ứng tuyển."));
+
+        if (!application.getJobPost().getEmployer().getUserId().equals(employerUserId)) {
+            throw ApiErrors.forbidden("Bạn không có quyền xem đơn ứng tuyển này.");
+        }
+
+        return application.getStudent().getUserId();
+    }
+
+    @Override
     @Transactional
     public ApplicationResponse updateStatus(String applicationId, UpdateApplicationStatusRequest request,
                                            Long employerUserId) {
@@ -247,7 +262,16 @@ public class ApplicationServiceImpl implements ApplicationService {
                 ? request.getNote()
                 : DEFAULT_NOTES.get(newStatus);
 
+        // Trạng thái trước khi đổi — dùng để biết có phải lần đầu chuyển sang
+        // COMPLETED hay không (để ghi nhận kinh nghiệm làm việc).
+        String previousStatus = application.getStatus();
+
         pushStatus(application, newStatus, note, employerUserId);
+
+        // Hoàn thành công việc -> tự động ghi nhận kinh nghiệm làm việc cho SV.
+        if ("COMPLETED".equals(newStatus) && !"COMPLETED".equals(previousStatus)) {
+            workHistoryService.recordCompletion(application, note);
+        }
 
         // Đồng bộ số suất của tin tuyển dụng
         syncJobPositions(application.getJobPost());

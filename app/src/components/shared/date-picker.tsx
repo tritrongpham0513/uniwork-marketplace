@@ -48,7 +48,7 @@ type DatePickerProps = {
  * lịch sẽ tự đồng bộ lại nội dung input.
  *
  * Giá trị trao đổi với form vẫn là chuỗi `yyyy-MM-dd` nên không ảnh hưởng
- * payload gửi lên API/mock.
+ * payload gửi lên API.
  */
 export function DatePicker({
   value,

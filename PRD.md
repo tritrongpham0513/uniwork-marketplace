@@ -220,15 +220,32 @@
 - Chỉ đánh giá được khi đơn ở trạng thái `COMPLETED`; mỗi người đánh giá 1 lần cho 1 đơn.
 - Chiều đánh giá tự động theo vai trò: SV đánh giá NTD (`targetType=EMPLOYER`), NTD đánh giá SV (`targetType=STUDENT`).
 - Điểm trung bình (`avgRating`) & số lượt đánh gi (`ratingCount`) được **tính lại ở tầng service** (không dùng trigger CSDL) và ghi vào profile bị đánh giá.
-- `POST/PATCH /api/v1/employer/reviews/{id}/reply` — NTD trả lời đánh giá.
+- `POST/PATCH /api/v1/employer/reviews/{id}/reply` — NTD phản hồi đánh giá mình **đã nhận** (NTD là reviewee).
+- `POST /api/v1/student/reviews/{id}/reply` — SV phản hồi đánh giá mình **đã nhận** từ NTD (SV là reviewee).
+- `POST /api/v1/employer/reviews/{id}/reviewer-reply` — NTD phản hồi lại đánh giá **mình đã viết** cho SV (NTD là reviewer).
+- **Phản hồi 2 chiều (BR-07.11)**: mỗi đánh giá có **2 ô phản hồi riêng** — `reply` (của người bị đánh giá / reviewee) và `reviewerReply` (của người viết đánh giá / reviewer). Ghi vào ô nào phụ thuộc vai trò người gọi, **không ghi đè lẫn nhau**.
 - `GET /api/v1/reviews?targetType&targetUserId&hideHidden` — danh sách đánh giá.
+  - **Đã ràng buộc theo vai trò (BR-07.10)**: sinh viên chỉ thấy đánh giá dành cho chính mình, NTD chỉ thấy đánh giá dành cho chính mình; `targetUserId` do client truyền bị **bỏ qua**; luôn `hideHidden=true`. Admin giữ nguyên quyền xem cả đánh giá bị ẩn (kiểm duyệt qua `/api/v1/admin/reviews`).
+- `GET /api/v1/student/reviews` — đánh giá sinh viên đã nhận từ nhà tuyển dụng (chỉ chưa ẩn) → màn hình `/student/reviews`.
+- `GET /api/v1/employer/reviews` — đánh giá dành cho NTD đang đăng nhập (chỉ chưa ẩn) → màn hình `/employer/reviews`.
+- `GET /api/v1/employer/applications/{applicationId}/reviews` — đánh giá ứng viên đã nhận từ NTD khác.
+  - Quyền: NTD phải sở hữu tin của đơn đó, sai → `403`.
 - `PATCH /api/v1/admin/reviews/{id}` — Admin ẩn/hiện đánh giá vi phạm; ẩn đánh giá sẽ **tính lại điểm trung bình**.
+
+**Màn hình xem đánh giá (cả 2 chiều):**
+- `/student/reviews` — trang riêng cho sinh viên: điểm TB, phân bố 1–5 sao, danh sách đánh giá từ NTD. **Sinh viên phản hồi được** (nút "Phản hồi" → ghi vào ô `reply`; đã có nội dung thì nút thành "Sửa phản hồi").
+- `/employer/reviews` — trang quản lý đánh giá dành cho NTD (đã có sẵn): NTD phản hồi đánh giá mình đã nhận từ SV.
+- Hồ sơ công ty công khai `/employer/{id}` — tab "Đánh giá" (chiều SV đánh giá NTD), hiển thị cả 2 chiều phản hồi.
+- `/student/profile` — hiển thị `avgRating` / `ratingCount` + link "Xem đánh giá" → `/student/reviews`.
+- `/employer/applications/{id}` — card "Uy tín ứng viên" hiển thị đánh giá ứng viên đã nhận từ NTD khác; NTD phản hồi lại được đánh giá **mình đã viết** (ô `reviewerReply`).
 
 **Done khi:**
 - ✅ Chỉ đánh giá được sau khi công việc hoàn thành; đúng 1 lần/người/đơn.
 - ✅ Điểm trung bình cập nhật trên profile và hiển thị công khai.
-- ✅ NTD trả lời được đánh giá.
+- ✅ **Cả 2 bên đều phản hồi được**: SV phản hồi NTD, NTD phản hồi SV — 2 ô riêng biệt, không ghi đè lẫn nhau.
+- ✅ Bên nhận phản hồi nhận thông báo realtime loại `REVIEW`.
 - ✅ Admin ẩn đánh giá vi phạm → điểm trung bình được tính lại.
+- ✅ **Cả 2 chiều đều có màn hình xem**: sinh viên xem đánh giá nhận được tại `/student/reviews`; NTD xem uy tín ứng viên tại hồ sơ đơn ứng tuyển.
 - ❌ (ngoài phạm vi) Khiếu nại/báo cáo đánh giá; đánh giá theo tiêu chí con (giao tiếp, đúng giờ…).
 
 ---
@@ -363,21 +380,20 @@
 
 ---
 
-#### Feature 17: Mock transport layer (chạy độc lập không cần backend)
-**Story:** Là lập trình viên/đồ án, tôi muốn chạy frontend độc lập với dữ liệu mô phỏng, để demo và kiểm thử nhanh không cần dựng backend + MySQL.
+#### Feature 17: Dữ liệu demo do backend quản lý (không có tầng mock ở frontend)
+**Story:** Là lập trình viên/đồ án, tôi muốn dữ liệu demo luôn khớp với schema và quy tắc nghiệp vụ thật, để demo và kiểm thử không bị lệch so với production.
 
 **Đã hiện thực:**
-- `app/src/lib/mock/adapter.ts` — Axios adapter chặn request, mô phỏng độ trễ 250–600ms.
-- `app/src/lib/mock/router.ts` — định tuyến path → handler; `db.ts` — in-memory DB seed từ `app/src/mocks/*`; `handlers/` — auth, jobs, applications, admin, files.
-- `app/src/lib/mock/errors.ts` — `MockHttpError` + envelope lỗi **khớp chính xác** Spring Boot.
-- Bật/tắt bằng `VITE_USE_MOCK_API` (mặc định `true`). Chuyển sang API thật chỉ đổi env — **không sửa service nào**.
-- `pnpm seed:sql` sinh `V3__seed_demo_data.sql` từ `app/src/mocks/*` → dữ liệu demo của mock và DB thật giống nhau.
+- Frontend **không còn tầng mock** (`app/src/lib/mock/**`, `app/src/mocks/**` đã xoá) — mọi bản build đều gọi API thật.
+- Dữ liệu demo nằm trong `backend/src/main/resources/db/migration/` (`V3__seed_demo_data.sql` + `V7` + `V9`) — **SQL tĩnh do backend sở hữu** → checksum ổn định, không bị `Migration checksum mismatch` khi rebuild.
+- Mật khẩu 3 tài khoản demo được băm BCrypt lúc khởi động bởi `DemoAccountInitializer` (marker `SEED_PENDING`).
+- Frontend dùng **same-origin** (`VITE_API_URL_DEV` rỗng) → request đi qua Vite proxy (dev) / nginx (prod), không lo CORS.
 
 **Done khi:**
-- ✅ `VITE_USE_MOCK_API=true` → app chạy đủ luồng không cần backend.
-- ✅ `VITE_USE_MOCK_API=false` → app chạy với API thật, không đổi 1 dòng service.
-- ✅ Envelope response/lỗi giống hệt nhau giữa 2 chế độ.
-- ❌ (ngoài phạm vi) Ghi/đọc dữ liệu mock ra file để seed lại từ UI.
+- ✅ Không còn file nào chứa `VITE_USE_MOCK_API` hay `src/lib/mock` trong mã nguồn.
+- ✅ `pnpm verify:e2e` chạy qua HTTP thật → backend → MySQL và xanh.
+- ✅ Envelope response/lỗi của backend khớp 100% với kiểu `ApiResponse<T>` mà service khai báo.
+- ❌ (ngoài phạm vi) Công cụ sửa dữ liệu demo từ UI.
 
 ---
 
@@ -512,6 +528,23 @@
 
 ---
 
+#### Feature 26: Kinh nghiệm làm việc tự động của ứng viên
+**Story:** Là nhà tuyển dụng, tôi muốn xem ứng viên đã hoàn thành công việc nào trên VieJob, để đánh giá uy tín trước khi nhận.
+
+**Đã hiện thực:**
+- **Ghi tự động** — NTD đánh dấu đơn ứng tuyển là `COMPLETED` → hệ thống tự ghi 1 dòng kinh nghiệm vào bảng `work_assignments` (unique theo `application_id` → idempotent). Không cần SV hay NTD làm gì thêm.
+- **Snapshot** — lưu `jobTitle` / `companyName` / `positionName` / `salaryType` / `salaryMin` / `salaryMax` tại thời điểm hoàn thành → tin tuyển dụng sửa hoặc xoá sau này không làm mất lịch sử.
+- **Quyền xem** — chỉ NTD sở hữu tin của đơn **hoặc** NTD đã từng nhận đơn ứng tuyển của SV đó (cùng quy tắc đọc CV) → sai thì `403`; Admin tra cứu được mọi SV.
+- **Card "Kinh nghiệm làm việc"** trong trang chi tiết ứng viên (`/employer/applications/{id}`) — hiện công ty, chức danh, tên tin, khoảng thời gian, mức lương, ghi chú của NTD, điểm đánh giá; có empty state.
+- **Section read-only** trong hồ sơ SV (`/student/profile`) — "Kinh nghiệm đã hoàn thành trên VieJob", kèm ghi chú giải thích VieJob tự ghi khi NTD xác nhận hoàn thành.
+- **Điểm đánh giá** của NTD dành cho SV được ghi ngược vào dòng kinh nghiệm tương ứng.
+
+**Done khi:**
+- ✅ NTD đánh dấu `COMPLETED` → ứng viên có thêm 1 mục kinh nghiệm, NTD khác đã nhận đơn của SV đó xem được.
+- ✅ Gọi lại `COMPLETED` nhiều lần vẫn chỉ có **1** dòng kinh nghiệm.
+
+---
+
 ### ⚠️ Khoảng trống đã biết (ghi nhận ở đợt rà soát 11/2026)
 
 > Những điểm PRD cũ mô tả là "đã xong" nhưng code **chưa** làm đủ. Đã sửa ở từng feature ở trên; danh sách tổng hợp:
@@ -520,10 +553,10 @@
 |---|---|---|---|---|
 | 1 | Đăng nhập/đăng ký bằng Google 1-click | ✅ `POST /auth/google` + `GoogleTokenVerifierService` | ❌ nút chỉ hiện toast, chưa nối Google Identity Services | Cần Client ID + script GIS |
 | 2 | Màn hình quản lý danh sách bật/tắt thông báo theo ngành/tỉnh | ✅ `GET/POST/DELETE /student/job-notifications` | ❌ chỉ có nút toggle nhúng ở trang chi tiết tin | Thiếu 1 màn hình `/student/job-notifications` |
-| 3 | Hiển thị `avgRating` / `ratingCount` trên hồ sơ sinh viên | ✅ có trong DTO | ❌ UI không render | Thiếu 1 block UI |
+| 3 | Hiển thị `avgRating` / `ratingCount` trên hồ sơ sinh viên | ✅ có trong DTO | ✅ `/student/profile` render `RatingStars` + link "Xem đánh giá" → `/student/reviews` | **Đã xử lý** |
 | 4 | Hiển thị "lần đăng nhập cuối" trong bảng quản lý user | ✅ có `lastLoginAt` trong DTO | ❌ bảng chỉ render `joinedAt` | Thiếu 1 cột |
 | 5 | Tham số `salaryUnit` của `GET /jobs/public` | ❌ controller không khai báo (Spring bỏ qua param lạ) | ⚠️ FE gửi kèm nhưng không cần | Vô hại — quy ước đã chuẩn hoá đ/giờ |
-| 6 | `GET /api/v1/employer/reviews` | ✅ có endpoint | ⚠️ FE gọi `GET /reviews?targetType=EMPLOYER` rồi lọc client-side theo `targetUserId` | Nên dùng endpoint riêng |
+| 6 | `GET /api/v1/employer/reviews` | ✅ có endpoint (đã đổi `hideHidden=true`) | ✅ FE gọi endpoint riêng `listForEmployer()` / `listForStudent()` | **Đã xử lý** |
 | 7 | Link "Quên mật khẩu?" ở form đăng nhập | ❌ chưa có luồng reset mật khẩu | ❌ `<a href="#">` — liên kết chết | Ngoài phạm vi hiện tại |
 | 8 | Link xác thực email không mang `email` → form gửi lại email thiếu tham số | ✅ có `resend-verification` | ⚠️ màn hình `/verify-email` cần email để gửi lại | Cần truyền `email` qua query |
 | 9 | Điều phối `salary-benchmarks` theo tỉnh khi lọc | ⚠️ BE trả toàn bộ benchmark về FE | ⚠️ FE tự fallback về `hcm` | Chấp nhận được |
@@ -683,7 +716,26 @@
 | BR-07.6 | Tính lại rating cho **cả** `student_profiles` và `employer_profiles` (dùng `findById` cả 2 → cập nhật cái nào tồn tại). | `recalculateRating` |
 | BR-07.7 | Admin ẩn/hiện đánh giá → **tính lại** `avgRating`/`ratingCount` của người bị đánh giá (điểm trung bình không còn tính đánh giá ẩn). | `ReviewServiceImpl.setHidden` |
 | BR-07.8 | NTD trả lời đánh giá: chỉ **reviewee** được trả lời (403 nếu khác); reply rỗng → lưu `null`. | `ReviewServiceImpl.reply` |
+| BR-07.11 | **Phản hồi 2 chiều**: mỗi đánh giá có 2 ô — `reply` (người bị đánh giá / reviewee) và `reviewerReply` (người viết đánh giá / reviewer). `replyAsReviewee` chỉ cho reviewee ghi `reply`; `replyAsReviewer` chỉ cho reviewer ghi `reviewerReply`; sai quyền → `403`. Ghi rỗng → `null`. Mỗi bên có 1 ô riêng, không ghi đè lẫn nhau. | `ReviewServiceImpl.replyAsReviewee` · `ReviewServiceImpl.replyAsReviewer` |
 | BR-07.9 | Danh sách đánh giá công khai: `hideHidden=true` → chỉ lấy đánh giá **chưa ẩn**; trang hồ sơ NTD công khai luôn lấy bản đã loại ẩn. | `ReviewServiceImpl.list` · `ProfileServiceImpl.getPublicEmployerProfile` |
+| BR-07.10 | **Ràng buộc quyền xem đánh giá**: sinh viên chỉ xem được đánh giá dành cho chính mình (`/student/reviews`), NTD chỉ xem được đánh giá dành cho chính mình (`/employer/reviews`); endpoint chung `GET /api/v1/reviews` **bỏ qua `targetUserId` của client** và tự ràng buộc theo vai trò; NTD xem uy tín ứng viên qua `/employer/applications/{id}/reviews` — sai quyền → `403`. | `ReviewController.list` · `StudentController.listReviews` · `EmployerController.listApplicationReviews` |
+
+### BR-07.12 — Kinh nghiệm làm việc tự động của ứng viên
+
+Khi NTD đánh dấu đơn ứng tuyển là `COMPLETED`, hệ thống **tự động** ghi 1 dòng
+kinh nghiệm làm việc cho sinh viên — NTD không cần làm gì thêm. Lịch sử này giúp
+NTD đánh giá uy tín ứng viên trước khi nhận.
+
+| # | Quy tắc | Nơi thực thi |
+|---|---|---|
+| BR-07.12.1 | Đơn ứng tuyển chuyển sang `COMPLETED` (và **trước đó chưa** là `COMPLETED`) → hệ thống tự ghi 1 dòng kinh nghiệm. Không có hành động thủ công nào từ phía SV. | `ApplicationServiceImpl.updateStatus` → `WorkHistoryServiceImpl.recordCompletion` |
+| BR-07.12.2 | **Idempotent**: unique DB `uq_assignments_application (application_id)` → 1 đơn chỉ sinh **1** dòng kinh nghiệm dù gọi `COMPLETED` nhiều lần. | `WorkHistoryServiceImpl.recordCompletion` · `V1__init_schema.sql` |
+| BR-07.12.3 | Dữ liệu lưu là **snapshot** tại thời điểm hoàn thành: `jobTitle`, `companyName`, `positionName`, `salaryType`, `salaryMin`, `salaryMax` → tin tuyển dụng sửa hoặc xoá sau này không làm mất lịch sử. | `WorkHistoryServiceImpl.recordCompletion` |
+| BR-07.12.4 | `startedAt` = thời điểm đơn chuyển `ACCEPTED` (đọc từ `application_status_history`); `completedAt` = thời điểm chuyển `COMPLETED`. | `WorkHistoryServiceImpl.resolveStartedAt` |
+| BR-07.12.5 | **Quyền xem** (giống quy tắc đọc CV): chỉ NTD sở hữu tin của đơn **hoặc** NTD đã từng nhận đơn ứng tuyển của SV đó; sai quyền → `403`. Admin tra cứu được bất kỳ SV nào. | `WorkHistoryServiceImpl.listForApplication` |
+| BR-07.12.6 | Lưu vào bảng **riêng** `work_assignments` — **không** ghi vào `student_experiences` (bảng CV tự khai, bị xoá toàn bộ khi SV cập nhật hồ sơ). | `V8__student_work_histories.sql` |
+| BR-07.12.7 | SV xem lịch sử của chính mình: `GET /api/v1/student/work-history` + mảng `workHistories` trong `GET /api/v1/student/profile` (read-only, SV không tự sửa). | `StudentController.listWorkHistory` · `ProfileServiceImpl.toStudentResponse` |
+| BR-07.12.8 | Điểm đánh giá của NTD dành cho SV được ghi ngược vào dòng kinh nghiệm tương ứng (dòng chưa tồn tại thì bỏ qua, không lỗi). | `ReviewServiceImpl.syncWorkHistoryRating` |
 
 ---
 
@@ -790,10 +842,10 @@
 
 | # | Quy tắc | Nơi thực thi |
 |---|---|---|
-| BR-14.1 | **Mock layer phải khớp API thật 100%** về envelope lỗi, mã HTTP và shape response — bật/tắt bằng `VITE_USE_MOCK_API` mà **không sửa service nào**. | `app/src/lib/mock/**` · `scripts/verify-mock-api.ts` |
+| BR-14.1 | **Frontend không có tầng mock** — mọi bản build đều gọi API thật qua reverse proxy (cùng origin). Dữ liệu demo do **backend migration** seed (SQL tĩnh). | `app/src/lib/axios.ts` · `backend/src/main/resources/db/migration/` |
 | BR-14.2 | Hệ số quy đổi lương phải giống nhau ở **3 nơi**: `salary.ts` (FE) · `JobServiceImpl.HOURS_PER_UNIT` (BE) · cột generated trong `V2__marketplace_schema.sql`. Sửa 1 nơi phải sửa cả 3. | Xem BR-05.1 |
-| BR-14.3 | Thông báo lỗi **tiếng Việt** ở cả 2 tầng; cùng câu chữ cho cùng 1 tình huống (VD "Bạn đã ứng tuyển vào tin tuyển dụng này rồi."). | `ApiErrors` · `lib/mock/errors.ts` |
-| BR-14.4 | Timestamp trong seed mock phải bám `MOCK_NOW` (`src/mocks/time.ts`), **không dùng `Date.now()`** — nếu không `pnpm seed:sql` sinh ra V3 migration khác nhau mỗi lần → Flyway báo `Migration checksum mismatch`. | `src/mocks/time.ts` · `scripts/generate-seed-sql.ts` |
+| BR-14.3 | Thông báo lỗi **tiếng Việt**; cùng câu chữ cho cùng 1 tình huống (VD "Bạn đã ứng tuyển vào tin tuyển dụng này rồi."). | `ApiErrors` · `lib/api-error.ts` |
+| BR-14.4 | Dữ liệu seed là **SQL tĩnh** trong `backend/src/main/resources/db/migration/` — sửa file migration đã apply sẽ gây `Migration checksum mismatch` → cần reset volume DB. | `dev.sh reset` |
 | BR-14.5 | WebSocket **chỉ server → client** (không chat 2 chiều); client dùng `BroadcastChannel` để đồng bộ nhiều tab, chỉ tab có focus mới hiện toast. | `lib/realtime/**` |
 | BR-14.6 | Frame realtime chỉ là **tín hiệu** → client invalidate cache TanStack Query rồi refetch dữ liệu chuẩn từ REST (WebSocket không phải nguồn dữ liệu). | `useNotificationSocket` |
 
@@ -824,7 +876,6 @@
 | Forms | React Hook Form 7 + Zod 4 | Validate schema, hỗ trợ field-level error khớp envelope lỗi backend |
 | Routing | React Router 8 (`createBrowserRouter`) | Route guard theo role khai báo tập trung |
 | Realtime | WebSocket native (không Socket.IO) | Nhẹ, không phụ thuộc thư viện; vé 1-lần tránh lộ JWT trong URL |
-| Mock API | Axios adapter tự viết (`src/lib/mock/`) | Chạy frontend độc lập, envelope khớp 100% API thật |
 | Backend | Spring Boot 3.3.5, Java 17, Maven | RESTful, hệ sinh thái doanh nghiệp quen thuộc; cấu trúc controller/service/repository rõ |
 | Security | Spring Security 6 + JWT HMAC-SHA256 (jjwt) | Stateless, RBAC theo role; `hasRole` map thẳng từ guard frontend |
 | Database | MySQL 8.4 (utf8mb4) + Flyway (V1→V4) | Migration có version, `ddl-auto=validate` đảm bảo code khớp schema |
@@ -835,7 +886,7 @@
 | Docs API | springdoc-openapi (Swagger UI `/swagger-ui.html`) | Tự sinh spec từ code |
 | Reverse proxy | Nginx (prod `:8000`) + Vite proxy (dev `:5173`) | Cùng origin `/api` → không lo CORS ở production |
 | Hosting | Docker Compose (mysql + backend + frontend) | 1 lệnh dựng trọn hệ thống; chế độ DEV song song (`docker-compose.dev.yml`) |
-| Test/Verify | ESLint 10 + Prettier + Playwright + script verify (`verify:*`) | 4 lớp verify: toast, integration, mock-api, e2e; smoke test trình duyệt thật |
+| Test/Verify | ESLint 10 + Prettier + Playwright + script verify (`verify:*`) | 3 lớp verify: toast, integration, e2e (API thật); smoke test trình duyệt thật |
 
 ---
 
@@ -912,7 +963,7 @@
 - **Uptime:** Không cam kết SLA trong phạm vi đồ án. Thiết kế chịu lỗi: container `restart: unless-stopped`, lỗi realtime chỉ log warn (không làm hỏng nghiệp vụ), lỗi gửi mail không rollback đăng ký, transaction rollback không sinh thông báo ma.
 - **Accessibility:** Component shadcn/Base UI có focus ring & ARIA; label gắn đúng control (`FieldLabel htmlFor`); icon kèm `aria-label`; tương phản theo token theme.
 - **Localization:** Toàn bộ UI tiếng Việt; định dạng ngày `vi-VN`, tiền `toLocaleString("vi-VN")`.
-- **Quan sát vận hành:** Log có cấu trúc qua SLF4J; `logging.level.com.uniwork=DEBUG`; Swagger UI `/swagger-ui.html`; script `verify:mock-api` / `verify:e2e` / `smoke-api.sh` / `smoke:browser` để kiểm chứng định kỳ.
+- **Quan sát vận hành:** Log có cấu trúc qua SLF4J; `logging.level.com.uniwork=DEBUG`; Swagger UI `/swagger-ui.html`; script `verify:e2e` / `smoke-api.sh` / `smoke:browser` để kiểm chứng định kỳ.
 
 ---
 
@@ -988,7 +1039,7 @@
 
 - **Tuần 1 (định nghĩa & đo lường):**
   - 100% 7 sự kiện realtime chạy đúng qua WebSocket thật (`verify-realtime-ws.mjs` xanh).
-  - 100% endpoint trả envelope đúng chuẩn (`verify:mock-api` xanh), 0 lỗi console trong smoke test trình duyệt (`smoke:browser` xanh).
+  - 100% endpoint trả envelope đúng chuẩn (`verify:e2e` xanh), 0 lỗi console trong smoke test trình duyệt (`smoke:browser` xanh).
   - Tỉ lệ tin bị Admin từ chối / tổng tin đăng ≤ 30% → điều chỉnh hướng dẫn đăng tin.
 - **Tháng 1:**
   - ≥ 30 NTD đăng tin; ≥ 100 sinh viên có hồ sơ đầy đủ (có CV + ≥ 1 kỹ năng).
@@ -1014,11 +1065,11 @@
 - **Team size:** 1 (full-stack: vừa backend vừa frontend vừa thiết kế).
 - **Tech constraints:**
   - Không cài Java/Maven trên máy → build & chạy backend **bắt buộc qua Docker**.
-  - Backend phải là **API thật** — không mock trong production; mock chỉ là chế độ chạy độc lập của frontend.
+  - Backend phải là **API thật** — frontend không có tầng mock trong bất kỳ bản build nào.
   - Public ID là **string slug** (`job-001`, `cat-fnb`, `emp-viejob-demo`, `hcm`, `q1`, `sk-excel`) — frontend không cần bảng mapping id.
   - File lưu local disk, chưa tích hợp object storage.
   - Chưa có hệ thống thanh toán, chat real-time, app native (đã ghi ở phần ngoài phạm vi).
-  - Dữ liệu demo seed tự động từ `app/src/mocks/*` → `V3__seed_demo_data.sql` (nguồn dữ liệu mock và DB thật là một).
+  - Dữ liệu demo do **backend migration** seed (`V3__seed_demo_data.sql` + `V7` + `V9`) — SQL tĩnh, nguồn dữ liệu duy nhất.
 - **Ràng buộc nghiệp vụ:**
   - Tin mới luôn phải qua Admin duyệt trước khi công khai.
   - Chỉ đánh giá được sau khi đơn `COMPLETED`; 1 người 1 đánh giá/đơn.
@@ -1077,6 +1128,9 @@
 | GET | `/student/applications/{id}` | Chi tiết đơn + timeline |
 | POST | `/student/applications` | Nộp đơn ứng tuyển |
 | PATCH | `/student/applications/{id}/withdraw` | Rút đơn |
+| GET | `/student/reviews` | Đánh giá sinh viên đã nhận từ nhà tuyển dụng |
+| POST | `/student/reviews/{id}/reply` | SV phản hồi đánh giá đã nhận (ô `reply`) |
+| GET | `/student/work-history` | Lịch sử làm việc của tôi (hệ thống tự ghi nhận) |
 | GET | `/student/saved-jobs` | Tin đã lưu |
 | GET | `/student/saved-jobs/ids` | Danh sách id tin đã lưu |
 | POST | `/student/saved-jobs` | Lưu tin |
@@ -1092,9 +1146,11 @@
 | GET | `/employer/applications/{id}` | Chi tiết hồ sơ ứng viên |
 | PATCH | `/employer/applications/{id}` | Đổi trạng thái đơn |
 | PATCH | `/employer/applications/{id}/note` | Ghi chú của NTD về đơn (≤ 500 ký tự) |
+| GET | `/employer/applications/{id}/work-history` | Kinh nghiệm làm việc của ứng viên (quyền như đọc CV) |
 | GET/PUT | `/employer/profile` | Hồ sơ tổ chức |
 | GET | `/employer/reviews` | Đánh giá của tôi *(FE hiện gọi `GET /reviews?targetType=EMPLOYER` + lọc client-side)* |
-| POST/PATCH | `/employer/reviews/{id}/reply` | Trả lời đánh giá |
+| POST/PATCH | `/employer/reviews/{id}/reply` | NTD phản hồi đánh giá mình đã nhận (ô `reply`) |
+| POST | `/employer/reviews/{id}/reviewer-reply` | NTD phản hồi đánh giá mình đã viết (ô `reviewerReply`) |
 
 ### Admin (`/admin`) — `hasRole("ADMIN")`
 | Method | Path | Mô tả |
@@ -1107,6 +1163,7 @@
 | GET/POST/PUT/DELETE | `/admin/categories` | CRUD nhóm việc |
 | GET | `/admin/reviews` | Danh sách đánh giá |
 | PATCH | `/admin/reviews/{id}` | Ẩn/hiện đánh giá |
+| GET | `/admin/work-history` | Tra cứu lịch sử làm việc của SV (`?studentId=`) |
 
 ### Dùng chung
 | Method | Path | Mô tả |
@@ -1141,6 +1198,7 @@
 | `/student/profile` | Hồ sơ tìm việc (2 tab) | SV |
 | `/student/applications` | Đơn ứng tuyển của tôi | SV |
 | `/student/applications/{id}` | Chi tiết đơn + timeline | SV |
+| `/student/reviews` | Đánh giá từ nhà tuyển dụng (điểm TB + danh sách) | SV |
 | `/saved` | Việc làm đã lưu | SV |
 | `/employer` | Dashboard NTD (tổng quan tin + ứng viên) | NTD |
 | `/employer/jobs` | Tin tuyển dụng của tôi | NTD |
@@ -1169,8 +1227,14 @@
 
 **Nhóm tương tác:** `applications`, `application_status_history`, `reviews`, `notifications`, `job_notify_preferences`, `file_uploads`
 
-**Nhóm legacy (V1, không có entity — giữ lại để tương thích):** `student_skills`, `student_resumes`, `work_assignments`, `reports`, `audit_logs`
+**Nhóm legacy (V1, không có entity — giữ lại để tương thích):** `student_skills`, `student_resumes`, `reports`, `audit_logs`
 > Ghi chú: bảng `reports` được nhắc tới trong UI cam kết "báo cáo tin lừa đảo" nhưng **chưa có entity/service dùng** — xem phần NICE TO HAVE.
+
+**Nhóm kinh nghiệm làm việc (V8):** `work_assignments`
+> Bảng có sẵn từ V1 nhưng **không dùng**; từ V8 (`V8__student_work_histories.sql`) được dùng lại làm
+> **lịch sử làm việc của ứng viên** — mỗi đơn `COMPLETED` sinh 1 dòng (unique `application_id`).
+> Cột bổ sung: `slug`, `job_title`, `company_name`, `position_name`, `salary_type`, `salary_min`,
+> `salary_max`, `note`, `rating`. Xem BR-07.12.
 
 **Enum chính:**
 - `Role`: `STUDENT` / `EMPLOYER` / `ADMIN`
@@ -1196,3 +1260,4 @@
 | 18/11/2026 | v2 — rà soát đối chiếu PRD ↔ code (`app/` + `backend/`): sửa 8 điểm PRD mô tả vượt quá thực tế (Google OAuth, job-notify UI, `salaryUnit`, `lastLoginAt`, `avgRating`, số bảng, số endpoint, gợi ý việc làm); **bổ sung 8 feature còn thiếu** (18–25); thêm mục "Khoảng trống đã biết" | AI (Composer) |
 | 18/11/2026 | v3 — **thêm mục ③.5 "Quy tắc nghiệp vụ"** (14 nhóm, 143 quy tắc) trích từ tầng `backend/.../service/**`, `JobPostSpecification`, `SecurityConfig` và `app/.../salary.ts`; ghi nhận 1 lệch FE↔BE về `employerNote` (BR-06.17) | AI (Composer) |
 | 18/11/2026 | v4 — **gỡ trạng thái `VIEWED` khỏi đơn ứng tuyển**: pipeline rút gọn còn `PENDING → SHORTLISTED → ACCEPTED → COMPLETED` (+ `REJECTED`/`WITHDRAWN`); thêm migration `V5__remove_viewed_application_status.sql`; `reviewed_at` nay đánh dấu lần đầu NTD xử lý hồ sơ | AI (Composer) |
+| 20/11/2026 | v5 — **thêm tính năng "Kinh nghiệm làm việc tự động của ứng viên"** (BR-07.12): NTD đánh dấu đơn `COMPLETED` → hệ thống tự ghi 1 dòng vào bảng `work_assignments` (idempotent theo `application_id`); 3 endpoint mới (`/student/work-history`, `/employer/applications/{id}/work-history`, `/admin/work-history?studentId=`); migration `V8__student_work_histories.sql` + `V9__seed_work_histories.sql`; Card "Kinh nghiệm làm việc" ở trang chi tiết ứng viên (NTD) + section read-only ở hồ sơ SV | AI (Composer) |

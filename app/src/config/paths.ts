@@ -25,6 +25,8 @@ export const PATHS = {
     APPLICATIONS: "/student/applications",
     APPLICATION_DETAIL: (id: string | number = ":id") =>
       `/student/applications/${id}`,
+    /** Đánh giá sinh viên đã nhận từ nhà tuyển dụng */
+    REVIEWS: "/student/reviews",
   },
 
   // ---------- NHÀ TUYỂN DỤNG ----------

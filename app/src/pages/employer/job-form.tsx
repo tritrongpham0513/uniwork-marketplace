@@ -167,7 +167,10 @@ export default function EmployerJobFormPage() {
   const { data: districts = [] } = useDistricts(form.provinceId || undefined);
   const { data: skills = [] } = useSkills();
 
-  const { data: existingJob, isPending: loadingJob, isError } = useEmployerJob(
+  // Lưu ý: useEmployerJob bị `enabled: false` khi tạo tin mới → trạng thái
+  // vẫn là "pending" (isPending = true vô điều kiện vì không có data).
+  // Phải dùng isLoading (= isPending && isFetching) để không disable nút gửi.
+  const { data: existingJob, isLoading: loadingJob, isError } = useEmployerJob(
     id ?? ""
   );
   const createJob = useCreateJob();

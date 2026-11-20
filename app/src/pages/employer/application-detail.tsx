@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { Link, useParams } from "react-router";
 import {
   ArrowLeft,
@@ -26,19 +26,34 @@ import {
 } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
 import { Textarea } from "@/components/ui/textarea";
+import {
+  Dialog,
+  DialogContent,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { DashboardLayout } from "@/components/layout/dashboard-layout";
 import { StatusBadge } from "@/components/shared/status-badge";
 import { ApplicationTimeline } from "@/components/shared/application-timeline";
 import { ReviewDialog } from "@/components/shared/review-dialog";
 import { ErrorState } from "@/components/shared/empty-state";
+import { RatingStars } from "@/components/shared/rating-stars";
 import {
   useEmployerApplication,
   useUpdateApplicationNote,
   useUpdateApplicationStatus,
 } from "@/features/applications/hooks";
 import { useSkills } from "@/features/jobs/hooks/useJobs";
-import { APPLICATION_STATUS_LABELS } from "@/features/shared/types";
+import {
+  useApplicationReviews,
+  useReplyReviewAsReviewer,
+} from "@/features/reviews/hooks";
+import { useEmployerProfile } from "@/features/profile/hooks";
+import { useApplicationWorkHistory } from "@/features/work-history/hooks";
+import { APPLICATION_STATUS_LABELS, type Review } from "@/features/shared/types";
 import { PATHS } from "@/config/paths";
+import { formatDateVi } from "@/lib/date";
 import { showApiError, toast } from "@/lib/toast";
 
 export default function EmployerApplicationDetailPage() {
@@ -52,11 +67,58 @@ export default function EmployerApplicationDetailPage() {
   const updateStatus = useUpdateApplicationStatus();
   const updateNote = useUpdateApplicationNote();
   const { data: skills = [] } = useSkills();
+  const { data: employerProfile } = useEmployerProfile();
+  // Đánh giá ứng viên đã nhận từ nhà tuyển dụng khác (uy tín của sinh viên)
+  const {
+    data: candidateReviews = [],
+    isPending: candidateReviewsPending,
+  } = useApplicationReviews(id);
+  // NTD phản hồi lại đánh giá mà chính NTD đã viết cho ứng viên.
+  const replyAsReviewer = useReplyReviewAsReviewer();
+  // Kinh nghiệm làm việc của ứng viên (hệ thống tự ghi khi đơn hoàn thành).
+  const {
+    data: workHistories = [],
+    isPending: workHistoriesPending,
+  } = useApplicationWorkHistory(id);
+
+  /** Đánh giá do chính NTD này viết -> NTD là `reviewer`, được phản hồi lại. */
+  const isOwnReview = (review: { fromUserId: number }) =>
+    employerProfile != null && review.fromUserId === employerProfile.userId;
+
+  // Điểm trung bình tính từ các đánh giá đang hiển thị
+  const candidateAvgRating = useMemo(() => {
+    if (candidateReviews.length === 0) return 0;
+    const sum = candidateReviews.reduce((acc, r) => acc + r.rating, 0);
+    return Math.round((sum / candidateReviews.length) * 10) / 10;
+  }, [candidateReviews]);
 
   const [note, setNote] = useState("");
   const [reviewOpen, setReviewOpen] = useState(false);
+  // Dialog phản hồi lại đánh giá mà NTD đã viết cho ứng viên.
+  const [replyTarget, setReplyTarget] = useState<Review | null>(null);
+  const [replyText, setReplyText] = useState("");
   // Đồng bộ ô ghi chú khi đơn ứng tuyển tải về — pattern "adjust state khi dữ liệu đổi"
   const [syncedApplicationId, setSyncedApplicationId] = useState<string | null>(null);
+
+  /** Gửi phản hồi của NTD vào ô `reviewerReply` (phía người viết đánh giá). */
+  const handleReviewerReply = async () => {
+    if (!replyTarget) return;
+    if (!replyText.trim()) {
+      toast.warning("Vui lòng nhập nội dung phản hồi.");
+      return;
+    }
+    try {
+      await replyAsReviewer.mutateAsync({
+        id: replyTarget.id,
+        reply: replyText.trim(),
+      });
+      toast.success("Đã gửi phản hồi tới ứng viên.");
+      setReplyTarget(null);
+      setReplyText("");
+    } catch (error) {
+      showApiError(error);
+    }
+  };
 
   if (application && application.id !== syncedApplicationId) {
     setSyncedApplicationId(application.id);
@@ -290,6 +352,201 @@ export default function EmployerApplicationDetailPage() {
               </CardContent>
             </Card>
           )}
+
+          {/* KINH NGHIỆM LÀM VIỆC CỦA ỨNG VIÊN — hệ thống tự ghi nhận */}
+          <Card className="border-border/60">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2 font-heading text-base">
+                <Briefcase className="size-4 text-primary" />
+                Kinh nghiệm làm việc
+              </CardTitle>
+              <CardDescription>
+                Những công việc ứng viên đã hoàn thành trên VieJob. VieJob tự
+                động ghi nhận khi nhà tuyển dụng xác nhận hoàn thành công việc.
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-3">
+              {workHistoriesPending && (
+                <div className="h-20 animate-pulse rounded-lg bg-muted/60" />
+              )}
+
+              {!workHistoriesPending && workHistories.length === 0 && (
+                <p className="text-sm text-muted-foreground">
+                  Ứng viên chưa có kinh nghiệm làm việc nào được ghi nhận trên
+                  VieJob.
+                </p>
+              )}
+
+              {!workHistoriesPending && workHistories.length > 0 && (
+                <ul className="space-y-3">
+                  {workHistories.map((item) => (
+                    <li
+                      key={item.id}
+                      className="rounded-lg border border-border bg-muted/30 p-3"
+                    >
+                      <div className="flex flex-wrap items-start justify-between gap-2">
+                        <div className="min-w-0">
+                          <p className="text-sm font-semibold text-foreground">
+                            {item.positionName || item.jobTitle}
+                          </p>
+                          <p className="text-xs text-muted-foreground">
+                            {item.companyName}
+                          </p>
+                        </div>
+                        {item.rating != null && (
+                          <RatingStars
+                            value={item.rating}
+                            size="xs"
+                            showValue
+                          />
+                        )}
+                      </div>
+
+                      <p className="mt-1 text-xs text-muted-foreground">
+                        {item.jobTitle}
+                      </p>
+
+                      <p className="mt-1.5 text-xs text-muted-foreground">
+                        {formatDateVi(item.startedAt)} —{" "}
+                        {formatDateVi(item.completedAt)}
+                      </p>
+
+                      {item.salaryMin != null && item.salaryMin > 0 && (
+                        <p className="mt-1 text-xs text-muted-foreground">
+                          Mức lương:{" "}
+                          <span className="font-medium text-foreground">
+                            {item.salaryMin.toLocaleString("vi-VN")} đ
+                            {item.salaryMin > 100000 ? "/tháng" : "/giờ"}
+                            {item.salaryMax != null && item.salaryMax > 0
+                              ? ` — ${item.salaryMax.toLocaleString("vi-VN")} đ`
+                              : ""}
+                          </span>
+                        </p>
+                      )}
+
+                      {item.note && (
+                        <p className="mt-1.5 text-sm leading-relaxed text-muted-foreground">
+                          “{item.note}”
+                        </p>
+                      )}
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </CardContent>
+          </Card>
+
+          {/* ĐÁNH GIÁ ỨNG VIÊN ĐÃ NHẬN TỪ NHÀ TUYỂN DỤNG KHÁC */}
+          <Card className="border-border/60">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2 font-heading text-base">
+                <Star className="size-4 text-primary" />
+                Uy tín ứng viên
+              </CardTitle>
+              <CardDescription>
+                Đánh giá ứng viên này đã nhận từ các nhà tuyển dụng khác.
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              {candidateReviewsPending && (
+                <div className="h-20 animate-pulse rounded-lg bg-muted/60" />
+              )}
+
+              {!candidateReviewsPending && candidateReviews.length === 0 && (
+                <p className="text-sm text-muted-foreground">
+                  Ứng viên chưa nhận đánh giá nào từ nhà tuyển dụng khác.
+                </p>
+              )}
+
+              {!candidateReviewsPending && candidateReviews.length > 0 && (
+                <>
+                  <div className="flex items-center gap-2">
+                    <RatingStars
+                      value={candidateAvgRating}
+                      size="sm"
+                      showValue
+                      count={candidateReviews.length}
+                    />
+                  </div>
+
+                  <ul className="space-y-3">
+                    {candidateReviews.map((review) => (
+                      <li
+                        key={review.id}
+                        className="rounded-lg border border-border bg-muted/30 p-3"
+                      >
+                        <div className="flex flex-wrap items-start justify-between gap-2">
+                          <p className="text-sm font-semibold text-foreground">
+                            {review.fromName}
+                            {isOwnReview(review) && (
+                              <span className="ml-1.5 text-xs font-normal text-muted-foreground">
+                                (bạn)
+                              </span>
+                            )}
+                          </p>
+                          <div className="flex items-center gap-2">
+                            <RatingStars value={review.rating} size="xs" />
+                            <span className="text-xs text-muted-foreground tabular-nums">
+                              {new Date(review.createdAt).toLocaleDateString(
+                                "vi-VN"
+                              )}
+                            </span>
+                          </div>
+                        </div>
+                        {review.jobTitle && (
+                          <p className="mt-0.5 text-xs text-muted-foreground">
+                            Vị trí: {review.jobTitle}
+                          </p>
+                        )}
+                        <p className="mt-1.5 text-sm leading-relaxed text-muted-foreground">
+                          “{review.comment}”
+                        </p>
+
+                        {/* Phản hồi của sinh viên (người bị đánh giá) */}
+                        {review.reply && (
+                          <div className="mt-2 rounded-md border-l-2 border-primary bg-background/60 p-2.5">
+                            <p className="mb-0.5 text-xs font-semibold text-primary">
+                              Phản hồi của {review.targetName}
+                            </p>
+                            <p className="text-sm text-muted-foreground">
+                              {review.reply}
+                            </p>
+                          </div>
+                        )}
+
+                        {/* Phản hồi của NTD (người viết đánh giá) */}
+                        {review.reviewerReply && (
+                          <div className="mt-2 rounded-md border-l-2 border-border bg-background/60 p-2.5">
+                            <p className="mb-0.5 text-xs font-semibold text-foreground">
+                              Phản hồi của {review.fromName}
+                            </p>
+                            <p className="text-sm text-muted-foreground">
+                              {review.reviewerReply}
+                            </p>
+                          </div>
+                        )}
+
+                        {/* NTD phản hồi lại đánh giá mình đã viết */}
+                        {isOwnReview(review) && (
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            className="mt-2"
+                            onClick={() => setReplyTarget(review)}
+                          >
+                            <MessageSquare className="size-4" />
+                            {review.reviewerReply
+                              ? "Sửa phản hồi"
+                              : "Phản hồi ứng viên"}
+                          </Button>
+                        )}
+                      </li>
+                    ))}
+                  </ul>
+                </>
+              )}
+            </CardContent>
+          </Card>
         </div>
 
         {/* CỘT PHẢI — TRẠNG THÁI & HÀNH ĐỘNG */}
@@ -464,6 +721,61 @@ export default function EmployerApplicationDetailPage() {
         targetName={application.studentName}
         jobTitle={application.jobTitle}
       />
+
+      {/* DIALOG PHẢN HỒI LẠI ĐÁNH GIÁ (NTD là người viết đánh giá) */}
+      <Dialog
+        open={replyTarget !== null}
+        onOpenChange={(open) => {
+          if (!open) {
+            setReplyTarget(null);
+            setReplyText("");
+          }
+        }}
+      >
+        <DialogContent className="sm:max-w-lg">
+          <DialogHeader>
+            <DialogTitle>Phản hồi ứng viên</DialogTitle>
+          </DialogHeader>
+
+          {replyTarget && (
+            <div className="space-y-4">
+              <div className="rounded-lg bg-muted/40 p-3">
+                <RatingStars value={replyTarget.rating} className="mb-1.5" />
+                <p className="text-sm text-muted-foreground">
+                  “{replyTarget.comment}”
+                </p>
+              </div>
+
+              <Textarea
+                value={replyText}
+                onChange={(event) => setReplyText(event.target.value)}
+                rows={4}
+                maxLength={500}
+                placeholder={`Viết phản hồi của bạn tới ${replyTarget.targetName}...`}
+              />
+              <p className="text-xs text-muted-foreground">
+                {replyText.length}/500 ký tự
+              </p>
+            </div>
+          )}
+
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => {
+                setReplyTarget(null);
+                setReplyText("");
+              }}
+              disabled={replyAsReviewer.isPending}
+            >
+              Huỷ
+            </Button>
+            <Button onClick={handleReviewerReply} disabled={replyAsReviewer.isPending}>
+              {replyAsReviewer.isPending ? "Đang gửi..." : "Gửi phản hồi"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </DashboardLayout>
   );
 }

@@ -398,7 +398,9 @@ INSERT INTO applications (id, slug, job_post_id, student_id, cover_letter, expec
        (4, 'app-004', 43, 4, 'Em là sinh viên Marketing năm 4, đã quen với Canva, CapCut và viết content bán hàng. Em muốn được làm việc thật để hoàn thiện portfolio.', 5000000, 'PENDING', NULL, NULL, '', NULL, NULL, NULL, '2026-11-17 03:00:00', '2026-11-17 03:00:00', '2026-11-17 03:00:00', '2026-11-17 03:00:00'),
        (5, 'app-005', 43, 5, 'Em thấy vị trí này phù hợp với kỹ năng của em. Em có thể hỗ trợ phần landing page và tracking.', 4500000, 'ACCEPTED', 'Đã nhận, bắt đầu từ tuần sau.', NULL, '', NULL, NULL, NULL, '2026-11-15 09:00:00', '2026-11-18 04:00:00', '2026-11-18 04:00:00', '2026-11-18 04:00:00'),
        (6, 'app-006', 42, 6, 'Em là sinh viên năm 2, muốn làm thêm lễ tân để cải thiện giao tiếp.', 27000, 'REJECTED', 'Vị trí đã tuyển đủ, cảm ơn bạn đã ứng tuyển.', NULL, '', NULL, NULL, NULL, '2026-11-13 09:00:00', '2026-11-16 09:00:00', '2026-11-16 09:00:00', '2026-11-16 09:00:00'),
-       (7, 'app-007', 45, 8, 'Em muốn làm ca đêm để kiếm thêm thu nhập.', 35000, 'COMPLETED', 'Đã làm xong 2 ca, trả lương đúng hẹn.', NULL, '', NULL, NULL, NULL, '2026-11-05 09:00:00', '2026-11-13 09:00:00', '2026-11-13 09:00:00', '2026-11-13 09:00:00');
+       (7, 'app-007', 45, 8, 'Em muốn làm ca đêm để kiếm thêm thu nhập.', 35000, 'COMPLETED', 'Đã làm xong 2 ca, trả lương đúng hẹn.', NULL, '', NULL, NULL, NULL, '2026-11-05 09:00:00', '2026-11-13 09:00:00', '2026-11-13 09:00:00', '2026-11-13 09:00:00'),
+       (8, 'app-008', 42, 1, 'Em xin ứng tuyển vị trí lễ tân part-time cuối tuần. Em có kinh nghiệm đón khách và xử lý thủ tục cơ bản.', 28000, 'COMPLETED', 'Đã làm xong 6 ca, trả lương đúng hẹn.', NULL, '', NULL, NULL, NULL, '2026-10-29 09:00:00', '2026-11-10 09:00:00', '2026-11-10 09:00:00', '2026-11-10 09:00:00'),
+       (9, 'app-009', 45, 1, 'Em xin ứng tuyển vị trí thu ngân ca đêm. Em quen với thao tác thanh toán và kiểm kê từ ca tối.', 35000, 'COMPLETED', 'Đã làm xong 8 ca, ứng viên rất chuyên nghiệp.', NULL, '', NULL, NULL, NULL, '2026-10-23 09:00:00', '2026-11-05 09:00:00', '2026-11-05 09:00:00', '2026-11-05 09:00:00');
 
 -- 16. LỊCH SỬ TRẠNG THÁI ĐƠN ỨNG TUYỂN
 INSERT INTO application_status_history (application_id, from_status, to_status, changed_by, note, changed_at) VALUES
@@ -416,7 +418,13 @@ INSERT INTO application_status_history (application_id, from_status, to_status, 
        (6, 'PENDING', 'REJECTED', 2, 'Đã tuyển đủ', '2026-11-15 21:00:00'),
        (7, NULL, 'PENDING', 8, NULL, '2026-11-05 21:00:00'),
        (7, 'PENDING', 'ACCEPTED', 2, 'Đã nhận', '2026-11-07 13:00:00'),
-       (7, 'ACCEPTED', 'COMPLETED', 2, 'Hoàn thành công việc', '2026-11-13 09:00:00');
+       (7, 'ACCEPTED', 'COMPLETED', 2, 'Hoàn thành công việc', '2026-11-13 09:00:00'),
+       (8, NULL, 'PENDING', 1, NULL, '2026-10-29 09:00:00'),
+       (8, 'PENDING', 'ACCEPTED', 2, 'Đã nhận', '2026-10-31 01:00:00'),
+       (8, 'ACCEPTED', 'COMPLETED', 2, 'Hoàn thành công việc', '2026-11-10 01:00:00'),
+       (9, NULL, 'PENDING', 1, NULL, '2026-10-23 13:00:00'),
+       (9, 'PENDING', 'ACCEPTED', 2, 'Đã nhận', '2026-10-25 05:00:00'),
+       (9, 'ACCEPTED', 'COMPLETED', 2, 'Hoàn thành công việc', '2026-11-05 01:00:00');
 
 -- 17. ĐÁNH GIÁ 2 CHIỀU
 INSERT INTO reviews (id, slug, application_id, job_id, reviewer_id, reviewee_id, reviewer_role, target_type, from_name, from_avatar_url, target_name, rating, comment, reply, is_hidden, created_at) VALUES
@@ -424,7 +432,9 @@ INSERT INTO reviews (id, slug, application_id, job_id, reviewer_id, reviewee_id,
        (2, 'rev-002', 5, 43, 2, 5, 'EMPLOYER', 'STUDENT', 'Trần Minh Khoa', NULL, 'Phạm Đức Bình', 5, 'Bình làm việc rất chuyên nghiệp, tự tra cứu và chủ động hỏi khi chưa rõ. Rất hài lòng.', NULL, 0, '2026-11-14 09:00:00'),
        (3, 'rev-003', 7, 45, 8, 2, 'STUDENT', 'EMPLOYER', 'Lê Ngọc Mai', NULL, 'VieJob Demo Company', 4, 'Môi trường làm việc thân thiện, hướng dẫn rõ ràng. Điểm trừ là ca đêm hơi mệt.', NULL, 0, '2026-11-14 09:00:00'),
        (4, 'rev-004', 6, 42, 2, 6, 'EMPLOYER', 'STUDENT', 'Trần Minh Khoa', NULL, 'Phạm Ngọc Linh', 4, 'Ứng viên nhanh nhẹn, đúng giờ. Mong được hợp tác thêm lâu dài.', NULL, 0, '2026-11-16 09:00:00'),
-       (5, 'rev-005', NULL, NULL, 4, 2, 'STUDENT', 'EMPLOYER', 'Nguyễn Thị Hoa', NULL, 'VieJob Demo Company', 1, 'Quảng cáo sai mức lương, rất thất vọng. Tệp nhất mà tôi từng ứng tuyển!', NULL, 1, '2026-11-17 09:00:00');
+       (5, 'rev-005', NULL, NULL, 4, 2, 'STUDENT', 'EMPLOYER', 'Nguyễn Thị Hoa', NULL, 'VieJob Demo Company', 1, 'Quảng cáo sai mức lương, rất thất vọng. Tệp nhất mà tôi từng ứng tuyển!', NULL, 1, '2026-11-17 09:00:00'),
+       (6, 'rev-006', 8, 42, 2, 1, 'EMPLOYER', 'STUDENT', 'Trần Minh Khoa', NULL, 'Nguyễn Thanh Hà', 5, 'Hà đón khách rất lịch sự, xử lý thủ tục nhanh gọn và luôn đúng giờ. Rất hài lòng với ca làm việc.', 'Cảm ơn anh, em rất vui được làm việc cùng công ty.', 0, '2026-11-11 09:00:00'),
+       (7, 'rev-007', 9, 45, 2, 1, 'EMPLOYER', 'STUDENT', 'Trần Minh Khoa', NULL, 'Nguyễn Thanh Hà', 4, 'Ứng viên làm việc chăm chỉ, kiểm kê cuối ca cẩn thận. Cần cải thiện tốc độ xử lý thanh toán.', NULL, 0, '2026-11-06 09:00:00');
 
 -- 18. THÔNG BÁO
 INSERT INTO notifications (id, slug, user_id, type, title, body, content, ref_type, ref_id, is_read, read_at, link, created_at) VALUES

@@ -15,8 +15,6 @@ RUN corepack enable && corepack prepare pnpm@9 --activate \
 
 # Copy source & build
 COPY . .
-ARG VITE_USE_MOCK_API=false
-ENV VITE_USE_MOCK_API=$VITE_USE_MOCK_API
 RUN pnpm build
 
 # --- Stage 2: nginx ---

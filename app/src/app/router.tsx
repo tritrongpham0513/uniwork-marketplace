@@ -18,6 +18,7 @@ import StudentDashboardPage from "@/pages/student";
 import StudentProfilePage from "@/pages/student/profile";
 import StudentApplicationsPage from "@/pages/student/applications";
 import StudentApplicationDetailPage from "@/pages/student/application-detail";
+import StudentReviewsPage from "@/pages/student/reviews";
 import EmployerDashboardPage from "@/pages/employer";
 import EmployerJobsPage from "@/pages/employer/jobs";
 import EmployerJobFormPage from "@/pages/employer/job-form";
@@ -119,6 +120,10 @@ export const router = createBrowserRouter([
       {
         path: PATHS.SAVED,
         element: <SavedJobsPage />,
+      },
+      {
+        path: PATHS.STUDENT.REVIEWS,
+        element: <StudentReviewsPage />,
       },
     ],
   },

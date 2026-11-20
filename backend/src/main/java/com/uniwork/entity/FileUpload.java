@@ -42,6 +42,22 @@ public class FileUpload {
     @Column(name = "storage_key", nullable = false, length = 255)
     private String storageKey;
 
+    /**
+     * Bucket chứa file: {@code public} (avatar / logo) hoặc {@code private} (CV).
+     *
+     * <p>Ở Cloudflare R2 đây là tên bucket thật — tách bucket là điều kiện
+     * để CV không bị lộ link tĩnh.
+     */
+    @Column(name = "bucket", nullable = false, length = 40)
+    private String bucket;
+
+    /**
+     * SHA-256 của nội dung file (hex) — cho phép đối soát file sau khi
+     * upload trực tiếp.
+     */
+    @Column(name = "checksum", length = 64)
+    private String checksum;
+
     /** Tên file người dùng chọn — dùng để hiển thị (ví dụ "CV-NguyenVanA.pdf"). */
     @Column(name = "original_name", nullable = false, length = 255)
     private String originalName;

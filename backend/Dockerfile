@@ -26,10 +26,8 @@ RUN groupadd -r spring && useradd -r -g spring spring
 
 COPY --from=builder /build/target/*.jar app.jar
 
-# Thư mục lưu file upload — cần quyền ghi cho user "spring".
-# Khi container khởi tạo với named volume, Docker sẽ copy nội dung & quyền
-# sở hữu từ đây sang volume, nên volume cũng chạy được với user không root.
-RUN mkdir -p /data/uploads && chown -R spring:spring /data
+# File upload lưu trên Cloudflare R2 — container KHÔNG cần thư mục ghi file.
+# (Cách này giúp deploy lên PaaS có disk ephemeral không mất dữ liệu khi restart.)
 
 USER spring:spring
 

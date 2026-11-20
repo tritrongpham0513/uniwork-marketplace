@@ -57,12 +57,18 @@ const PING_INTERVAL = 25_000;
  * `http://localhost:5173` -> `ws://localhost:5173/ws/notifications`.
  * Giữ nguyên origin để request đi qua đúng proxy (nginx ở production,
  * Vite ở development) thay vì bị CORS chặn.
+ *
+ * Khi `apiBaseUrl` rỗng (app chạy cùng origin với API) -> dùng
+ * `window.location.origin` để URL WebSocket vẫn đi qua đúng proxy.
  */
 export const buildNotificationSocketUrl = (
   apiBaseUrl: string,
   ticket: string
 ): string => {
-  const base = apiBaseUrl.replace(/\/+$/, "");
+  const trimmed = apiBaseUrl.trim().replace(/\/+$/, "");
+  const base =
+    trimmed ||
+    (typeof window !== "undefined" ? window.location.origin : "");
   const wsBase = base.replace(/^http:/, "ws:").replace(/^https:/, "wss:");
   return `${wsBase}/ws/notifications?ticket=${encodeURIComponent(ticket)}`;
 };

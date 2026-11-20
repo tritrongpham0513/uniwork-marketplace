@@ -583,7 +583,10 @@ export function JobDetailPage() {
               {/* Đánh giá + số tin đang tuyển — Viecoday: "13 tin · 30 ngày" */}
               <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted-foreground">
                 {employerProfile && employerProfile.profile.avgRating > 0 && (
-                  <span className="flex items-center gap-1.5">
+                  <Link
+                    to={PATHS.EMPLOYER.PUBLIC_PROFILE(job.employerId)}
+                    className="flex items-center gap-1.5 underline-offset-4 transition-colors hover:text-foreground hover:underline"
+                  >
                     <RatingStars
                       value={employerProfile.profile.avgRating}
                       size="xs"
@@ -594,7 +597,7 @@ export function JobDetailPage() {
                     <span>
                       ({employerProfile.profile.ratingCount} đánh giá)
                     </span>
-                  </span>
+                  </Link>
                 )}
                 {employerProfile && employerProfile.jobs.length > 0 && (
                   <span className="flex items-center gap-1.5">

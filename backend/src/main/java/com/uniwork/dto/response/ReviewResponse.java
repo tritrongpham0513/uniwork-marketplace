@@ -42,7 +42,11 @@ public class ReviewResponse {
 
     private String comment;
 
+    /** Phản hồi của người BỊ đánh giá (reviewee) */
     private String reply;
+
+    /** Phản hồi của người VIẾT đánh giá (reviewer) — đánh giá 2 chiều */
+    private String reviewerReply;
 
     private Boolean isHidden;
 

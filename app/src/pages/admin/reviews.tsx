@@ -178,6 +178,11 @@ export default function AdminReviewsPage() {
                               Phản hồi: {review.reply}
                             </p>
                           )}
+                          {review.reviewerReply && (
+                            <p className="mt-1 line-clamp-1 text-xs text-muted-foreground">
+                              Phản hồi: {review.reviewerReply}
+                            </p>
+                          )}
                         </TableCell>
                         <TableCell>
                           <Badge

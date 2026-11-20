@@ -34,4 +34,7 @@ public class FileUploadResponse {
 
     /** Tên file trên disk (sinh ra ngẫu nhiên) — frontend không cần dùng. */
     private String storageKey;
+
+    /** Bucket chứa file: "public" (avatar/logo) hoặc "private" (CV). */
+    private String bucket;
 }
