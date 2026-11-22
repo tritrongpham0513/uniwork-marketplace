@@ -49,6 +49,7 @@ import java.util.List;
  *   <li>{@code GET    /api/v1/student/applications}</li>
  *   <li>{@code GET    /api/v1/student/applications/{id}}</li>
  *   <li>{@code PATCH  /api/v1/student/applications/{id}/withdraw}</li>
+ *   <li>{@code GET    /api/v1/student/applications/job/{jobId}}</li>
  *   <li>{@code GET    /api/v1/student/profile}</li>
  *   <li>{@code PUT    /api/v1/student/profile}</li>
  *   <li>{@code GET    /api/v1/student/reviews}</li>
@@ -117,6 +118,24 @@ public class StudentController {
         return ResponseEntity.ok(ApiResponse.success(
                 "Đã rút đơn ứng tuyển.",
                 applicationService.withdraw(id, user.getId())));
+    }
+
+    /**
+     * GET /api/v1/student/applications/job/{jobId} — đơn ứng tuyển của tôi cho 1 tin.
+     *
+     * <p>Frontend dùng để biết đã ứng tuyển tin này chưa, và đơn cũ có đang ở
+     * trạng thái `WITHDRAWN` (được ứng tuyển lại) hay không. Chưa ứng tuyển →
+     * `data = null`.
+     */
+    @GetMapping("/applications/job/{jobId}")
+    @Operation(summary = "Đơn ứng tuyển của tôi cho 1 tin tuyển dụng")
+    public ResponseEntity<ApiResponse<ApplicationResponse>> applicationByJob(
+            @PathVariable("jobId") String jobId,
+            @CurrentUser User user) {
+
+        return ResponseEntity.ok(ApiResponse.success(
+                "Lấy đơn ứng tuyển theo tin tuyển dụng thành công.",
+                applicationService.findByJobForStudent(jobId, user.getId())));
     }
 
     // ------------------------------------------------------------------

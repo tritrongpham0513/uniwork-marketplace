@@ -15,10 +15,12 @@ import com.uniwork.repository.JobPostRepository;
 import com.uniwork.repository.StudentProfileRepository;
 import com.uniwork.repository.UserRepository;
 import com.uniwork.service.ApplicationService;
+import com.uniwork.service.FileStorageService;
 import com.uniwork.service.NotificationService;
 import com.uniwork.service.WorkHistoryService;
 import com.uniwork.util.ApiErrors;
 import com.uniwork.util.DateTimeUtils;
+import com.uniwork.util.FileUrlValidator;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -62,6 +64,7 @@ public class ApplicationServiceImpl implements ApplicationService {
     private final UserRepository userRepository;
     private final NotificationService notificationService;
     private final WorkHistoryService workHistoryService;
+    private final FileStorageService fileStorageService;
 
     // ------------------------------------------------------------------
     // SINH VIÊN
@@ -86,10 +89,25 @@ public class ApplicationServiceImpl implements ApplicationService {
                 .orElseThrow(() -> ApiErrors.notFound("Không tìm thấy hồ sơ sinh viên."));
 
         if (applicationRepository.existsByJobPostIdAndStudentUserId(job.getId(), studentUserId)) {
-            throw ApiErrors.badRequest("Bạn đã ứng tuyển vào tin tuyển dụng này rồi.");
+            // Đơn đã tồn tại (bảng `applications` có unique constraint
+            // `(job_post_id, student_id)`) → không tạo dòng mới được.
+            Application existing = applicationRepository
+                    .findByJobPostIdAndStudentUserId(job.getId(), studentUserId)
+                    .orElseThrow(() -> ApiErrors.badRequest(
+                            "Bạn đã ứng tuyển vào tin tuyển dụng này rồi."));
+
+            if (!"WITHDRAWN".equals(existing.getStatus())) {
+                throw ApiErrors.badRequest("Bạn đã ứng tuyển vào tin tuyển dụng này rồi.");
+            }
+
+            // Đơn cũ đã rút → kích hoạt lại thay vì tạo dòng mới (giữ lịch sử).
+            return reactivate(existing, request, profile, job);
         }
 
         LocalDateTime now = LocalDateTime.now();
+
+        String cvUrl = resolveCvUrl(request, profile);
+        String cvFileName = resolveCvFileName(request, cvUrl);
 
         Application application = Application.builder()
                 .slug("app-" + java.util.UUID.randomUUID().toString().substring(0, 12))
@@ -100,8 +118,8 @@ public class ApplicationServiceImpl implements ApplicationService {
                         ? BigDecimal.valueOf(request.getExpectedSalary()) : null)
                 .experience(request.getExperience() != null ? request.getExperience().trim() : "")
                 .availableFrom(DateTimeUtils.parseDate(request.getAvailableFrom()))
-                .cvUrl(request.getCvUrl() != null ? request.getCvUrl() : profile.getCvUrl())
-                .cvFileName(request.getCvFileName())
+                .cvUrl(cvUrl)
+                .cvFileName(cvFileName)
                 .status("PENDING")
                 .appliedAt(now)
                 .updatedAt(now)
@@ -189,10 +207,26 @@ public class ApplicationServiceImpl implements ApplicationService {
         return toResponse(application);
     }
 
+    @Override
+    @Transactional(readOnly = true)
+    public ApplicationResponse findByJobForStudent(String jobId, Long studentUserId) {
+        if (jobId == null || jobId.isBlank()) {
+            return null;
+        }
+
+        JobPost job = jobPostRepository.findBySlugAndDeletedAtIsNull(jobId).orElse(null);
+        if (job == null) {
+            return null;
+        }
+
+        return applicationRepository.findByJobPostIdAndStudentUserId(job.getId(), studentUserId)
+                .map(this::toResponse)
+                .orElse(null);
+    }
+
     // ------------------------------------------------------------------
     // NHÀ TUYỂN DỤNG
     // ------------------------------------------------------------------
-
     @Override
     @Transactional(readOnly = true)
     public List<ApplicationResponse> listByEmployer(Long employerUserId, String jobId, String status) {
@@ -320,6 +354,83 @@ public class ApplicationServiceImpl implements ApplicationService {
     // HELPERS
     // ------------------------------------------------------------------
 
+    /**
+     * URL CV cho đơn ứng tuyển.
+     *
+     * <p>URL file do client gửi lên phải là file nội bộ; nếu không thì dùng CV
+     * trong hồ sơ. Nhờ vậy không lưu được link ngoài vào đơn ứng tuyển.
+     */
+    private String resolveCvUrl(CreateApplicationRequest request, StudentProfile profile) {
+        String requestedCv = (request.getCvUrl() == null || request.getCvUrl().isBlank())
+                ? profile.getCvUrl()
+                : request.getCvUrl();
+        return FileUrlValidator.normalize(requestedCv);
+    }
+
+    /**
+     * Tên file hiển thị cho NTD: ưu tiên tên client gửi, nếu thiếu thì lấy tên
+     * gốc của file đã upload (để NTD không thấy "file-1a2b3c").
+     */
+    private String resolveCvFileName(CreateApplicationRequest request, String cvUrl) {
+        String cvFileName = request.getCvFileName();
+        if ((cvFileName == null || cvFileName.isBlank()) && cvUrl != null) {
+            cvFileName = fileStorageService.resolveOriginalFileName(cvUrl);
+        }
+        if (cvFileName != null && cvFileName.length() > 200) {
+            cvFileName = cvFileName.substring(cvFileName.length() - 200);
+        }
+        return cvFileName;
+    }
+
+    /**
+     * Ứng tuyển lại sau khi đã rút đơn.
+     *
+     * <p>Bảng `applications` có unique constraint `(job_post_id, student_id)` nên
+     * 1 SV chỉ có 1 dòng đơn cho mỗi tin. Đơn đã rút được kích hoạt lại
+     * (`WITHDRAWN` → `PENDING`) thay vì tạo dòng mới — giữ nguyên lịch sử
+     * timeline và các mốc thời gian đã ghi nhận.
+     */
+    private ApplicationResponse reactivate(Application application,
+                                            CreateApplicationRequest request,
+                                            StudentProfile profile,
+                                            JobPost job) {
+        LocalDateTime now = LocalDateTime.now();
+
+        application.setCoverLetter(request.getCoverLetter() != null ? request.getCoverLetter() : "");
+        application.setExpectedSalary(request.getExpectedSalary() != null
+                ? BigDecimal.valueOf(request.getExpectedSalary()) : null);
+        application.setExperience(request.getExperience() != null ? request.getExperience().trim() : "");
+        application.setAvailableFrom(DateTimeUtils.parseDate(request.getAvailableFrom()));
+
+        String cvUrl = resolveCvUrl(request, profile);
+        application.setCvUrl(cvUrl);
+        application.setCvFileName(resolveCvFileName(request, cvUrl));
+
+        // Rút đơn đã set `decided_at`; ứng tuyển lại thì các mốc này phải sạch trở lại.
+        application.setDecidedAt(null);
+        application.setReviewedAt(null);
+        // Xoá ghi chú / lý do từ chối của lần trước (nếu có).
+        application.setEmployerNote(null);
+        application.setRejectReason(null);
+        application.setAppliedAt(now);
+        application.setUpdatedAt(now);
+
+        pushStatus(application, "PENDING", "Sinh viên ứng tuyển lại", null);
+
+        // Tăng lại bộ đếm ứng viên (rút đơn đã giảm 1).
+        job.setApplicantCount((job.getApplicantCount() != null ? job.getApplicantCount() : 0) + 1);
+        jobPostRepository.save(job);
+
+        notificationService.push(
+                job.getEmployer().getUserId(),
+                "APPLICATION",
+                "Ứng viên ứng tuyển lại",
+                profile.getFullName() + " đã ứng tuyển lại vào vị trí " + job.getTitle() + ".",
+                "/employer/applications/" + application.getSlug());
+
+        return toResponse(application);
+    }
+
     private void pushStatus(Application application, String status, String note, Long changedByUserId) {
         LocalDateTime now = LocalDateTime.now();
 
@@ -405,6 +516,7 @@ public class ApplicationServiceImpl implements ApplicationService {
                 .employerId(job.getEmployer().getSlug())
                 .employerName(job.getEmployer().getDisplayName())
                 .employerLogoVariant(job.getEmployer().getLogoVariant())
+                .employerLogoUrl(job.getEmployer().getLogoUrl())
                 .employerVerified(job.getEmployer().getIsVerified())
                 .studentId(student.getSlug())
                 .studentName(student.getFullName())
@@ -418,6 +530,7 @@ public class ApplicationServiceImpl implements ApplicationService {
                 .studentBio(student.getBio())
                 .cvUrl(application.getCvUrl())
                 .cvFileName(application.getCvFileName())
+                .cvMimeType(fileStorageService.resolveMimeType(application.getCvUrl()))
                 .coverLetter(application.getCoverLetter())
                 .expectedSalary(application.getExpectedSalary() != null
                         ? application.getExpectedSalary().intValue() : null)

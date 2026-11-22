@@ -28,6 +28,9 @@ public class ApplicationResponse {
 
     private String employerLogoVariant;
 
+    /** Logo tổ chức — ảnh đại diện của nhà tuyển dụng (có thể null). */
+    private String employerLogoUrl;
+
     private Boolean employerVerified;
 
     private String studentId;
@@ -54,6 +57,14 @@ public class ApplicationResponse {
     private String cvUrl;
 
     private String cvFileName;
+
+    /**
+     * MIME type thật của CV (đã xác minh bằng magic bytes lúc upload).
+     *
+     * <p>Frontend dùng để biết có render nội dung PDF trực tiếp hay chỉ cho
+     * tải xuống (DOC/DOCX không render được).
+     */
+    private String cvMimeType;
 
     private String coverLetter;
 

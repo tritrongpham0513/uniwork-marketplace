@@ -23,6 +23,14 @@ public interface ApplicationService {
     /** Sinh viên rút đơn. */
     ApplicationResponse withdraw(String applicationId, Long studentUserId);
 
+    /**
+     * Đơn ứng tuyển của sinh viên cho 1 tin (nếu có).
+     *
+     * <p>Dùng để biết SV đã ứng tuyển tin này chưa (và đơn cũ có đang ở trạng
+     * thái `WITHDRAWN` để cho phép ứng tuyển lại hay không).
+     */
+    ApplicationResponse findByJobForStudent(String jobId, Long studentUserId);
+
     /** Danh sách ứng viên của nhà tuyển dụng. */
     List<ApplicationResponse> listByEmployer(Long employerUserId, String jobId, String status);
 
