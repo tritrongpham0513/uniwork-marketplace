@@ -24,6 +24,7 @@ import EmployerJobsPage from "@/pages/employer/jobs";
 import EmployerJobFormPage from "@/pages/employer/job-form";
 import EmployerApplicationsPage from "@/pages/employer/applications";
 import EmployerApplicationDetailPage from "@/pages/employer/application-detail";
+import EmployerApplicationCvPage from "@/pages/employer/application-cv";
 import EmployerOrganizationPage from "@/pages/employer/organization";
 import EmployerReviewsPage from "@/pages/employer/reviews";
 import PublicEmployerPage from "@/pages/employer/public-profile";
@@ -161,6 +162,10 @@ export const router = createBrowserRouter([
       {
         path: PATHS.EMPLOYER.APPLICATION_DETAIL(),
         element: <EmployerApplicationDetailPage />,
+      },
+      {
+        path: PATHS.EMPLOYER.APPLICATION_CV(),
+        element: <EmployerApplicationCvPage />,
       },
       {
         path: PATHS.EMPLOYER.ORGANIZATION,

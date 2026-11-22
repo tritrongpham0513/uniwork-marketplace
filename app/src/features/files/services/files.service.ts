@@ -10,10 +10,43 @@ import http from "@/lib/axios";
  */
 export type FileKind = "CV" | "AVATAR" | "LOGO";
 
+/**
+ * Đường dẫn endpoint tải file nội bộ — khớp `FileUrlValidator.FILES_PATH` bên
+ * backend. Mọi URL file lưu trong DB đều có dạng `/api/v1/files/{slug}`
+ * (tương đối, cùng origin với app) nên chạy đúng ở dev / prod / deploy thật.
+ */
+const FILES_PATH = "/api/v1/files/";
+
+/** Slug file do backend sinh: chữ, số và dấu gạch. */
+const FILE_SLUG_PATTERN = /^[A-Za-z0-9-]{1,80}$/;
+
+/**
+ * Lấy public id (slug) từ URL file nội bộ.
+ *
+ * @param url URL tương đối (`/api/v1/files/file-abc`) hoặc tuyệt đối
+ * @returns slug, hoặc `null` nếu không phải file của hệ thống
+ */
+export const fileIdFromUrl = (url?: string | null): string | null => {
+  if (!url) return null;
+  const index = url.indexOf(FILES_PATH);
+  if (index < 0) return null;
+
+  const slug = url
+    .slice(index + FILES_PATH.length)
+    .split(/[?#]/)[0]
+    .replace(/\/+$/, "");
+
+  return FILE_SLUG_PATTERN.test(slug) ? slug : null;
+};
+
+/** URL này có phải file do hệ thống quản lý không? */
+export const isManagedFileUrl = (url?: string | null): boolean =>
+  fileIdFromUrl(url) !== null;
+
 export interface UploadedFile {
   /** Public id của file — dùng để gọi DELETE. */
   id: string;
-  /** URL tuyệt đối để nhúng vào `<img src>` / link tải. */
+  /** URL tương đối (`/api/v1/files/{slug}`) để nhúng `<img src>` / tải file. */
   url: string;
   /** Tên file gốc người dùng chọn. */
   fileName: string;
@@ -277,6 +310,55 @@ export const filesService = {
     await putToPresignedUrl(presign, file, onProgress);
 
     return filesService.confirm(presign.storageKey, kind, file.name);
+  },
+
+  /**
+   * Tải nội dung file qua API có `Authorization`.
+   *
+   * Vì sao không dùng thẻ `<a href>`: CV là tài nguyên riêng tư, backend kiểm
+   * tra quyền đọc theo token. Trình duyệt không gắn header `Authorization` khi
+   * điều hướng bằng thẻ `<a>` → luôn 403. Tải bằng axios (blob) rồi mới kích
+   * hoạt download qua object URL là cách duy nhất giữ được token.
+   *
+   * @param idOrUrl  slug hoặc URL `/api/v1/files/{slug}`
+   * @param fileName tên file hiển thị khi lưu (mặc định `file-{slug}`)
+   */
+  async download(idOrUrl: string, fileName?: string): Promise<void> {
+    const id = fileIdFromUrl(idOrUrl) ?? idOrUrl;
+    const blob = await http.get<Blob>(`${FILES_PATH}${id}`, {
+      responseType: "blob",
+    });
+
+    const objectUrl = URL.createObjectURL(blob);
+    try {
+      const anchor = document.createElement("a");
+      anchor.href = objectUrl;
+      anchor.download = fileName?.trim() || `file-${id}`;
+      anchor.rel = "noopener";
+      document.body.appendChild(anchor);
+      anchor.click();
+      anchor.remove();
+    } finally {
+      // Thu hồi sau khi trình duyệt kịp đọc xong blob.
+      setTimeout(() => URL.revokeObjectURL(objectUrl), 1000);
+    }
+  },
+
+  /**
+   * Tải nội dung file dạng `ArrayBuffer` — dùng để render PDF trong trang.
+   *
+   * <p>Cùng lý do như {@link download}: phải có header `Authorization` nên
+   * không dùng được `<iframe src>` hay `fetch` thẳng. `react-pdf` nhận dữ liệu
+   * dạng mảng byte nên ta tải blob trước rồi đưa vào.
+   *
+   * @param idOrUrl slug hoặc URL `/api/v1/files/{slug}`
+   */
+  async fetchBuffer(idOrUrl: string): Promise<ArrayBuffer> {
+    const id = fileIdFromUrl(idOrUrl) ?? idOrUrl;
+    // `http.get` đã tự unwrap `response.data` → kết quả là chính ArrayBuffer.
+    return http.get<ArrayBuffer>(`${FILES_PATH}${id}`, {
+      responseType: "arraybuffer",
+    });
   },
 
   /**

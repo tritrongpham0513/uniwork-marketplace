@@ -38,6 +38,9 @@ export const PATHS = {
     APPLICATIONS: "/employer/applications",
     APPLICATION_DETAIL: (id: string | number = ":id") =>
       `/employer/applications/${id}`,
+    /** Xem CV ứng viên — route riêng vì CV là tài liệu dài cần không gian rộng */
+    APPLICATION_CV: (id: string | number = ":id") =>
+      `/employer/applications/${id}/cv`,
     ORGANIZATION: "/employer/organization",
     REVIEWS: "/employer/reviews",
     /** Hồ sơ NTD công khai — xem được bởi mọi vai trò (không guard) */
