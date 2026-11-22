@@ -24,12 +24,14 @@ import com.uniwork.repository.StudentJobPreferenceRepository;
 import com.uniwork.repository.StudentProfileRepository;
 import com.uniwork.repository.UserRepository;
 import com.uniwork.repository.WorkAssignmentRepository;
+import com.uniwork.service.FileStorageService;
 import com.uniwork.service.JobService;
 import com.uniwork.service.ProfileService;
 import com.uniwork.service.ReviewService;
 import com.uniwork.service.WorkHistoryService;
 import com.uniwork.util.ApiErrors;
 import com.uniwork.util.DateTimeUtils;
+import com.uniwork.util.FileUrlValidator;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -56,6 +58,7 @@ public class ProfileServiceImpl implements ProfileService {
     private final JobService jobService;
     private final ReviewService reviewService;
     private final WorkHistoryService workHistoryService;
+    private final FileStorageService fileStorageService;
 
     // ------------------------------------------------------------------
     // SINH VIÊN
@@ -109,10 +112,10 @@ public class ProfileServiceImpl implements ProfileService {
             profile.setBio(request.getBio());
         }
         if (request.getAvatarUrl() != null) {
-            profile.setAvatarUrl(request.getAvatarUrl());
+            profile.setAvatarUrl(FileUrlValidator.normalize(request.getAvatarUrl()));
         }
         if (request.getCvUrl() != null) {
-            profile.setCvUrl(request.getCvUrl());
+            profile.setCvUrl(FileUrlValidator.normalize(request.getCvUrl()));
         }
         if (request.getSkills() != null) {
             profile.setSkills(request.getSkills());
@@ -207,7 +210,7 @@ public class ProfileServiceImpl implements ProfileService {
             profile.setDescription(request.getDescription());
         }
         if (request.getLogoUrl() != null) {
-            profile.setLogoUrl(request.getLogoUrl());
+            profile.setLogoUrl(FileUrlValidator.normalize(request.getLogoUrl()));
         }
         if (request.getLogoVariant() != null && !request.getLogoVariant().isBlank()) {
             profile.setLogoVariant(request.getLogoVariant());
@@ -322,6 +325,8 @@ public class ProfileServiceImpl implements ProfileService {
                 .bio(profile.getBio())
                 .avatarUrl(profile.getAvatarUrl())
                 .cvUrl(profile.getCvUrl())
+                .cvFileName(fileStorageService.resolveOriginalFileName(profile.getCvUrl()))
+                .cvMimeType(fileStorageService.resolveMimeType(profile.getCvUrl()))
                 .skills(profile.getSkills() != null ? profile.getSkills() : List.of())
                 .experiences(experiences)
                 .workHistories(workHistories)

@@ -47,6 +47,17 @@ public class StudentProfileResponse {
 
     private String cvUrl;
 
+    /** Tên file CV gốc (để hiển thị, ví dụ "CV-NguyenVanA.pdf"). */
+    private String cvFileName;
+
+    /**
+     * MIME type thật của CV (đã xác minh bằng magic bytes lúc upload).
+     *
+     * <p>Frontend dùng để biết có render nội dung PDF trực tiếp hay chỉ cho
+     * tải xuống (DOC/DOCX không render được).
+     */
+    private String cvMimeType;
+
     /** Danh sách public id kỹ năng */
     private List<String> skills;
 

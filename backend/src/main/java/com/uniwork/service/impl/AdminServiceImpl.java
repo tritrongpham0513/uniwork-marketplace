@@ -276,6 +276,7 @@ public class AdminServiceImpl implements AdminService {
         String phone = null;
         String companyName = null;
         String university = null;
+        String avatarUrl = null;
 
         if ("STUDENT".equals(role)) {
             StudentProfile profile = studentProfileRepository.findById(user.getId()).orElse(null);
@@ -283,6 +284,7 @@ public class AdminServiceImpl implements AdminService {
                 fullName = profile.getFullName();
                 phone = profile.getPhone();
                 university = profile.getUniversity();
+                avatarUrl = profile.getAvatarUrl();
             }
         } else if ("EMPLOYER".equals(role)) {
             EmployerProfile profile = employerProfileRepository.findById(user.getId()).orElse(null);
@@ -290,6 +292,7 @@ public class AdminServiceImpl implements AdminService {
                 fullName = profile.getDisplayName();
                 phone = profile.getContactPhone();
                 companyName = profile.getDisplayName();
+                avatarUrl = profile.getLogoUrl();
             }
         }
 
@@ -317,6 +320,7 @@ public class AdminServiceImpl implements AdminService {
                 .phone(phone)
                 .companyName(companyName)
                 .university(university)
+                .avatarUrl(avatarUrl)
                 .isLocked("LOCKED".equals(user.getStatus()))
                 .joinedAt(DateTimeUtils.toIso(user.getCreatedAt()))
                 .lastLoginAt(DateTimeUtils.toIso(user.getLastLoginAt()))

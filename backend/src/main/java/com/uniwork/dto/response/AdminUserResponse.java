@@ -37,6 +37,9 @@ public class AdminUserResponse {
 
     private String university;
 
+    /** Ảnh đại diện — sinh viên: avatar, nhà tuyển dụng: logo (có thể null). */
+    private String avatarUrl;
+
     private Boolean isLocked;
 
     private String joinedAt;

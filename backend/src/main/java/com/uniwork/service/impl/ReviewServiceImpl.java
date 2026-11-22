@@ -83,6 +83,7 @@ public class ReviewServiceImpl implements ReviewService {
             EmployerProfile profile = employerProfileRepository.findById(userId)
                     .orElseThrow(() -> ApiErrors.notFound("Không tìm thấy hồ sơ."));
             fromName = profile.getDisplayName();
+            fromAvatarUrl = profile.getLogoUrl();
             reviewer = profile.getUser();
         }
 

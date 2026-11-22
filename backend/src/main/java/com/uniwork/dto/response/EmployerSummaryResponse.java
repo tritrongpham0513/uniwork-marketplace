@@ -21,5 +21,12 @@ public class EmployerSummaryResponse {
     /** Màu avatar dạng token-safe: primary | secondary | muted | accent */
     private String logoVariant;
 
+    /**
+     * URL logo tổ chức — dùng làm ảnh đại diện cho nhà tuyển dụng.
+     *
+     * <p>Có thể {@code null} khi tổ chức chưa tải logo lên.
+     */
+    private String logoUrl;
+
     private Boolean verified;
 }

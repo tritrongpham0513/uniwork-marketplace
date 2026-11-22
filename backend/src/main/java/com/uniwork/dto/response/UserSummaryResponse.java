@@ -23,5 +23,14 @@ public class UserSummaryResponse {
     private String status;
     private LocalDateTime emailVerifiedAt;
     private String authProvider;
+
+    /**
+     * Ảnh đại diện của người dùng.
+     *
+     * <p>Sinh viên → {@code student_profiles.avatar_url};
+     * nhà tuyển dụng → {@code employer_profiles.logo_url}.
+     * Có thể {@code null} khi người dùng chưa tải ảnh lên.
+     */
+    private String avatarUrl;
 }
 

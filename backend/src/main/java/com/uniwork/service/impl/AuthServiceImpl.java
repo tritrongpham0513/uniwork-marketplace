@@ -484,10 +484,19 @@ public class AuthServiceImpl implements AuthService {
 
     private UserSummaryResponse buildUserSummary(User user) {
         String fullName = null;
+        String avatarUrl = null;
         if ("STUDENT".equals(user.getRole().getCode())) {
-            fullName = studentProfileRepository.findById(user.getId()).map(StudentProfile::getFullName).orElse(null);
+            StudentProfile profile = studentProfileRepository.findById(user.getId()).orElse(null);
+            if (profile != null) {
+                fullName = profile.getFullName();
+                avatarUrl = profile.getAvatarUrl();
+            }
         } else if ("EMPLOYER".equals(user.getRole().getCode())) {
-            fullName = employerProfileRepository.findById(user.getId()).map(EmployerProfile::getDisplayName).orElse(null);
+            EmployerProfile profile = employerProfileRepository.findById(user.getId()).orElse(null);
+            if (profile != null) {
+                fullName = profile.getDisplayName();
+                avatarUrl = profile.getLogoUrl();
+            }
         }
 
         return UserSummaryResponse.builder()
@@ -498,6 +507,7 @@ public class AuthServiceImpl implements AuthService {
                 .status(user.getStatus())
                 .emailVerifiedAt(user.getEmailVerifiedAt())
                 .authProvider(user.getAuthProvider())
+                .avatarUrl(avatarUrl)
                 .build();
     }
 }
