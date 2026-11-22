@@ -343,7 +343,7 @@ NEW_JOB_BODY=$(cat <<JSON
   "salaryType":"HOURLY",
   "salaryMin":120000,
   "salaryMax":150000,
-  "location":{"provinceId":"hcm","province":"TP. Hồ Chí Minh","districtId":"q1","district":"Quận 1","address":"123 Nguyễn Huệ","branchName":"Chi nhánh chính"},
+  "location":{"provinceId":"79","province":"Thành phố Hồ Chí Minh","districtId":"q1","district":"Quận 1","wardId":"26737","ward":"Phường Tân Định","address":"123 Nguyễn Huệ","branchName":"Chi nhánh chính"},
   "positionsCount":2,
   "schedules":[{"dayOfWeek":1,"startTime":"09:00","endTime":"13:00"}],
   "skills":[{"id":"sk-service","name":"Phục vụ"}],
@@ -552,14 +552,14 @@ step "16. Bật thông báo tin tuyển dụng"
 BODY=$(call GET "/student/job-notifications" "$STUDENT_TOKEN")
 expect_status 200 "$(status)" "GET /student/job-notifications"
 
-BODY=$(call POST "/student/job-notifications" "$STUDENT_TOKEN" '{"categoryCode":"cat-fnb","provinceCode":"hcm"}')
+BODY=$(call POST "/student/job-notifications" "$STUDENT_TOKEN" '{"categoryCode":"cat-fnb","provinceCode":"79"}')
 expect_status 201 "$(status)" "POST /student/job-notifications (bật thông báo)"
 expect_contains "$BODY" 'cat-fnb' "response chứa categoryCode"
 
 BODY=$(call GET "/student/job-notifications" "$STUDENT_TOKEN")
 expect_contains "$BODY" 'cat-fnb' "tuỳ chọn thông báo đã lưu"
 
-BODY=$(call DELETE "/student/job-notifications?categoryCode=cat-fnb&provinceCode=hcm" "$STUDENT_TOKEN")
+BODY=$(call DELETE "/student/job-notifications?categoryCode=cat-fnb&provinceCode=79" "$STUDENT_TOKEN")
 expect_status 200 "$(status)" "DELETE /student/job-notifications (tắt thông báo)"
 
 BODY=$(call GET "/student/job-notifications" "$STUDENT_TOKEN")

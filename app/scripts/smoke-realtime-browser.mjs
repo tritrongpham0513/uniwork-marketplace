@@ -133,7 +133,7 @@ await test("thông báo realtime -> toast hiện lên kèm nút Xem", async () =
         salaryMax: 25000,
         positionsCount: 2,
         location: {
-          provinceId: "hcm",
+          provinceId: "79",
           districtId: "q1",
           address: "123 Nguyễn Huệ",
         },

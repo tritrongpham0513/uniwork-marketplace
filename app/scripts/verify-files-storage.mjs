@@ -218,7 +218,19 @@ if (presignPut.status !== 200 || !presignPut.json?.data?.uploadUrl) {
       body: { storageKey: signed.storageKey, kind: "CV", fileName: "presigned-cv.pdf" },
     });
     if (confirmRes.status === 201 && confirmRes.json?.data?.id) {
-      ok(`confirm sau presigned PUT -> id=${confirmRes.json.data.id}`);
+      const presignedId = confirmRes.json.data.id;
+      ok(`confirm sau presigned PUT -> id=${presignedId}`);
+
+      // Dọn ngay: quota 10 CV/user chỉ đủ cho ~10 lần chạy liên tiếp.
+      const delPresigned = await api(`/files/${presignedId}`, {
+        method: "DELETE",
+        token: studentToken,
+      });
+      if (delPresigned.status === 200) {
+        ok("Dọn file presigned sau khi kiểm chứng");
+      } else {
+        fail(`Xoá file presigned -> ${delPresigned.status}`);
+      }
     } else {
       fail(`confirm -> ${confirmRes.status} ${JSON.stringify(confirmRes.json)}`);
     }
@@ -248,6 +260,25 @@ if (cvUpload.status !== 201 || !cvUpload.json?.data?.id) {
     ok(`storageKey có cấu trúc {kind}/{userId}/{file}: ${cv.storageKey}`);
   } else {
     fail(`storageKey sai cấu trúc: ${cv.storageKey}`);
+  }
+  if (cv.url === `/api/v1/files/${cv.id}`) {
+    ok(`URL tương đối, không phụ thuộc domain: ${cv.url}`);
+  } else {
+    fail(`URL phải là /api/v1/files/${cv.id}, thực tế: ${cv.url}`);
+  }
+
+  // --- 1b. CV phải được STREAM (không redirect) + giữ tên file gốc ---------
+  const streamed = await fetch(`${BASE}/files/${cv.id}`, {
+    headers: { Authorization: `Bearer ${studentToken}` },
+    redirect: "manual",
+  });
+  const disposition = streamed.headers.get("content-disposition") ?? "";
+  if (streamed.status === 200 && disposition.includes("cv-test.pdf")) {
+    ok("CV stream qua backend (200) + Content-Disposition giữ tên gốc");
+  } else {
+    fail(
+      `CV phải stream 200 kèm tên gốc, thực tế: ${streamed.status} (${disposition})`
+    );
   }
 
   // --- 2. CV truy xuất được bởi chủ sở hữu --------------------------------
@@ -342,6 +373,16 @@ if (avatarUpload.status !== 201 || !avatarUpload.json?.data?.id) {
     ok("Ảnh truy xuất được công khai (không cần token)");
   } else {
     fail(`Ảnh công khai phải trả 200, thực tế: ${fetched.status}`);
+  }
+
+  // Ảnh đi qua endpoint nội bộ -> 302 sang CDN, có Cache-Control dài hạn.
+  const avatarRedirect = await fetch(`${BASE}/files/${avatar.id}`, {
+    redirect: "manual",
+  });
+  if (avatarRedirect.status === 302) {
+    ok("Ảnh công khai redirect 302 sang CDN (không stream qua backend)");
+  } else {
+    fail(`Ảnh phải redirect 302, thực tế: ${avatarRedirect.status}`);
   }
 
   const delAvatar = await api(`/files/${avatar.id}`, {

@@ -374,7 +374,9 @@ await check("wizard đăng tin: chọn nhóm việc → vị trí cascade", asyn
   );
 });
 
-await check("wizard đăng tin: chọn tỉnh → quận cascade + ca làm tính giờ", async () => {
+await check(
+  "wizard đăng tin: chọn tỉnh → xã/phường cascade + ca làm tính giờ",
+  async () => {
   await ep.goto(`${BASE_URL}/employer/jobs/new`, { waitUntil: "networkidle" });
   await waitReady(ep, 2000);
   // Bước 3 chỉ mở khi các bước trước hợp lệ — điền tối thiểu trước.
@@ -401,11 +403,15 @@ await check("wizard đăng tin: chọn tỉnh → quận cascade + ca làm tính
   const prov = ep.getByRole("combobox", { name: /Tỉnh/ }).first();
   await prov.click();
   await ep.getByRole("option", { name: "TP. Hồ Chí Minh" }).click();
+  await waitReady(ep, 1500);
+  // Cấp 2 từ 01/07/2025: xã/phường (không còn quận/huyện).
+  const ward = ep.getByRole("combobox", { name: /Xã/ }).first();
+  await ward.click();
   await waitReady(ep, 800);
-  const dist = ep.getByRole("combobox", { name: /Quận/ }).first();
-  await dist.click();
-  await ep.getByRole("option", { name: "Quận 1", exact: true }).click();
-  await waitReady(ep, 600);
+  const wardOption = ep.getByRole("option").nth(1);
+  const wardName = await wardOption.textContent();
+  await wardOption.click();
+  await waitReady(ep, 800);
   await ep.getByRole("button", { name: "Thêm ca làm" }).click();
   await waitReady(ep, 800);
   const times = ep.locator('input[type="time"]');
@@ -414,7 +420,13 @@ await check("wizard đăng tin: chọn tỉnh → quận cascade + ca làm tính
   await waitReady(ep, 900);
   const text = await bodyText(ep);
   assert(/Tổng: 4\.0 giờ\/tuần/.test(text), "tính giờ ca làm sai");
-});
+  // Tóm tắt phải hiện tên xã/phường đã chọn.
+  assert(
+    wardName && text.includes(wardName.trim()),
+    "tóm tắt chưa cập nhật xã/phường"
+  );
+  }
+);
 
 await check("danh sách ứng viên (NTD) + chi tiết hồ sơ", async () => {
   await ep.goto(`${BASE_URL}/employer/applications`, { waitUntil: "networkidle" });

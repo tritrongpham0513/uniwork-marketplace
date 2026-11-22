@@ -167,6 +167,16 @@ try {
     fail("Ảnh đại diện không được cập nhật");
   }
 
+  // Ảnh phải thực sự tải được: URL tương đối -> Vite proxy -> backend -> CDN.
+  const avatarLoaded = await avatarImg
+    .evaluate((img) => img.complete && img.naturalWidth > 0)
+    .catch(() => false);
+  if (avatarLoaded) {
+    ok("Ảnh đại diện tải được qua URL tương đối (naturalWidth > 0)");
+  } else {
+    fail("Ảnh đại diện không tải được (naturalWidth = 0)");
+  }
+
   await page.screenshot({ path: `${SHOTS}/01-avatar-uploaded.png` });
 
   // --- Upload CV ---------------------------------------------------------
@@ -185,6 +195,28 @@ try {
   }
 
   await page.screenshot({ path: `${SHOTS}/02-cv-uploaded.png` });
+
+  // Tên file gốc phải hiển thị (trước đây là slug "file-xxxx" trên URL).
+  const cvNameShown = await page
+    .getByText("cv-source.pdf", { exact: false })
+    .first()
+    .isVisible()
+    .catch(() => false);
+  if (cvNameShown) {
+    ok('Tên CV gốc hiển thị đúng ("cv-source.pdf")');
+  } else {
+    fail("Tên CV gốc không hiển thị trên hồ sơ");
+  }
+
+  // Nút "Tải CV" phải tải được file thật qua API có Authorization.
+  const downloadPromise = page.waitForEvent("download", { timeout: 20000 });
+  await page.getByRole("button", { name: /Tải CV/ }).first().click();
+  const download = await downloadPromise.catch(() => null);
+  if (download) {
+    ok(`Tải CV qua API thành công (${download.suggestedFilename()})`);
+  } else {
+    fail("Bấm \"Tải CV\" không tải được file");
+  }
 
   // --- Upload file giả dạng ---------------------------------------------
   const cvInputAgain = page.locator('input[type="file"][accept*="pdf"]').first();

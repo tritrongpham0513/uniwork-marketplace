@@ -202,6 +202,7 @@ await test("jobsService.list -> JobListResponse đủ trường phân trang", as
     positionIds: [],
     provinceIds: [],
     districtIds: [],
+    wardIds: [],
     employmentTypes: [],
     workModes: [],
     salaryMin: 0,
@@ -230,10 +231,68 @@ await test("jobsService.categories / provinces / benchmarks trả mảng", async
 });
 
 await test("jobsService.districts lọc theo tỉnh trả mảng", async () => {
-  const districts = await jobsService.districts("hcm");
+  const districts = await jobsService.districts("79");
   assert.ok(Array.isArray(districts));
   assert.ok(districts.length > 0);
-  assert.ok(districts.every((d) => d.provinceId === "hcm"));
+  assert.ok(districts.every((d) => d.provinceId === "79"));
+});
+
+await test("jobsService.wards lọc theo tỉnh — xã/phường cấp 2 (2025)", async () => {
+  const wards = await jobsService.wards("01");
+  assert.ok(Array.isArray(wards));
+  assert.ok(wards.length > 0);
+  assert.ok(wards.every((w) => w.provinceId === "01"));
+  // Mã đơn vị hành chính chính thức: 5 chữ số
+  assert.ok(wards.every((w) => /^\d{5}$/.test(w.id)));
+  assert.ok(wards.every((w) => w.name.length > 0 && w.shortName.length > 0));
+});
+
+await test("jobsService.list lọc theo wardIds -> chỉ trả tin đúng xã", async () => {
+  const [all, hcmWards] = await Promise.all([
+    jobsService.list({
+      keyword: "",
+      categoryIds: [],
+      positionIds: [],
+      provinceIds: [],
+      districtIds: [],
+      wardIds: [],
+      employmentTypes: [],
+      workModes: [],
+      salaryMin: 0,
+      salaryMax: 200000,
+      sort: "newest",
+      page: 1,
+      pageSize: 50,
+    }),
+    jobsService.wards("79"),
+  ]);
+
+  const target = all.items.find((job) => job.location.wardId);
+  assert.ok(target, "phải có tin tuyển dụng đã gán xã/phường");
+
+  const filtered = await jobsService.list({
+    keyword: "",
+    categoryIds: [],
+    positionIds: [],
+    provinceIds: [],
+    districtIds: [],
+    wardIds: [target.location.wardId],
+    employmentTypes: [],
+    workModes: [],
+    salaryMin: 0,
+    salaryMax: 200000,
+    sort: "newest",
+    page: 1,
+    pageSize: 50,
+  });
+
+  assert.ok(filtered.totalItems > 0);
+  assert.ok(
+    filtered.items.every((job) => job.location.wardId === target.location.wardId),
+    "mọi tin trả về phải thuộc xã đã lọc"
+  );
+  // Xã đã chọn phải thuộc tỉnh lấy từ endpoint wards
+  assert.ok(hcmWards.length > 0);
 });
 
 await test("jobsService.detail -> Job đầy đủ", async () => {
@@ -243,6 +302,7 @@ await test("jobsService.detail -> Job đầy đủ", async () => {
     positionIds: [],
     provinceIds: [],
     districtIds: [],
+    wardIds: [],
     employmentTypes: [],
     workModes: [],
     salaryMin: 0,
@@ -266,6 +326,7 @@ await test("jobsService.related trả danh sách tin gợi ý", async () => {
     positionIds: [],
     provinceIds: [],
     districtIds: [],
+    wardIds: [],
     employmentTypes: [],
     workModes: [],
     salaryMin: 0,
@@ -287,6 +348,7 @@ await test("jobsService.list với keyword -> chỉ trả tin khớp từ khoá"
     positionIds: [],
     provinceIds: [],
     districtIds: [],
+    wardIds: [],
     employmentTypes: [],
     workModes: [],
     salaryMin: 0,
@@ -381,6 +443,7 @@ await test("student ứng tuyển vào 1 tin đang mở -> tạo đơn PENDING",
     positionIds: [],
     provinceIds: [],
     districtIds: [],
+    wardIds: [],
     employmentTypes: [],
     workModes: [],
     salaryMin: 0,
@@ -497,7 +560,7 @@ await test("employerJobService.create -> Job mới ở trạng thái PENDING_REV
     salaryMin: 25000,
     salaryMax: 30000,
     location: {
-      provinceId: "hcm",
+      provinceId: "79",
       province: "TP. Hồ Chí Minh",
       districtId: "q1",
       district: "Quận 1",
@@ -568,7 +631,7 @@ await test("adminService.reviewJob -> mở tin công khai", async () => {
     salaryMin: 25000,
     salaryMax: null,
     location: {
-      provinceId: "hcm",
+      provinceId: "79",
       province: "TP. Hồ Chí Minh",
       districtId: "q1",
       district: "Quận 1",
@@ -669,27 +732,27 @@ await test("filesService.remove -> xoá file đã upload", async () => {
 await test("jobNotifyService.subscribe/list/unsubscribe -> vòng đời đầy đủ", async () => {
   const subscribed = await jobNotifyService.subscribe({
     categoryCode: "cat-fnb",
-    provinceCode: "hcm",
+    provinceCode: "79",
   });
   assert.equal(subscribed.success, true);
   assert.equal(subscribed.data.categoryCode, "cat-fnb");
-  assert.equal(subscribed.data.provinceCode, "hcm");
+  assert.equal(subscribed.data.provinceCode, "79");
 
   const list = await jobNotifyService.list();
   assert.ok(
     list.data.some(
       (pref) =>
-        pref.categoryCode === "cat-fnb" && pref.provinceCode === "hcm"
+        pref.categoryCode === "cat-fnb" && pref.provinceCode === "79"
     )
   );
 
-  await jobNotifyService.unsubscribe("cat-fnb", "hcm");
+  await jobNotifyService.unsubscribe("cat-fnb", "79");
 
   const after = await jobNotifyService.list();
   assert.ok(
     !after.data.some(
       (pref) =>
-        pref.categoryCode === "cat-fnb" && pref.provinceCode === "hcm"
+        pref.categoryCode === "cat-fnb" && pref.provinceCode === "79"
     )
   );
 });
