@@ -21,7 +21,7 @@ import {
 } from "lucide-react";
 import type { Job, SalaryComparison } from "@/features/jobs/types";
 import { EMPLOYMENT_TYPE_LABELS } from "@/features/jobs/types";
-import { formatPostedAgo, formatSalary, locationName } from "@/features/jobs/lib/format";
+import { formatDeadline, formatPostedAgo, formatSalary, locationName } from "@/features/jobs/lib/format";
 import { CategoryIcon } from "@/features/jobs/lib/category-icon";
 import { PATHS } from "@/config/paths";
 import { cn } from "cn";
@@ -160,7 +160,7 @@ export function JobCard({
           {job.deadline && (
             <span className="flex items-center gap-1.5">
               <Clock className="size-4" />
-              Hạn {formatPostedAgo(job.deadline)}
+              Hạn {formatDeadline(job.deadline)}
             </span>
           )}
         </div>
