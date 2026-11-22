@@ -7,6 +7,7 @@ import type {
   Province,
   District,
   Skill,
+  Ward,
   SalaryBenchmark,
 } from "@/features/jobs/types";
 import { HOURS_PER_SALARY_UNIT } from "@/features/jobs/types";
@@ -39,6 +40,7 @@ export const buildJobQuery = (
     positionIds: filters.positionIds.join(",") || undefined,
     provinceIds: filters.provinceIds.join(",") || undefined,
     districtIds: filters.districtIds.join(",") || undefined,
+    wardIds: filters.wardIds.join(",") || undefined,
     employmentTypes: filters.employmentTypes.join(",") || undefined,
     workModes: filters.workModes.join(",") || undefined,
     salaryUnit: unit,
@@ -123,6 +125,19 @@ export const jobsService = {
   async districts(provinceId?: string): Promise<District[]> {
     const response = await axiosInstance.get<ApiResponse<District[]>>(
       "/api/v1/public/districts",
+      { params: provinceId ? { provinceId } : undefined }
+    );
+    return response.data.data;
+  },
+
+  /**
+   * GET /api/v1/public/wards — xã/phường/đặc khu (lọc theo tỉnh).
+   *
+   * Cấp hành chính chính thức từ 01/07/2025 (Quyết định 19/2025/QĐ-TTg bỏ cấp huyện).
+   */
+  async wards(provinceId?: string): Promise<Ward[]> {
+    const response = await axiosInstance.get<ApiResponse<Ward[]>>(
+      "/api/v1/public/wards",
       { params: provinceId ? { provinceId } : undefined }
     );
     return response.data.data;

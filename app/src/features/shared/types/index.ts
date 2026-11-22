@@ -112,6 +112,23 @@ export interface District {
   name: string;
 }
 
+/**
+ * Xã / phường / đặc khu — cấp hành chính chính thức từ 01/07/2025
+ * (Quyết định 19/2025/QĐ-TTg bỏ cấp huyện).
+ *
+ * `id` là mã đơn vị hành chính 5 chữ số (ví dụ "00004" = Phường Ba Đình).
+ */
+export interface Ward {
+  id: string;
+  provinceId: string;
+  /** Tên đầy đủ (ví dụ "Phường Ba Đình") */
+  name: string;
+  /** Tên ngắn (ví dụ "Ba Đình") */
+  shortName: string;
+  /** Slug không dấu (ví dụ "ba_dinh") */
+  slug: string;
+}
+
 export interface Skill {
   id: string;
   name: string;
@@ -130,8 +147,19 @@ export interface JobSchedule {
 export interface JobLocation {
   provinceId: string;
   province: string;
-  districtId: string;
-  district: string;
+  /**
+   * Quận/huyện (cấp cũ — vẫn trả để tương thích ngược).
+   *
+   * Từ 01/07/2025 cấp huyện bị bỏ → form đăng tin chỉ chọn xã/phường, nên
+   * 2 trường này **có thể null**. Backend `JobUpsertRequest.LocationRef` cũng
+   * cho phép null → khớp với hợp đồng thực tế.
+   */
+  districtId?: string | null;
+  district?: string | null;
+  /** Mã xã/phường (5 chữ số) — cấp hành chính chính thức từ 01/07/2025 */
+  wardId: string;
+  /** Tên xã/phường (ví dụ "Phường Ba Đình") */
+  ward: string;
   address: string;
   /** Tên chi nhánh / địa điểm cụ thể (Chốt Ca: "Chi nhánh chính") */
   branchName: string | null;
@@ -177,6 +205,8 @@ export interface EmployerSummary {
   name: string;
   /** Màu nền avatar dạng token-safe (dùng class, không dùng hex thẳng) */
   logoVariant: "primary" | "secondary" | "muted" | "accent";
+  /** URL logo tổ chức — null nếu chưa tải logo lên */
+  logoUrl: string | null;
   verified: boolean;
 }
 
@@ -272,6 +302,15 @@ export interface StudentProfile {
   bio: string;
   avatarUrl: string | null;
   cvUrl: string | null;
+  /** Tên file CV gốc do backend trả về (để hiển thị). */
+  cvFileName: string | null;
+  /**
+   * MIME type thật của CV (đã xác minh bằng magic bytes lúc upload).
+   *
+   * <p>Dùng để biết có render nội dung PDF trực tiếp hay chỉ cho tải xuống
+   * (DOC/DOCX không render được trong trình duyệt).
+   */
+  cvMimeType: string | null;
   skills: string[];
   experiences: StudentExperience[];
   /** Lịch sử làm việc do hệ thống tự ghi nhận (đơn ứng tuyển hoàn thành) */
@@ -294,6 +333,11 @@ export interface UserSummaryResponse {
   status: UserStatus;
   emailVerifiedAt: string | null;
   authProvider: AuthProvider;
+  /**
+   * Ảnh đại diện của người dùng.
+   * Sinh viên → avatar; nhà tuyển dụng → logo tổ chức. Null nếu chưa có ảnh.
+   */
+  avatarUrl: string | null;
 }
 
 /** User đầy đủ cho màn hình quản trị */
@@ -325,6 +369,8 @@ export interface Application {
   employerId: string;
   employerName: string;
   employerLogoVariant: EmployerSummary["logoVariant"];
+  /** Logo tổ chức — ảnh đại diện của nhà tuyển dụng (null nếu chưa có logo). */
+  employerLogoUrl: string | null;
   employerVerified: boolean;
   studentId: string;
   studentName: string;
@@ -338,6 +384,13 @@ export interface Application {
   studentBio: string;
   cvUrl: string | null;
   cvFileName: string | null;
+  /**
+   * MIME type thật của CV (đã xác minh bằng magic bytes lúc upload).
+   *
+   * <p>Dùng để biết có render nội dung PDF trực tiếp hay chỉ cho tải xuống
+   * (DOC/DOCX không render được trong trình duyệt).
+   */
+  cvMimeType: string | null;
   coverLetter: string;
   expectedSalary: number | null;
   /** Kinh nghiệm liên quan do sinh viên khai báo khi ứng tuyển */

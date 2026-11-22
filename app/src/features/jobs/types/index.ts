@@ -28,6 +28,7 @@ export type {
   SalaryComparison,
   SalaryType,
   Skill,
+  Ward,
   WorkMode,
 } from "@/features/shared/types";
 
@@ -74,6 +75,8 @@ export interface JobFilters {
   positionIds: string[];
   provinceIds: string[];
   districtIds: string[];
+  /** Mã xã/phường (5 chữ số) — cấp hành chính chính thức từ 01/07/2025 */
+  wardIds: string[];
   employmentTypes: EmploymentType[];
   workModes: WorkMode[];
   /** Đơn vị lương đang chọn để hiển thị/lọc */

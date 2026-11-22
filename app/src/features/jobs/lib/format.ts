@@ -1,4 +1,4 @@
-import type { Job, SalaryType } from "@/features/jobs/types";
+import type { Job, JobLocation, SalaryType } from "@/features/jobs/types";
 
 /** 62_000 -> "62k" */
 const compact = (value: number) =>
@@ -63,4 +63,21 @@ export const formatDeadline = (deadline: string | null) => {
     return hours > 0 ? `Còn ${hours} giờ` : "Sắp hết hạn";
   }
   return `Còn ${days} ngày`;
+};
+
+/**
+ * Tên đơn vị hành chính cấp dưới tỉnh để hiển thị.
+ *
+ * Từ 01/07/2025 cấp huyện bị bỏ (Quyết định 19/2025/QĐ-TTg) → ưu tiên tên
+ * xã/phường. Tin cũ chỉ có quận/huyện thì fallback về `district`.
+ */
+export const locationName = (location: Pick<JobLocation, "ward" | "district">) =>
+  location.ward || location.district || "";
+
+/** "Phường Ba Đình, Hà Nội" */
+export const locationFull = (
+  location: Pick<JobLocation, "ward" | "district" | "province">
+) => {
+  const name = locationName(location);
+  return location.province ? `${name}, ${location.province}` : name;
 };

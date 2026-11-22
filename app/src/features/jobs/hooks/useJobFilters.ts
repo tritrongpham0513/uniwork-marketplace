@@ -14,6 +14,7 @@ export const DEFAULT_FILTERS: JobFilters = {
   positionIds: [],
   provinceIds: [],
   districtIds: [],
+  wardIds: [],
   employmentTypes: [],
   workModes: [],
   salaryUnit: "HOURLY",
@@ -83,6 +84,7 @@ export function useJobFilters() {
       positionIds: readList(searchParams.get("positionIds")),
       provinceIds: readList(searchParams.get("provinceIds")),
       districtIds: readList(searchParams.get("districtIds")),
+      wardIds: readList(searchParams.get("wardIds")),
       employmentTypes: readList(searchParams.get("employmentTypes")).filter(
         (v): v is EmploymentType =>
           EMPLOYMENT_VALUES.includes(v as EmploymentType)
@@ -116,6 +118,7 @@ export function useJobFilters() {
         params.set("provinceIds", next.provinceIds.join(","));
       if (next.districtIds.length)
         params.set("districtIds", next.districtIds.join(","));
+      if (next.wardIds.length) params.set("wardIds", next.wardIds.join(","));
       if (next.employmentTypes.length)
         params.set("employmentTypes", next.employmentTypes.join(","));
       if (next.workModes.length)
@@ -143,6 +146,7 @@ export function useJobFilters() {
         | "positionIds"
         | "provinceIds"
         | "districtIds"
+        | "wardIds"
         | "employmentTypes"
         | "workModes",
       value: string
@@ -168,6 +172,7 @@ export function useJobFilters() {
     count += filters.positionIds.length;
     count += filters.provinceIds.length;
     count += filters.districtIds.length;
+    count += filters.wardIds.length;
     count += filters.employmentTypes.length;
     count += filters.workModes.length;
     if (filters.salaryUnit !== DEFAULT_FILTERS.salaryUnit) count += 1;

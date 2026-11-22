@@ -22,6 +22,8 @@ export const JOB_KEYS = {
   provinces: () => [...JOB_KEYS.all, "provinces"] as const,
   districts: (provinceId?: string) =>
     [...JOB_KEYS.all, "districts", provinceId ?? "all"] as const,
+  wards: (provinceId?: string) =>
+    [...JOB_KEYS.all, "wards", provinceId ?? "all"] as const,
   skills: () => [...JOB_KEYS.all, "skills"] as const,
   benchmarks: () => [...JOB_KEYS.all, "salary-benchmarks"] as const,
 };
@@ -88,6 +90,20 @@ export const useDistricts = (provinceId?: string) =>
   useQuery({
     queryKey: JOB_KEYS.districts(provinceId),
     queryFn: () => jobsService.districts(provinceId),
+    staleTime: 30 * 60_000,
+  });
+
+/**
+ * Xã / phường / đặc khu (lọc theo tỉnh) — cấp hành chính chính thức từ 01/07/2025.
+ *
+ * Chỉ tải khi đã chọn tỉnh: toàn bộ 3.321 đơn vị (~600 KB) là payload rất nặng
+ * và không cần thiết khi người dùng chưa chọn tỉnh.
+ */
+export const useWards = (provinceId?: string) =>
+  useQuery({
+    queryKey: JOB_KEYS.wards(provinceId),
+    queryFn: () => jobsService.wards(provinceId),
+    enabled: Boolean(provinceId),
     staleTime: 30 * 60_000,
   });
 

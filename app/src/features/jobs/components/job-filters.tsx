@@ -29,10 +29,10 @@ import {
 } from "@/features/jobs/types";
 import { useJobFilters } from "@/features/jobs/hooks/useJobFilters";
 import {
-  useDistricts,
   useJobCategories,
   useJobPositions,
   useProvinces,
+  useWards,
 } from "@/features/jobs/hooks/useJobs";
 
 const SALARY_STEP = 5000;
@@ -72,7 +72,7 @@ export function JobFilters({ onApplied, className }: JobFiltersProps) {
   const { data: categories = [] } = useJobCategories();
   const { data: provinces = [] } = useProvinces();
   const { data: positions = [] } = useJobPositions();
-  const { data: districts = [] } = useDistricts(filters.provinceIds[0]);
+  const { data: wards = [] } = useWards(filters.provinceIds[0]);
 
   // Vị trí thuộc nhóm việc đang chọn (hoặc tất cả nếu chưa chọn nhóm nào)
   const visiblePositions = positions.filter(
@@ -206,6 +206,7 @@ export function JobFilters({ onApplied, className }: JobFiltersProps) {
                     update({
                       provinceIds: value && value !== "all" ? [value] : [],
                       districtIds: [],
+                      wardIds: [],
                       page: 1,
                     });
                   }}
@@ -224,34 +225,34 @@ export function JobFilters({ onApplied, className }: JobFiltersProps) {
                 </Select>
               </Field>
 
-              {/* ---------------- Quận / Huyện ---------------- */}
-              {filters.provinceIds[0] && districts.length > 0 && (
+              {/* ---------------- Xã / Phường ---------------- */}
+              {filters.provinceIds[0] && wards.length > 0 && (
                 <Field>
-                  <FieldLabel htmlFor="district">Quận / Huyện</FieldLabel>
+                  <FieldLabel htmlFor="ward">Xã / Phường</FieldLabel>
                   <Select
-                    value={filters.districtIds[0] ?? "all"}
+                    value={filters.wardIds[0] ?? "all"}
                     onValueChange={(value) => {
                       update({
-                        districtIds: value && value !== "all" ? [value] : [],
+                        wardIds: value && value !== "all" ? [value] : [],
                         page: 1,
                       });
                     }}
                     items={[
-                      { value: "all", label: "Tất cả quận/huyện" },
-                      ...districts.map((district) => ({
-                        value: district.id,
-                        label: district.name,
+                      { value: "all", label: "Tất cả xã/phường" },
+                      ...wards.map((ward) => ({
+                        value: ward.id,
+                        label: ward.name,
                       })),
                     ]}
                   >
-                    <SelectTrigger id="district" className="w-full">
-                      <SelectValue placeholder="Tất cả quận/huyện" />
+                    <SelectTrigger id="ward" className="w-full">
+                      <SelectValue placeholder="Tất cả xã/phường" />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="all">Tất cả quận/huyện</SelectItem>
-                      {districts.map((district) => (
-                        <SelectItem key={district.id} value={district.id}>
-                          {district.name}
+                      <SelectItem value="all">Tất cả xã/phường</SelectItem>
+                      {wards.map((ward) => (
+                        <SelectItem key={ward.id} value={ward.id}>
+                          {ward.name}
                         </SelectItem>
                       ))}
                     </SelectContent>
