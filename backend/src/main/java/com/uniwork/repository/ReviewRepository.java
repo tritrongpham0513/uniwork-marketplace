@@ -17,6 +17,9 @@ public interface ReviewRepository extends JpaRepository<Review, Long> {
 
     boolean existsByApplicationIdAndReviewerId(Long applicationId, Long reviewerId);
 
+    /** Ảnh đại diện này có đang được đánh giá cũ tham chiếu không? */
+    boolean existsByFromAvatarUrl(String fromAvatarUrl);
+
     List<Review> findByRevieweeIdAndTargetTypeOrderByCreatedAtDesc(Long revieweeId, String targetType);
 
     List<Review> findByRevieweeIdAndTargetTypeAndIsHiddenFalseOrderByCreatedAtDesc(Long revieweeId, String targetType);

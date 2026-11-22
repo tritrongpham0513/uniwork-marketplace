@@ -18,7 +18,7 @@ public class ConfirmUploadRequest {
     /** Khóa đối tượng do backend cấp ở bước presign. */
     @NotBlank(message = "Thiếu storageKey.")
     @Size(max = 255, message = "storageKey quá dài.")
-    @Pattern(regexp = "^[a-z0-9]+/[0-9]+/[a-zA-Z0-9._-]+$",
+    @Pattern(regexp = "^[a-z]+/[0-9]+/[a-f0-9]{32}\\.[a-z0-9]{2,5}$",
             message = "storageKey không hợp lệ.")
     private String storageKey;
 

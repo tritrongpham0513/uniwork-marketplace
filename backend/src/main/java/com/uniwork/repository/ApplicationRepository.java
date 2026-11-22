@@ -40,8 +40,22 @@ public interface ApplicationRepository extends JpaRepository<Application, Long> 
 
     boolean existsByJobPostIdAndStudentUserId(Long jobPostId, Long studentUserId);
 
+    /**
+     * Đơn ứng tuyển (nếu có) của sinh viên cho 1 tin.
+     *
+     * <p>Dùng để xử lý "ứng tuyển lại": bảng `applications` có unique constraint
+     * `(job_post_id, student_id)` nên 1 SV chỉ có 1 dòng đơn cho mỗi tin — sau khi
+     * rút đơn dòng đó vẫn tồn tại (status `WITHDRAWN`) và phải được kích hoạt lại
+     * thay vì tạo dòng mới.
+     */
+    @EntityGraph(attributePaths = {"jobPost", "jobPost.employer", "student", "student.user"})
+    Optional<Application> findByJobPostIdAndStudentUserId(Long jobPostId, Long studentUserId);
+
     /** Nhà tuyển dụng có đơn ứng tuyển nào từ sinh viên này hay không. */
     boolean existsByJobPostEmployerUserIdAndStudentUserId(Long employerUserId, Long studentUserId);
+
+    /** CV này có đang được dùng trong đơn ứng tuyển nào không? */
+    boolean existsByCvUrl(String cvUrl);
 
     long countByJobPostIdAndStatus(Long jobPostId, String status);
 

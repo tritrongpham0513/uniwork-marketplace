@@ -17,7 +17,7 @@ public class FileUploadResponse {
     /** Public id của file (slug) — dùng để gọi GET/DELETE. */
     private String id;
 
-    /** URL tuyệt đối để nhúng thẳng vào {@code <img src>} hoặc link tải CV. */
+    /** URL tương đối để nhúng thẳng vào {@code <img src>} hoặc tải CV: {@code /api/v1/files/{slug}}. */
     private String url;
 
     /** Tên file gốc người dùng chọn (để hiển thị, ví dụ "CV-NguyenVanA.pdf"). */

@@ -31,6 +31,16 @@ import java.util.List;
  */
 public interface FileStorageService {
 
+    /**
+     * File đã được xác thực quyền đọc, kèm bucket thật chứa object.
+     *
+     * @param file       metadata trả cho client
+     * @param bucket     bucket đã chuẩn hoá (map cả dữ liệu cũ "public"/"private")
+     * @param storageKey khóa object trong bucket
+     */
+    record ResolvedFile(FileUploadResponse file, String bucket, String storageKey) {
+    }
+
     /** Loại file — quyết định quy tắc truy cập & giới hạn dung lượng. */
     enum Kind {
 
@@ -124,6 +134,35 @@ public interface FileStorageService {
 
     /** Lấy metadata file theo public id (slug) — chỉ trả file chưa bị xoá. */
     FileUploadResponse findByPublicId(String publicId);
+
+    /**
+     * Xác thực quyền đọc và trả về vị trí object thật.
+     *
+     * @param publicId slug file
+     * @param userId   id người đang đăng nhập, {@code null} nếu khách
+     * @throws com.uniwork.exception.AppException 404 nếu không tồn tại, 403 nếu không đủ quyền
+     */
+    ResolvedFile resolveForRead(String publicId, Long userId);
+
+    /**
+     * Tên file gốc của một file nội bộ (dùng khi tạo đơn ứng tuyển chỉ có URL).
+     *
+     * @param fileUrl URL {@code /api/v1/files/{slug}}
+     * @return tên file gốc, hoặc {@code null} nếu URL không phải file của hệ thống
+     */
+    String resolveOriginalFileName(String fileUrl);
+
+    /**
+     * MIME type thật của một file nội bộ (đã xác minh bằng magic bytes lúc upload).
+     *
+     * <p>Frontend cần biết CV là PDF hay DOC/DOCX để quyết định render nội dung
+     * trực tiếp hay chỉ cho tải xuống — không nên suy đoán từ phần mở rộng tên
+     * file vì tên file người dùng đặt không đáng tin.
+     *
+     * @param fileUrl URL {@code /api/v1/files/{slug}}
+     * @return MIME type, hoặc {@code null} nếu URL không phải file của hệ thống
+     */
+    String resolveMimeType(String fileUrl);
 
     /**
      * Kiểm tra quyền đọc file.

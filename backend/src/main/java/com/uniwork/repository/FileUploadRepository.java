@@ -17,5 +17,8 @@ public interface FileUploadRepository extends JpaRepository<FileUpload, Long> {
 
     Optional<FileUpload> findByIdAndDeletedAtIsNull(Long id);
 
+    /** Dùng cho confirm idempotent: client gửi lại cùng storageKey không tạo bản ghi trùng. */
+    Optional<FileUpload> findByOwnerUserIdAndStorageKeyAndDeletedAtIsNull(Long ownerUserId, String storageKey);
+
     List<FileUpload> findByOwnerUserIdAndKindAndDeletedAtIsNull(Long ownerUserId, String kind);
 }
