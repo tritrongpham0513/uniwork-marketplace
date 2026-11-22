@@ -6,6 +6,7 @@ import com.uniwork.dto.response.JobPositionResponse;
 import com.uniwork.dto.response.ProvinceResponse;
 import com.uniwork.dto.response.SalaryBenchmarkResponse;
 import com.uniwork.dto.response.SkillResponse;
+import com.uniwork.dto.response.WardResponse;
 import com.uniwork.entity.JobCategory;
 import com.uniwork.entity.JobPosition;
 import com.uniwork.entity.SalaryBenchmark;
@@ -32,6 +33,14 @@ public interface MasterDataService {
 
     /** Danh sách quận / huyện, tuỳ chọn lọc theo tỉnh. */
     List<DistrictResponse> listDistricts(String provinceId);
+
+    /**
+     * Danh sách xã / phường / đặc khu, tuỳ chọn lọc theo tỉnh.
+     *
+     * <p>Đây là cấp hành chính chính thức kể từ 01/07/2025 (Quyết định
+     * 19/2025/QĐ-TTg bỏ cấp huyện).
+     */
+    List<WardResponse> listWards(String provinceId);
 
     /** Danh sách kỹ năng. */
     List<SkillResponse> listSkills();

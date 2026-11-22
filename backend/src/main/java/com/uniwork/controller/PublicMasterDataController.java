@@ -9,6 +9,7 @@ import com.uniwork.dto.response.ProvinceResponse;
 import com.uniwork.dto.response.PublicEmployerProfileResponse;
 import com.uniwork.dto.response.SalaryBenchmarkResponse;
 import com.uniwork.dto.response.SkillResponse;
+import com.uniwork.dto.response.WardResponse;
 import com.uniwork.service.MasterDataService;
 import com.uniwork.service.ProfileService;
 import io.swagger.v3.oas.annotations.Operation;
@@ -32,6 +33,7 @@ import java.util.List;
  *   <li>{@code GET /api/v1/public/positions}</li>
  *   <li>{@code GET /api/v1/public/provinces}</li>
  *   <li>{@code GET /api/v1/public/districts?provinceId=}</li>
+ *   <li>{@code GET /api/v1/public/wards?provinceId=}</li>
  *   <li>{@code GET /api/v1/public/skills}</li>
  *   <li>{@code GET /api/v1/public/salary-benchmarks}</li>
  *   <li>{@code GET /api/v1/public/employers/{id}}</li>
@@ -73,6 +75,14 @@ public class PublicMasterDataController {
             @RequestParam(required = false) String provinceId) {
         return ResponseEntity.ok(ApiResponse.success(
                 "Lấy danh sách quận huyện thành công", masterDataService.listDistricts(provinceId)));
+    }
+
+    @GetMapping("/wards")
+    @Operation(summary = "Danh sách xã / phường / đặc khu (tuỳ chọn lọc theo tỉnh)")
+    public ResponseEntity<ApiResponse<List<WardResponse>>> wards(
+            @RequestParam(required = false) String provinceId) {
+        return ResponseEntity.ok(ApiResponse.success(
+                "Lấy danh sách xã phường thành công", masterDataService.listWards(provinceId)));
     }
 
     @GetMapping("/skills")

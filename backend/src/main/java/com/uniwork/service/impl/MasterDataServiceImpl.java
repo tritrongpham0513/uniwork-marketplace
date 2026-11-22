@@ -6,6 +6,7 @@ import com.uniwork.dto.response.JobPositionResponse;
 import com.uniwork.dto.response.ProvinceResponse;
 import com.uniwork.dto.response.SalaryBenchmarkResponse;
 import com.uniwork.dto.response.SkillResponse;
+import com.uniwork.dto.response.WardResponse;
 import com.uniwork.entity.District;
 import com.uniwork.entity.JobCategory;
 import com.uniwork.entity.JobPosition;
@@ -13,6 +14,7 @@ import com.uniwork.entity.JobPost;
 import com.uniwork.entity.Province;
 import com.uniwork.entity.SalaryBenchmark;
 import com.uniwork.entity.Skill;
+import com.uniwork.entity.Ward;
 import com.uniwork.repository.DistrictRepository;
 import com.uniwork.repository.JobCategoryRepository;
 import com.uniwork.repository.JobPositionRepository;
@@ -20,6 +22,7 @@ import com.uniwork.repository.JobPostRepository;
 import com.uniwork.repository.ProvinceRepository;
 import com.uniwork.repository.SalaryBenchmarkRepository;
 import com.uniwork.repository.SkillRepository;
+import com.uniwork.repository.WardRepository;
 import com.uniwork.service.MasterDataService;
 import com.uniwork.util.DateTimeUtils;
 import lombok.RequiredArgsConstructor;
@@ -44,6 +47,7 @@ public class MasterDataServiceImpl implements MasterDataService {
     private final JobPositionRepository jobPositionRepository;
     private final ProvinceRepository provinceRepository;
     private final DistrictRepository districtRepository;
+    private final WardRepository wardRepository;
     private final SkillRepository skillRepository;
     private final SalaryBenchmarkRepository salaryBenchmarkRepository;
     private final JobPostRepository jobPostRepository;
@@ -85,6 +89,23 @@ public class MasterDataServiceImpl implements MasterDataService {
                         .id(d.getCode())
                         .provinceId(d.getProvince() != null ? d.getProvince().getCode() : null)
                         .name(d.getName())
+                        .build())
+                .toList();
+    }
+
+    @Override
+    public List<WardResponse> listWards(String provinceId) {
+        List<Ward> wards = (provinceId == null || provinceId.isBlank())
+                ? wardRepository.findAllByOrderByNameAsc()
+                : wardRepository.findByProvinceCodeOrderByNameAsc(provinceId);
+
+        return wards.stream()
+                .map(w -> WardResponse.builder()
+                        .id(w.getCode())
+                        .provinceId(w.getProvince() != null ? w.getProvince().getCode() : null)
+                        .name(w.getName())
+                        .shortName(w.getShortName())
+                        .slug(w.getSlug())
                         .build())
                 .toList();
     }
