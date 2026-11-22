@@ -1,6 +1,7 @@
 import type { EmployerSummary } from "@/features/shared/types";
 import { BadgeCheck } from "lucide-react";
 import { cn } from "cn";
+import { UserAvatar, type AvatarSize } from "./user-avatar";
 
 /** Ánh xạ logoVariant sang class token-safe (không hardcode màu) */
 const VARIANT_CLASS: Record<EmployerSummary["logoVariant"], string> = {
@@ -13,25 +14,12 @@ const VARIANT_CLASS: Record<EmployerSummary["logoVariant"], string> = {
 interface EmployerAvatarProps {
   name: string;
   variant?: EmployerSummary["logoVariant"];
+  /** URL logo tổ chức — nếu có sẽ hiện ảnh thay cho chữ cái. */
   logoUrl?: string | null;
   verified?: boolean;
-  size?: "sm" | "md" | "lg";
+  size?: AvatarSize;
   className?: string;
 }
-
-const SIZE_CLASS = {
-  sm: "size-8 text-[11px]",
-  md: "size-10 text-xs",
-  lg: "size-14 text-base",
-} as const;
-
-/** Lấy 2 chữ cái đầu để làm avatar fallback */
-export const getInitials = (name?: string): string => {
-  if (!name) return "U";
-  const parts = name.trim().split(/\s+/);
-  if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase();
-  return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
-};
 
 export function EmployerAvatar({
   name,
@@ -43,27 +31,16 @@ export function EmployerAvatar({
 }: EmployerAvatarProps) {
   return (
     <div className={cn("relative shrink-0", className)}>
-      {logoUrl ? (
-        <img
-          src={logoUrl}
-          alt={name}
-          className={cn(
-            "rounded-xl object-cover ring-1 ring-border",
-            SIZE_CLASS[size]
-          )}
-        />
-      ) : (
-        <div
-          className={cn(
-            "flex items-center justify-center rounded-xl font-semibold ring-1 ring-border",
-            VARIANT_CLASS[variant],
-            SIZE_CLASS[size]
-          )}
-          aria-hidden
-        >
-          {getInitials(name)}
-        </div>
-      )}
+      <UserAvatar
+        name={name}
+        imageUrl={logoUrl}
+        size={size}
+        shape="rounded"
+        className={cn(
+          !logoUrl && VARIANT_CLASS[variant],
+          "ring-1 ring-border"
+        )}
+      />
 
       {verified && (
         <span

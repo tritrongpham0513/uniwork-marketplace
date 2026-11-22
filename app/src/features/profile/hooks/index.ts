@@ -3,6 +3,7 @@ import type {
   EmployerProfile,
   StudentProfile,
 } from "@/features/shared/types";
+import { AUTH_KEYS } from "@/features/auth/hooks/useCurrentUser";
 import { profileService } from "../services/profile.service";
 
 export const PROFILE_KEYS = {
@@ -34,6 +35,11 @@ export const useUpdateStudentProfile = () => {
     },
     onSuccess: (data) => {
       queryClient.setQueryData(PROFILE_KEYS.student(), data);
+      // Avatar ở header/sidebar lấy từ endpoint /auth/me → làm mới để
+      // ảnh mới hiện ngay mà không cần F5.
+      if (data.avatarUrl !== undefined) {
+        void queryClient.invalidateQueries({ queryKey: AUTH_KEYS.currentUser() });
+      }
     },
   });
 };
@@ -70,6 +76,11 @@ export const useUpdateEmployerProfile = () => {
     },
     onSuccess: (data) => {
       queryClient.setQueryData(PROFILE_KEYS.employer(), data);
+      // Logo ở header/sidebar lấy từ endpoint /auth/me → làm mới để
+      // logo mới hiện ngay mà không cần F5.
+      if (data.logoUrl !== undefined) {
+        void queryClient.invalidateQueries({ queryKey: AUTH_KEYS.currentUser() });
+      }
     },
   });
 };
