@@ -24,6 +24,7 @@ import { StatCard } from "@/components/shared/stat-card";
 import { StatusBadge } from "@/components/shared/status-badge";
 import { EmptyState, ErrorState } from "@/components/shared/empty-state";
 import { ApplicationTimeline } from "@/components/shared/application-timeline";
+import { UserAvatar } from "@/components/shared/user-avatar";
 import { JobCard } from "@/features/jobs/components/job-card";
 import { useStudentApplications } from "@/features/applications/hooks";
 import { useStudentProfile } from "@/features/profile/hooks";
@@ -82,6 +83,7 @@ export default function StudentDashboardPage() {
       positionIds: [],
       provinceIds: profile?.jobPreferences.provinceIds ?? [],
       districtIds: [],
+      wardIds: [],
       employmentTypes: [],
       workModes: [],
       salaryUnit: "HOURLY",
@@ -219,9 +221,13 @@ export default function StudentDashboardPage() {
                           to={PATHS.STUDENT.APPLICATION_DETAIL(application.id)}
                           className="flex items-center gap-3 py-3 transition-colors hover:bg-muted/40"
                         >
-                          <div className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-xs font-semibold text-primary">
-                            {application.employerName.slice(0, 2).toUpperCase()}
-                          </div>
+                          <UserAvatar
+                            name={application.employerName}
+                            imageUrl={application.employerLogoUrl}
+                            size="md"
+                            shape="rounded"
+                            className="bg-primary/10 text-primary"
+                          />
 
                           <div className="min-w-0 flex-1">
                             <p className="truncate text-sm font-medium text-foreground">
