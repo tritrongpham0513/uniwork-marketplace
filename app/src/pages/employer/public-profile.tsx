@@ -88,6 +88,7 @@ export function PublicEmployerPage() {
             <EmployerAvatar
               name={profile.displayName}
               variant="primary"
+              logoUrl={profile.logoUrl}
               verified={profile.isVerified}
               size="lg"
             />
@@ -415,7 +416,7 @@ function OpenJobRow({ job }: { job: Job }) {
       </p>
       <p className="mt-0.5 text-xs text-muted-foreground">
         <span className="whitespace-nowrap">
-          {job.location.district}, {job.location.province} ·
+          {job.location.ward || job.location.district}, {job.location.province} ·
         </span>{" "}
         <span className="whitespace-nowrap">{job.applicantCount} ứng viên</span>
       </p>

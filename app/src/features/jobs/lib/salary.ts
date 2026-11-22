@@ -66,5 +66,5 @@ export const findBenchmarkFor = (
     (b) => b.categoryId === categoryId && b.provinceId === provinceId
   ) ??
   benchmarks.find(
-    (b) => b.categoryId === categoryId && b.provinceId === "hcm"
+    (b) => b.categoryId === categoryId && b.provinceId === "79"
   );

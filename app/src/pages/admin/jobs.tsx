@@ -204,7 +204,7 @@ export default function AdminJobsPage() {
                         </p>
                         <p className="mt-0.5 text-xs text-muted-foreground">
                           {job.employer.name} · {formatPostedAgo(job.postedAt)} ·{" "}
-                          {job.location.district}, {job.location.province}
+                          {job.location.ward || job.location.district}, {job.location.province}
                         </p>
 
                         <div className="mt-3 grid grid-cols-2 gap-x-4 gap-y-2 rounded-lg bg-muted/40 p-3 sm:grid-cols-4">
@@ -328,7 +328,7 @@ export default function AdminJobsPage() {
                     Địa điểm
                   </p>
                   <p className="text-sm font-semibold text-foreground">
-                    {preview.location.district}
+                    {preview.location.ward || preview.location.district}
                   </p>
                 </div>
                 <div>
@@ -404,7 +404,7 @@ export default function AdminJobsPage() {
                       {preview.location.branchName} —{" "}
                     </>
                   )}
-                  {preview.location.address}, {preview.location.district},{" "}
+                  {preview.location.address}, {preview.location.ward || preview.location.district},{" "}
                   {preview.location.province}
                 </p>
               </div>

@@ -14,6 +14,7 @@ import { DashboardLayout } from "@/components/layout/dashboard-layout";
 import { StatCard } from "@/components/shared/stat-card";
 import { StatusBadge } from "@/components/shared/status-badge";
 import { EmptyState } from "@/components/shared/empty-state";
+import { UserAvatar } from "@/components/shared/user-avatar";
 import { useEmployerApplications } from "@/features/applications/hooks";
 import { useEmployerProfile } from "@/features/profile/hooks";
 import { useEmployerJobs } from "@/features/employer/hooks";
@@ -237,9 +238,12 @@ export default function EmployerDashboardPage() {
                           to={PATHS.EMPLOYER.APPLICATION_DETAIL(application.id)}
                           className="flex items-center gap-3 py-3 transition-colors hover:bg-muted/40"
                         >
-                          <div className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-xs font-semibold text-primary">
-                            {application.studentName.slice(0, 2).toUpperCase()}
-                          </div>
+                          <UserAvatar
+                            name={application.studentName}
+                            imageUrl={application.studentAvatarUrl}
+                            size="sm"
+                            className="bg-primary/10 text-primary"
+                          />
 
                           <div className="min-w-0 flex-1">
                             <p className="truncate text-sm font-medium text-foreground">

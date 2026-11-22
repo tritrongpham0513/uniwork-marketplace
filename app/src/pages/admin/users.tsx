@@ -35,6 +35,7 @@ import {
 } from "@/components/ui/dialog";
 import { DashboardLayout } from "@/components/layout/dashboard-layout";
 import { EmptyState, ErrorState } from "@/components/shared/empty-state";
+import { UserAvatar } from "@/components/shared/user-avatar";
 import { useAdminUsers, useUpdateUser } from "@/features/admin/hooks";
 import type { AdminUser, RoleType } from "@/features/shared/types";
 
@@ -209,9 +210,12 @@ export default function AdminUsersPage() {
                       <TableRow key={user.id}>
                         <TableCell>
                           <div className="flex items-center gap-3">
-                            <div className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-xs font-semibold text-primary">
-                              {user.fullName.slice(0, 2).toUpperCase()}
-                            </div>
+                            <UserAvatar
+                              name={user.fullName}
+                              imageUrl={user.avatarUrl}
+                              size="sm"
+                              className="bg-primary/10 text-primary"
+                            />
                             <div className="min-w-0">
                               <p className="truncate font-medium text-foreground">
                                 {user.fullName}

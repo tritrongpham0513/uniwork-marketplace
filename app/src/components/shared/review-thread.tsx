@@ -15,6 +15,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { RatingStars } from "@/components/shared/rating-stars";
+import { UserAvatar } from "@/components/shared/user-avatar";
 import { PATHS } from "@/config/paths";
 import { showApiError, toast } from "@/lib/toast";
 import type { Review } from "@/features/shared/types";
@@ -96,9 +97,12 @@ export function ReviewThread({
         <CardContent className="space-y-3 p-4">
           <div className="flex flex-wrap items-start justify-between gap-3">
             <div className="flex items-center gap-3">
-              <div className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-sm font-semibold text-primary">
-                {review.fromName.slice(0, 2).toUpperCase()}
-              </div>
+              <UserAvatar
+                name={review.fromName}
+                imageUrl={review.fromAvatarUrl}
+                size="md"
+                className="bg-primary/10 text-primary"
+              />
               <div>
                 <p className="text-sm font-semibold text-foreground">
                   {review.fromName}

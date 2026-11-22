@@ -378,7 +378,7 @@ export function HomePage() {
                           {job.title}
                         </Link>
                         <p className="truncate text-xs text-muted-foreground">
-                          {job.location.district} ·{" "}
+                          {job.location.ward || job.location.district} ·{" "}
                           <Link
                             to={PATHS.EMPLOYER.PUBLIC_PROFILE(job.employerId)}
                             className="underline-offset-4 transition-colors hover:text-primary hover:underline"

@@ -53,15 +53,8 @@ import { useAdminDashboard } from "@/features/admin/hooks";
 import { useSavedJobIds } from "@/features/saved-jobs/hooks";
 import { useStudentReviews } from "@/features/reviews/hooks";
 import type { RoleType } from "@/features/shared/types";
+import { UserAvatar } from "@/components/shared/user-avatar";
 import { cn } from "cn";
-
-/** Lấy 2 chữ cái đầu của tên để làm Avatar */
-const getInitials = (name?: string) => {
-  if (!name) return "U";
-  const parts = name.trim().split(/\s+/);
-  if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase();
-  return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
-};
 
 const ROLE_ICON: Record<RoleType, LucideIcon> = {
   STUDENT: GraduationCap,
@@ -186,9 +179,11 @@ function UserMenu() {
   };
 
   const avatar = (
-    <div className="flex size-8 shrink-0 items-center justify-center rounded-full bg-primary text-xs font-bold text-primary-foreground">
-      {getInitials(user.fullName || user.email)}
-    </div>
+    <UserAvatar
+      name={user.fullName || user.email}
+      imageUrl={user.avatarUrl}
+      size="sm"
+    />
   );
 
   return (

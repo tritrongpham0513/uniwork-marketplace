@@ -24,15 +24,8 @@ import {
 import { PATHS, ROLE_HOME } from "@/config/paths";
 import { useAuth } from "@/features/auth/hooks";
 import { useNotificationCount } from "@/features/notifications/hooks";
+import { UserAvatar } from "@/components/shared/user-avatar";
 import { cn } from "cn";
-
-/** Lấy 2 chữ cái đầu của tên để làm Avatar */
-const getInitials = (name?: string) => {
-  if (!name) return "U";
-  const parts = name.trim().split(/\s+/);
-  if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase();
-  return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
-};
 
 const ROLE_LABELS: Record<string, string> = {
   STUDENT: "Sinh viên",
@@ -182,9 +175,12 @@ export function Header() {
                   className="flex cursor-pointer items-center gap-2.5 rounded-full border border-border/80 bg-background/80 p-1.5 pr-3 text-left transition-all hover:border-border hover:bg-muted/60 focus:ring-2 focus:ring-primary/20 focus:outline-none"
                   aria-expanded={isDropdownOpen}
                 >
-                  <div className="flex size-8 items-center justify-center rounded-full bg-primary text-xs font-bold text-primary-foreground shadow-xs">
-                    {getInitials(user.fullName)}
-                  </div>
+                  <UserAvatar
+                    name={user.fullName || user.email}
+                    imageUrl={user.avatarUrl}
+                    size="sm"
+                    className="shadow-xs"
+                  />
 
                   <div className="hidden flex-col text-xs leading-tight sm:flex">
                     <span className="max-w-[120px] truncate font-semibold text-foreground">
