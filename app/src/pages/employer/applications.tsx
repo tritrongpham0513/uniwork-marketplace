@@ -1,6 +1,6 @@
 import { useMemo, useState } from "react";
 import { Link } from "react-router";
-import { CheckCircle2, Search, ThumbsDown, ThumbsUp } from "lucide-react";
+import { CheckCircle2, FileText, Search, ThumbsDown, ThumbsUp } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -31,6 +31,8 @@ import { Textarea } from "@/components/ui/textarea";
 import { DashboardLayout } from "@/components/layout/dashboard-layout";
 import { StatusBadge } from "@/components/shared/status-badge";
 import { EmptyState, ErrorState } from "@/components/shared/empty-state";
+import { UserAvatar } from "@/components/shared/user-avatar";
+import { CvViewer, PDF_MIME_TYPE } from "@/components/shared/cv-viewer";
 import {
   useEmployerApplications,
   useUpdateApplicationStatus,
@@ -63,6 +65,8 @@ export default function EmployerApplicationsPage() {
   const [keyword, setKeyword] = useState("");
   const [rejectTarget, setRejectTarget] = useState<Application | null>(null);
   const [rejectReason, setRejectReason] = useState("");
+  /** Ứng viên đang mở CV xem nhanh (modal). */
+  const [cvTarget, setCvTarget] = useState<Application | null>(null);
 
   const {
     data: applications = [],
@@ -233,9 +237,12 @@ export default function EmployerApplicationsPage() {
                   <CardContent className="p-4">
                     <div className="flex flex-col gap-4 lg:flex-row lg:items-center">
                       <div className="flex min-w-0 flex-1 items-center gap-3">
-                        <div className="flex size-11 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-sm font-semibold text-primary">
-                          {application.studentName.slice(0, 2).toUpperCase()}
-                        </div>
+                        <UserAvatar
+                          name={application.studentName}
+                          imageUrl={application.studentAvatarUrl}
+                          size="md"
+                          className="bg-primary/10 text-primary"
+                        />
 
                         <div className="min-w-0">
                           <Link
@@ -279,6 +286,18 @@ export default function EmployerApplicationsPage() {
                         />
 
                         <div className="flex items-center gap-1">
+                          {application.cvUrl &&
+                            application.cvMimeType === PDF_MIME_TYPE && (
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => setCvTarget(application)}
+                              >
+                                <FileText className="size-4" />
+                                Xem CV
+                              </Button>
+                            )}
+
                           {application.status === "PENDING" && (
                             <Button
                               variant="outline"
@@ -427,6 +446,30 @@ export default function EmployerApplicationsPage() {
               Xác nhận từ chối
             </Button>
           </DialogFooter>
+        </DialogContent>
+      </Dialog>
+      {/* MODAL XEM CV NHANH — mở từ danh sách ứng viên */}
+      <Dialog
+        open={cvTarget !== null}
+        onOpenChange={(open) => {
+          if (!open) setCvTarget(null);
+        }}
+      >
+        <DialogContent className="sm:max-w-4xl">
+          <DialogHeader>
+            <DialogTitle>CV — {cvTarget?.studentName}</DialogTitle>
+            <DialogDescription>
+              {cvTarget?.jobTitle} · {cvTarget?.cvFileName || "CV ứng viên"}
+            </DialogDescription>
+          </DialogHeader>
+
+          {cvTarget?.cvUrl && (
+            <CvViewer
+              url={cvTarget.cvUrl}
+              fileName={cvTarget.cvFileName}
+              mimeType={cvTarget.cvMimeType}
+            />
+          )}
         </DialogContent>
       </Dialog>
     </DashboardLayout>

@@ -1,11 +1,9 @@
 import { useMemo, useState } from "react";
-import { Link, useParams } from "react-router";
+import { Link, useNavigate, useParams } from "react-router";
 import {
   ArrowLeft,
   Briefcase,
   CheckCircle2,
-  Download,
-  FileText,
   Mail,
   MapPin,
   MessageSquare,
@@ -39,6 +37,8 @@ import { ApplicationTimeline } from "@/components/shared/application-timeline";
 import { ReviewDialog } from "@/components/shared/review-dialog";
 import { ErrorState } from "@/components/shared/empty-state";
 import { RatingStars } from "@/components/shared/rating-stars";
+import { CvFileRow } from "@/components/shared/cv-file-row";
+import { UserAvatar } from "@/components/shared/user-avatar";
 import {
   useEmployerApplication,
   useUpdateApplicationNote,
@@ -58,6 +58,7 @@ import { showApiError, toast } from "@/lib/toast";
 
 export default function EmployerApplicationDetailPage() {
   const { id = "" } = useParams();
+  const navigate = useNavigate();
   const {
     data: application,
     isPending,
@@ -206,9 +207,12 @@ export default function EmployerApplicationDetailPage() {
           <Card className="border-border/60">
             <CardHeader>
               <div className="flex items-start gap-4">
-                <div className="flex size-14 shrink-0 items-center justify-center rounded-2xl bg-primary/10 text-lg font-semibold text-primary">
-                  {application.studentName.slice(0, 2).toUpperCase()}
-                </div>
+                <UserAvatar
+                  name={application.studentName}
+                  imageUrl={application.studentAvatarUrl}
+                  size="lg"
+                  className="bg-primary/10 text-primary"
+                />
                 <div className="min-w-0">
                   <CardTitle className="font-heading text-lg">
                     {application.studentName}
@@ -280,30 +284,14 @@ export default function EmployerApplicationDetailPage() {
                   CV / Hồ sơ
                 </p>
                 {application.cvUrl ? (
-                  <div className="flex items-center justify-between gap-3 rounded-lg border border-border bg-muted/40 px-3 py-2.5">
-                    <div className="flex min-w-0 items-center gap-2">
-                      <FileText className="size-4 shrink-0 text-primary" />
-                      <span className="truncate text-sm text-foreground">
-                        {application.cvFileName ??
-                          application.cvUrl.split("/").pop()}
-                      </span>
-                    </div>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      nativeButton={false}
-                      render={
-                        <a
-                          href={application.cvUrl}
-                          target="_blank"
-                          rel="noreferrer"
-                        />
-                      }
-                    >
-                      <Download className="size-4" />
-                      Mở CV
-                    </Button>
-                  </div>
+                  <CvFileRow
+                    url={application.cvUrl}
+                    fileName={application.cvFileName}
+                    mimeType={application.cvMimeType}
+                    onView={() =>
+                      navigate(PATHS.EMPLOYER.APPLICATION_CV(application.id))
+                    }
+                  />
                 ) : (
                   <p className="text-sm text-muted-foreground">
                     Ứng viên ứng tuyển bằng hồ sơ VieJob.

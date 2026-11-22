@@ -53,11 +53,11 @@ import {
   useUpdateJob,
 } from "@/features/employer/hooks";
 import {
-  useDistricts,
   useJobCategories,
   useJobPositions,
   useProvinces,
   useSkills,
+  useWards,
 } from "@/features/jobs/hooks/useJobs";
 import {
   DAY_OF_WEEK_LABELS,
@@ -100,7 +100,8 @@ interface FormState {
   positionsCount: string;
   positionsFilled: string;
   provinceId: string;
-  districtId: string;
+  /** Mã xã/phường (5 chữ số) — cấp hành chính chính thức từ 01/07/2025 */
+  wardId: string;
   address: string;
   branchName: string;
   deadline: string;
@@ -124,7 +125,7 @@ const EMPTY_FORM: FormState = {
   positionsCount: "1",
   positionsFilled: "0",
   provinceId: "",
-  districtId: "",
+  wardId: "",
   address: "",
   branchName: "",
   deadline: "",
@@ -164,7 +165,7 @@ export default function EmployerJobFormPage() {
   const { data: categories = [] } = useJobCategories();
   const { data: positions = [] } = useJobPositions();
   const { data: provinces = [] } = useProvinces();
-  const { data: districts = [] } = useDistricts(form.provinceId || undefined);
+  const { data: wards = [] } = useWards(form.provinceId || undefined);
   const { data: skills = [] } = useSkills();
 
   // Lưu ý: useEmployerJob bị `enabled: false` khi tạo tin mới → trạng thái
@@ -196,7 +197,7 @@ export default function EmployerJobFormPage() {
       positionsCount: String(existingJob.positionsCount),
       positionsFilled: String(existingJob.positionsFilled),
       provinceId: existingJob.location.provinceId,
-      districtId: existingJob.location.districtId,
+      wardId: existingJob.location.wardId ?? "",
       address: existingJob.location.address,
       branchName: existingJob.location.branchName ?? "",
       deadline: existingJob.deadline?.slice(0, 10) ?? "",
@@ -216,7 +217,7 @@ export default function EmployerJobFormPage() {
   const selectedCategory = categories.find((c) => c.id === form.categoryId);
   const selectedPosition = positions.find((p) => p.id === form.positionId);
   const selectedProvince = provinces.find((p) => p.id === form.provinceId);
-  const selectedDistrict = districts.find((d) => d.id === form.districtId);
+  const selectedWard = wards.find((w) => w.id === form.wardId);
 
   /** Kỹ năng đã chọn — gửi lên API dưới dạng nested object { id, name }. */
   const selectedSkills = useMemo(
@@ -245,7 +246,7 @@ export default function EmployerJobFormPage() {
     if (form.requirements.length === 0) items.push("Yêu cầu ứng tuyển");
     if (!form.salaryMin) items.push("Mức lương tối thiểu");
     if (!form.provinceId) items.push("Tỉnh/thành phố");
-    if (!form.districtId) items.push("Quận/huyện");
+    if (!form.wardId) items.push("Xã/phường");
     if (!form.address.trim()) items.push("Địa chỉ chi tiết");
     if (form.schedules.length === 0) items.push("Ca làm việc");
     return items;
@@ -286,8 +287,8 @@ export default function EmployerJobFormPage() {
       location: {
         provinceId: form.provinceId,
         province: selectedProvince?.name ?? "",
-        districtId: form.districtId,
-        district: selectedDistrict?.name ?? "",
+        wardId: form.wardId,
+        ward: selectedWard?.name ?? "",
         address: form.address.trim(),
         branchName: form.branchName.trim() || null,
       },
@@ -896,7 +897,7 @@ export default function EmployerJobFormPage() {
                           onValueChange={(value) =>
                             patch({
                               provinceId: value && value !== "none" ? value : "",
-                              districtId: "",
+                              wardId: "",
                             })
                           }
                           items={[
@@ -927,38 +928,38 @@ export default function EmployerJobFormPage() {
                       </Field>
 
                       <Field>
-                        <FieldLabel htmlFor="district">
-                          Quận / Huyện *
+                        <FieldLabel htmlFor="ward">
+                          Xã / Phường *
                         </FieldLabel>
                         <Select
-                          value={form.districtId || "none"}
+                          value={form.wardId || "none"}
                           onValueChange={(value) =>
                             patch({
-                              districtId: value && value !== "none" ? value : "",
+                              wardId: value && value !== "none" ? value : "",
                             })
                           }
                           disabled={!form.provinceId}
                           items={[
-                            { value: "none", label: "Chọn quận/huyện" },
-                            ...districts.map((district) => ({
-                              value: district.id,
-                              label: district.name,
+                            { value: "none", label: "Chọn xã/phường" },
+                            ...wards.map((ward) => ({
+                              value: ward.id,
+                              label: ward.name,
                             })),
                           ]}
                         >
-                          <SelectTrigger id="district" className="w-full">
+                          <SelectTrigger id="ward" className="w-full">
                             <SelectValue />
                           </SelectTrigger>
                           <SelectContent>
                             <SelectItem value="none">
-                              Chọn quận/huyện
+                              Chọn xã/phường
                             </SelectItem>
-                            {districts.map((district) => (
+                            {wards.map((ward) => (
                               <SelectItem
-                                key={district.id}
-                                value={district.id}
+                                key={ward.id}
+                                value={ward.id}
                               >
-                                {district.name}
+                                {ward.name}
                               </SelectItem>
                             ))}
                           </SelectContent>
@@ -1182,7 +1183,7 @@ export default function EmployerJobFormPage() {
                   </CardTitle>
                   <CardDescription>
                     {form.provinceId
-                      ? `${selectedDistrict?.name ?? ""}, ${selectedProvince?.name ?? ""}`
+                      ? `${selectedWard?.name ?? ""}, ${selectedProvince?.name ?? ""}`
                       : "Địa điểm chưa được chọn"}
                   </CardDescription>
                 </CardHeader>
@@ -1225,7 +1226,7 @@ export default function EmployerJobFormPage() {
                         Địa điểm
                       </p>
                       <p className="text-sm font-semibold text-foreground">
-                        {selectedDistrict?.name ?? "—"}
+                        {selectedWard?.name ?? "—"}
                       </p>
                     </div>
                   </div>
