@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router";
 import {
   ArrowLeft,
@@ -23,8 +23,8 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { useJob } from "@/features/jobs/hooks/useJobs";
 import { useAuth } from "@/features/auth/hooks";
 import { useStudentProfile } from "@/features/profile/hooks";
-import { useCreateApplication } from "@/features/applications/hooks";
-import { useUploadFile } from "@/features/files/hooks";
+import { useCreateApplication, useStudentApplicationByJob } from "@/features/applications/hooks";
+import { useUploadFile, cleanupReplacedFile } from "@/features/files/hooks";
 import { EMPLOYMENT_TYPE_LABELS } from "@/features/jobs/types";
 import { formatSalary } from "@/features/jobs/lib/format";
 import { DatePicker } from "@/components/shared/date-picker";
@@ -41,6 +41,9 @@ export function ApplyJobPage() {
   const { data: job, isLoading } = useJob(id);
   const { data: profile } = useStudentProfile();
   const createApplication = useCreateApplication();
+  /** Đơn cũ của SV cho tin này — `WITHDRAWN` nghĩa là đang ứng tuyển lại. */
+  const { data: myApplication } = useStudentApplicationByJob(job?.id);
+  const isReapply = myApplication?.status === "WITHDRAWN";
 
   const [fullName, setFullName] = useState("");
   const [phone, setPhone] = useState("");
@@ -56,6 +59,30 @@ export function ApplyJobPage() {
   );
 
   const uploadFile = useUploadFile();
+
+  /**
+   * CV vừa upload trong phiên nhưng chưa gửi đơn — xoá khi rời trang để
+   * không để rác trong bucket. CV lấy từ hồ sơ (prefill) không nằm trong đây.
+   */
+  const unsavedCvRef = useRef<Set<string>>(new Set());
+
+  /** Ghi nhận CV mới upload + dọn CV vừa upload trước đó (nếu có). */
+  const trackUploadedCv = (url: string) => {
+    const previous = cvFile?.url;
+    unsavedCvRef.current.add(url);
+    if (previous && previous !== url && unsavedCvRef.current.delete(previous)) {
+      void cleanupReplacedFile(previous);
+    }
+  };
+
+  // Rời trang khi chưa gửi đơn → dọn CV vừa upload.
+  useEffect(() => {
+    const unsaved = unsavedCvRef.current;
+    return () => {
+      unsaved.forEach((url) => void cleanupReplacedFile(url));
+      unsaved.clear();
+    };
+  }, []);
 
   /** Dữ liệu hồ sơ dùng làm giá trị mặc định (prefill) */
   const effectiveName = fullName || profile?.fullName || user?.fullName || "";
@@ -77,7 +104,9 @@ export function ApplyJobPage() {
     if (profile.cvUrl) {
       setCvFile({
         url: profile.cvUrl,
-        fileName: profile.cvUrl.split("/").pop() ?? "CV_cua_ban.pdf",
+        // Backend trả kèm tên file gốc; trước đây lấy slug "file-xxxx" trên URL
+        // nên NTD nhận được tên file vô nghĩa.
+        fileName: profile.cvFileName ?? "CV của bạn",
       });
     }
     toast.success("Đã điền thông tin từ hồ sơ của bạn", {
@@ -118,8 +147,19 @@ export function ApplyJobPage() {
     );
   }
 
+  // Đã ứng tuyển (không phải đơn đã rút) → không cho gửi lại.
+  const alreadyApplied = !!myApplication && !isReapply;
+
   const handleSubmit = (event: React.FormEvent) => {
     event.preventDefault();
+
+    if (alreadyApplied) {
+      toast.info("Bạn đã ứng tuyển vào tin này rồi", {
+        description:
+          "Bạn có thể xem hồ sơ hoặc rút đơn nếu còn ở trạng thái 'Đang chờ'.",
+      });
+      return;
+    }
 
     if (!coverLetter.trim()) {
       toast.error("Vui lòng viết lời giới thiệu ngắn");
@@ -165,10 +205,15 @@ export function ApplyJobPage() {
       },
       {
         onSuccess: () => {
-          toast.success("Gửi đơn ứng tuyển thành công!", {
-            description:
-              "Nhà tuyển dụng sẽ xem xét hồ sơ và thông báo kết quả cho bạn.",
-          });
+          // CV đã được đơn ứng tuyển tham chiếu → không dọn nữa.
+          unsavedCvRef.current.clear();
+          toast.success(
+            isReapply ? "Gửi lại đơn ứng tuyển thành công!" : "Gửi đơn ứng tuyển thành công!",
+            {
+              description:
+                "Nhà tuyển dụng sẽ xem xét hồ sơ và thông báo kết quả cho bạn.",
+            }
+          );
           navigate(PATHS.STUDENT.APPLICATIONS);
         },
       }
@@ -189,11 +234,39 @@ export function ApplyJobPage() {
       </Button>
 
       <h1 className="font-heading text-2xl font-bold tracking-tight text-foreground">
-        Ứng tuyển việc làm
+        {isReapply
+          ? "Ứng tuyển lại việc làm"
+          : alreadyApplied
+            ? "Bạn đã ứng tuyển việc làm này"
+            : "Ứng tuyển việc làm"}
       </h1>
       <p className="mt-1.5 text-sm text-muted-foreground">
-        Hoàn thiện thông tin bên dưới để gửi hồ sơ ứng tuyển.
+        {isReapply
+          ? "Bạn đã rút đơn trước đó — điền lại thông tin để gửi hồ sơ mới cho tin này."
+          : alreadyApplied
+            ? "Hồ sơ của bạn đang được nhà tuyển dụng xem xét."
+            : "Hoàn thiện thông tin bên dưới để gửi hồ sơ ứng tuyển."}
       </p>
+
+      {alreadyApplied && (
+        <Alert className="mt-4">
+          <Info className="size-4" />
+          <AlertTitle>Bạn đã ứng tuyển vào tin này</AlertTitle>
+          <AlertDescription className="flex flex-wrap items-center gap-2">
+            <span>Hồ sơ đang ở trạng thái đã gửi — không thể gửi lại.</span>
+            <Button
+              size="sm"
+              variant="outline"
+              nativeButton={false}
+              render={
+                <Link to={PATHS.STUDENT.APPLICATION_DETAIL(myApplication!.id)} />
+              }
+            >
+              Xem hồ sơ của tôi
+            </Button>
+          </AlertDescription>
+        </Alert>
+      )}
 
       <form
         onSubmit={handleSubmit}
@@ -345,6 +418,7 @@ export function ApplyJobPage() {
                       void uploadFile
                         .mutateAsync({ file, kind: "CV" })
                         .then((uploaded) => {
+                          trackUploadedCv(uploaded.url);
                           setCvFile({
                             url: uploaded.url,
                             fileName: uploaded.fileName,
@@ -534,7 +608,7 @@ export function ApplyJobPage() {
                 <div className="flex items-center justify-between">
                   <span className="text-muted-foreground">Địa điểm</span>
                   <span className="text-right font-medium text-foreground">
-                    {job.location.district}
+                    {job.location.ward || job.location.district}
                   </span>
                 </div>
                 {job.schedules.length > 0 && (
@@ -552,12 +626,16 @@ export function ApplyJobPage() {
               <Button
                 type="submit"
                 className="h-10 w-full cursor-pointer font-semibold"
-                disabled={createApplication.isPending}
+                disabled={createApplication.isPending || alreadyApplied}
               >
                 <Send className="size-4" />
                 {createApplication.isPending
                   ? "Đang gửi..."
-                  : "Gửi đơn ứng tuyển"}
+                  : alreadyApplied
+                    ? "Bạn đã ứng tuyển"
+                    : isReapply
+                      ? "Gửi lại đơn ứng tuyển"
+                      : "Gửi đơn ứng tuyển"}
               </Button>
 
               <p className="flex items-start gap-1.5 text-xs text-muted-foreground">

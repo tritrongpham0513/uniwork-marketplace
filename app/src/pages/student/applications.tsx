@@ -1,6 +1,6 @@
 import { useMemo, useState } from "react";
 import { Link } from "react-router";
-import { ChevronRight, Plus, Search, Undo2 } from "lucide-react";
+import { ChevronRight, Plus, RefreshCw, Search, Undo2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -15,6 +15,7 @@ import { DashboardLayout } from "@/components/layout/dashboard-layout";
 import { StatusBadge } from "@/components/shared/status-badge";
 import { ConfirmDialog } from "@/components/shared/confirm-dialog";
 import { EmptyState, ErrorState } from "@/components/shared/empty-state";
+import { UserAvatar } from "@/components/shared/user-avatar";
 import {
   useStudentApplications,
   useWithdrawApplication,
@@ -207,6 +208,8 @@ export default function StudentApplicationsPage() {
           <ul className="space-y-3">
             {visible.map((application) => {
               const canWithdraw = application.status === "PENDING";
+              // Đơn đã rút → cho ứng tuyển lại (tin tuyển dụng vẫn mở).
+              const canReapply = application.status === "WITHDRAWN";
 
               return (
                 <li key={application.id}>
@@ -214,9 +217,13 @@ export default function StudentApplicationsPage() {
                     <CardContent className="p-4">
                       <div className="flex flex-col gap-4 sm:flex-row sm:items-center">
                         <div className="flex min-w-0 flex-1 items-center gap-3">
-                          <div className="flex size-11 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-sm font-semibold text-primary">
-                            {application.employerName.slice(0, 2).toUpperCase()}
-                          </div>
+                          <UserAvatar
+                            name={application.employerName}
+                            imageUrl={application.employerLogoUrl}
+                            size="md"
+                            shape="rounded"
+                            className="bg-primary/10 text-primary"
+                          />
 
                           <div className="min-w-0">
                             <Link
@@ -248,6 +255,19 @@ export default function StudentApplicationsPage() {
                             >
                               <Undo2 className="size-4" />
                               Rút đơn
+                            </Button>
+                          )}
+
+                          {canReapply && (
+                            <Button
+                              size="sm"
+                              nativeButton={false}
+                              render={
+                                <Link to={PATHS.JOBS.APPLY(application.jobId)} />
+                              }
+                            >
+                              <RefreshCw className="size-4" />
+                              Ứng tuyển lại
                             </Button>
                           )}
 

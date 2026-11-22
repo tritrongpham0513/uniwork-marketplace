@@ -11,6 +11,9 @@ export const APPLICATION_KEYS = {
     [...APPLICATION_KEYS.all, "student", status ?? "ALL"] as const,
   studentDetail: (id: string) =>
     [...APPLICATION_KEYS.all, "student", "detail", id] as const,
+  /** Đơn của SV cho 1 tin — dùng để biết đã ứng tuyển tin đó chưa. */
+  studentByJob: (jobId: string) =>
+    [...APPLICATION_KEYS.all, "student", "by-job", jobId] as const,
   employer: (params?: { jobId?: string; status?: string }) =>
     [...APPLICATION_KEYS.all, "employer", params ?? {}] as const,
   employerDetail: (id: string) =>
@@ -36,6 +39,22 @@ export const useStudentApplication = (id: string) =>
       return response.data;
     },
     enabled: !!id,
+  });
+
+/**
+ * Đơn ứng tuyển của sinh viên cho 1 tin tuyển dụng.
+ *
+ * <p>Trả `null` khi SV chưa ứng tuyển tin đó. Dùng để ở trang chi tiết tin
+ * hiện badge "Đã ứng tuyển" / nút "Ứng tuyển lại" cho đơn đã rút.
+ */
+export const useStudentApplicationByJob = (jobId?: string) =>
+  useQuery({
+    queryKey: APPLICATION_KEYS.studentByJob(jobId ?? ""),
+    queryFn: async () => {
+      const response = await applicationService.findByJob(jobId!);
+      return response.data;
+    },
+    enabled: !!jobId,
   });
 
 /** Ứng viên (phía nhà tuyển dụng) */

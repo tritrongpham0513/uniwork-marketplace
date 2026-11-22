@@ -54,6 +54,17 @@ export const applicationService = {
   },
 
   /**
+   * GET /api/v1/student/applications/job/{jobId} — đơn ứng tuyển của tôi cho 1 tin.
+   *
+   * <p>Chưa ứng tuyển → `data = null`.
+   */
+  findByJob(jobId: string): Promise<ApiResponse<Application | null>> {
+    return http.get<ApiResponse<Application | null>>(
+      `/api/v1/student/applications/job/${jobId}`
+    );
+  },
+
+  /**
    * PATCH /api/v1/student/applications/{id}/withdraw — rút đơn.
    */
   withdraw(id: string): Promise<ApiResponse<Application>> {

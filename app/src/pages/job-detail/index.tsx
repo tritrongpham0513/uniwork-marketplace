@@ -12,6 +12,7 @@ import {
   Coins,
   Copy,
   Eye,
+  Info,
   MapPin,
   Share2,
   TrendingUp,
@@ -43,8 +44,15 @@ import {
   SALARY_TYPE_LABELS,
   WORK_MODE_LABELS,
 } from "@/features/jobs/types";
-import { formatPostedAgo, formatSalary } from "@/features/jobs/lib/format";
+import {
+  formatPostedAgo,
+  formatSalary,
+  locationFull,
+  locationName,
+} from "@/features/jobs/lib/format";
 import { useAuth } from "@/features/auth/hooks";
+import { useStudentApplicationByJob } from "@/features/applications/hooks";
+import { APPLICATION_STATUS_LABELS } from "@/features/shared/types";
 import {
   useJobNotifyPreferences,
   useToggleJobNotify,
@@ -73,6 +81,14 @@ export function JobDetailPage() {
   const { data: employerProfile } = usePublicEmployerProfile(job?.employerId ?? "");
   const { data: notifyPreferences = [] } = useJobNotifyPreferences();
   const toggleJobNotify = useToggleJobNotify();
+
+  /** Đơn ứng tuyển của SV hiện tại cho tin này (null nếu chưa ứng tuyển). */
+  const { data: myApplication } = useStudentApplicationByJob(
+    user?.role === "STUDENT" ? job?.id : undefined
+  );
+
+  const hasApplied = !!myApplication;
+  const canReapply = myApplication?.status === "WITHDRAWN";
 
   if (isLoading) return <JobDetailSkeleton />;
 
@@ -156,7 +172,7 @@ export function JobDetailPage() {
     const full = [
       job.location.branchName,
       job.location.address,
-      job.location.district,
+      locationName(job.location),
       job.location.province,
     ]
       .filter(Boolean)
@@ -243,7 +259,7 @@ export function JobDetailPage() {
               <div className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-2 text-sm text-muted-foreground">
                 <span className="flex items-center gap-1.5">
                   <MapPin className="size-4" />
-                  {job.location.district}, {job.location.province}
+                  {locationName(job.location)}, {job.location.province}
                   {job.location.branchName && ` · ${job.location.branchName}`}
                 </span>
                 <span className="flex items-center gap-1.5">
@@ -425,11 +441,11 @@ export function JobDetailPage() {
                   )}
                   <p className="text-sm text-muted-foreground">
                     {job.location.address ||
-                      `${job.location.district}, ${job.location.province}`}
+                      locationFull(job.location)}
                   </p>
                   {!job.location.branchName && (
                     <p className="mt-0.5 text-xs text-muted-foreground">
-                      {job.location.district}, {job.location.province}
+                      {locationName(job.location)}, {job.location.province}
                     </p>
                   )}
                 </div>
@@ -443,7 +459,7 @@ export function JobDetailPage() {
                   nativeButton={false}
                   render={
                     <a
-                      href={buildMapUrl(job.location.address, job.location.district, job.location.province)}
+                      href={buildMapUrl(job.location.address, locationName(job.location), job.location.province)}
                       target="_blank"
                       rel="noopener noreferrer"
                     />
@@ -485,17 +501,53 @@ export function JobDetailPage() {
           {/* HÀNH ĐỘNG */}
           <Card>
             <CardContent className="space-y-3 p-5">
-              <Button
-                size="lg"
-                className="h-11 w-full cursor-pointer font-semibold"
-                onClick={handleApply}
-              >
-                Ứng tuyển ngay
-              </Button>
-              <p className="flex items-start gap-1.5 text-xs text-muted-foreground">
-                <CheckCircle2 className="mt-0.5 size-3.5 shrink-0 text-primary" />
-                Không cần CV, chỉ cần hồ sơ UniJob — ứng tuyển trong 1 chạm.
-              </p>
+              {canReapply ? (
+                <>
+                  <Button
+                    size="lg"
+                    className="h-11 w-full cursor-pointer font-semibold"
+                    onClick={handleApply}
+                  >
+                    Ứng tuyển lại
+                  </Button>
+                  <p className="flex items-start gap-1.5 text-xs text-muted-foreground">
+                    <Info className="mt-0.5 size-3.5 shrink-0 text-primary" />
+                    Bạn đã rút đơn ứng tuyển — có thể gửi lại hồ sơ cho tin này.
+                  </p>
+                </>
+              ) : hasApplied ? (
+                <>
+                  <Button
+                    size="lg"
+                    className="h-11 w-full cursor-pointer font-semibold"
+                    nativeButton={false}
+                    render={
+                      <Link to={PATHS.STUDENT.APPLICATION_DETAIL(myApplication!.id)} />
+                    }
+                  >
+                    Đã ứng tuyển — xem hồ sơ
+                  </Button>
+                  <p className="flex items-start gap-1.5 text-xs text-muted-foreground">
+                    <CheckCircle2 className="mt-0.5 size-3.5 shrink-0 text-primary" />
+                    Hồ sơ của bạn đang ở trạng thái{" "}
+                    {APPLICATION_STATUS_LABELS[myApplication!.status]}.
+                  </p>
+                </>
+              ) : (
+                <>
+                  <Button
+                    size="lg"
+                    className="h-11 w-full cursor-pointer font-semibold"
+                    onClick={handleApply}
+                  >
+                    Ứng tuyển ngay
+                  </Button>
+                  <p className="flex items-start gap-1.5 text-xs text-muted-foreground">
+                    <CheckCircle2 className="mt-0.5 size-3.5 shrink-0 text-primary" />
+                    Không cần CV, chỉ cần hồ sơ UniJob — ứng tuyển trong 1 chạm.
+                  </p>
+                </>
+              )}
               <div className="grid grid-cols-2 gap-2">
                 <Button
                   variant="outline"
@@ -561,6 +613,7 @@ export function JobDetailPage() {
                 <EmployerAvatar
                   name={job.employer.name}
                   variant={job.employer.logoVariant}
+                  logoUrl={job.employer.logoUrl}
                   verified={job.employer.verified}
                   size="lg"
                 />

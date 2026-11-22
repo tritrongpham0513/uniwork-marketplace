@@ -4,8 +4,6 @@ import {
   ArrowLeft,
   Building2,
   CalendarClock,
-  Download,
-  FileText,
   Mail,
   MapPin,
   Phone,
@@ -28,6 +26,8 @@ import { ApplicationTimeline } from "@/components/shared/application-timeline";
 import { ReviewDialog } from "@/components/shared/review-dialog";
 import { ConfirmDialog } from "@/components/shared/confirm-dialog";
 import { ErrorState } from "@/components/shared/empty-state";
+import { CvFileRow } from "@/components/shared/cv-file-row";
+import { UserAvatar } from "@/components/shared/user-avatar";
 import {
   useStudentApplication,
   useWithdrawApplication,
@@ -117,9 +117,13 @@ export default function StudentApplicationDetailPage() {
             </CardHeader>
             <CardContent>
               <div className="flex items-start gap-3">
-                <div className="flex size-12 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-base font-semibold text-primary">
-                  {application.employerName.slice(0, 2).toUpperCase()}
-                </div>
+                <UserAvatar
+                  name={application.employerName}
+                  imageUrl={application.employerLogoUrl}
+                  size="lg"
+                  shape="rounded"
+                  className="bg-primary/10 text-primary"
+                />
                 <div className="min-w-0">
                   <p className="flex items-center gap-1.5 text-sm font-semibold text-foreground">
                     {application.employerName}
@@ -164,30 +168,11 @@ export default function StudentApplicationDetailPage() {
             </CardHeader>
             <CardContent>
               {application.cvUrl ? (
-                <div className="flex items-center justify-between gap-3 rounded-lg border border-border bg-muted/40 px-3 py-2.5">
-                  <div className="flex min-w-0 items-center gap-2">
-                    <FileText className="size-4 shrink-0 text-primary" />
-                    <span className="truncate text-sm text-foreground">
-                      {application.cvFileName ??
-                        application.cvUrl.split("/").pop()}
-                    </span>
-                  </div>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    nativeButton={false}
-                    render={
-                      <a
-                        href={application.cvUrl}
-                        target="_blank"
-                        rel="noreferrer"
-                      />
-                    }
-                  >
-                    <Download className="size-4" />
-                    Xem CV
-                  </Button>
-                </div>
+                <CvFileRow
+                  url={application.cvUrl}
+                  fileName={application.cvFileName}
+                  mimeType={application.cvMimeType}
+                />
               ) : (
                 <p className="text-sm text-muted-foreground">
                   Bạn đã ứng tuyển bằng hồ sơ VieJob (không cần tải CV riêng).
