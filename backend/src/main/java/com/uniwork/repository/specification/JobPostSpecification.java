@@ -26,6 +26,7 @@ public class JobPostSpecification {
      * @param positionCodes  public id của vị trí (job_positions.code)
      * @param provinceCodes  public id của tỉnh (provinces.code)
      * @param districtCodes  public id của quận (districts.code)
+     * @param wardCodes     public id của xã/phường (wards.code)
      * @param employmentTypes loại hình làm việc
      * @param workModes      hình thức làm việc
      * @param salaryMin      mức lương tối thiểu (đồng/giờ)
@@ -39,6 +40,7 @@ public class JobPostSpecification {
             Collection<String> positionCodes,
             Collection<String> provinceCodes,
             Collection<String> districtCodes,
+            Collection<String> wardCodes,
             Collection<String> employmentTypes,
             Collection<String> workModes,
             BigDecimal salaryMin,
@@ -86,9 +88,14 @@ public class JobPostSpecification {
                 predicates.add(root.get("province").get("code").in(provinceCodes));
             }
 
-            // 8. Quận / huyện
+            // 8. Quận / huyện (cấp cũ — giữ để tương thích ngược)
             if (districtCodes != null && !districtCodes.isEmpty()) {
                 predicates.add(root.get("district").get("code").in(districtCodes));
+            }
+
+            // 8b. Xã / phường (cấp hành chính chính thức từ 01/07/2025)
+            if (wardCodes != null && !wardCodes.isEmpty()) {
+                predicates.add(root.get("ward").get("code").in(wardCodes));
             }
 
             // 9. Loại hình làm việc

@@ -43,6 +43,7 @@ public class PublicJobController {
             @RequestParam(required = false) String positionIds,
             @RequestParam(required = false) String provinceIds,
             @RequestParam(required = false) String districtIds,
+            @RequestParam(required = false) String wardIds,
             @RequestParam(required = false) String employmentTypes,
             @RequestParam(required = false) String workModes,
             @RequestParam(required = false) Integer salaryMin,
@@ -52,7 +53,7 @@ public class PublicJobController {
             @RequestParam(required = false, defaultValue = "10") Integer pageSize) {
 
         JobListResponse result = jobService.list(
-                keyword, categoryIds, positionIds, provinceIds, districtIds,
+                keyword, categoryIds, positionIds, provinceIds, districtIds, wardIds,
                 employmentTypes, workModes, salaryMin, salaryMax,
                 sort, page, pageSize, null, null);
 

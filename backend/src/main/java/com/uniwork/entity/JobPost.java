@@ -76,6 +76,13 @@ public class JobPost {
     @Column(name = "district_id")
     private Integer districtId;
 
+    /**
+     * Đơn vị hành chính cấp xã/phường (cấp 2 từ 01/07/2025).
+     * Song song với {@link #districtId} (quận/huyện cũ) để tương thích ngược.
+     */
+    @Column(name = "ward_id")
+    private Integer wardId;
+
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "province_id", insertable = false, updatable = false)
     private Province province;
@@ -83,6 +90,10 @@ public class JobPost {
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "district_id", insertable = false, updatable = false)
     private District district;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "ward_id", insertable = false, updatable = false)
+    private Ward ward;
 
     @Column(name = "address_detail", length = 255)
     private String addressDetail;

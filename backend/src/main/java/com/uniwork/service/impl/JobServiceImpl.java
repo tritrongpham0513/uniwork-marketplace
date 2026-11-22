@@ -19,6 +19,7 @@ import com.uniwork.entity.JobPosition;
 import com.uniwork.entity.Province;
 import com.uniwork.entity.Skill;
 import com.uniwork.entity.User;
+import com.uniwork.entity.Ward;
 import com.uniwork.repository.DistrictRepository;
 import com.uniwork.repository.EmployerProfileRepository;
 import com.uniwork.repository.JobCategoryRepository;
@@ -29,6 +30,7 @@ import com.uniwork.repository.JobPositionRepository;
 import com.uniwork.repository.ProvinceRepository;
 import com.uniwork.repository.SkillRepository;
 import com.uniwork.repository.UserRepository;
+import com.uniwork.repository.WardRepository;
 import com.uniwork.repository.specification.JobPostSpecification;
 import com.uniwork.service.JobNotifyService;
 import com.uniwork.service.JobService;
@@ -81,6 +83,7 @@ public class JobServiceImpl implements JobService {
     private final JobPositionRepository jobPositionRepository;
     private final ProvinceRepository provinceRepository;
     private final DistrictRepository districtRepository;
+    private final WardRepository wardRepository;
     private final SkillRepository skillRepository;
     private final EmployerProfileRepository employerProfileRepository;
     private final UserRepository userRepository;
@@ -99,6 +102,7 @@ public class JobServiceImpl implements JobService {
             String positionIds,
             String provinceIds,
             String districtIds,
+            String wardIds,
             String employmentTypes,
             String workModes,
             Integer salaryMin,
@@ -136,6 +140,7 @@ public class JobServiceImpl implements JobService {
                 splitIds(positionIds),
                 splitIds(provinceIds),
                 splitIds(districtIds),
+                splitIds(wardIds),
                 splitIds(employmentTypes),
                 splitIds(workModes),
                 salaryMin != null ? BigDecimal.valueOf(salaryMin) : null,
@@ -487,6 +492,20 @@ public class JobServiceImpl implements JobService {
             District district = districtRepository.findByCode(location.getDistrictId()).orElse(null);
             job.setDistrictId(district != null ? district.getId() : null);
         }
+
+        // Xã/phường — cấp hành chính chính thức từ 01/07/2025.
+        // Luôn gán (kể cả rỗng) để bỏ chọn xã/phường thật sự xoá giá trị cũ.
+        if (location.getWardId() != null && !location.getWardId().isBlank()) {
+            Ward ward = wardRepository.findByCode(location.getWardId()).orElse(null);
+            if (ward != null) {
+                job.setWardId(ward.getId());
+                // Tỉnh phải khớp với tỉnh chứa xã/phường — ưu tiên tỉnh của xã.
+                job.setProvinceId(ward.getProvince().getId());
+            }
+        } else {
+            job.setWardId(null);
+        }
+
         job.setAddressDetail(location.getAddress());
         job.setBranchName(location.getBranchName());
     }
@@ -595,6 +614,8 @@ public class JobServiceImpl implements JobService {
                 .province(job.getProvince() != null ? job.getProvince().getName() : "")
                 .districtId(job.getDistrict() != null ? job.getDistrict().getCode() : "")
                 .district(job.getDistrict() != null ? job.getDistrict().getName() : "")
+                .wardId(job.getWard() != null ? job.getWard().getCode() : "")
+                .ward(job.getWard() != null ? job.getWard().getName() : "")
                 .address(job.getAddressDetail() != null ? job.getAddressDetail() : "")
                 .branchName(job.getBranchName())
                 .build();
@@ -626,6 +647,7 @@ public class JobServiceImpl implements JobService {
                         .id(employer.getSlug())
                         .name(employer.getDisplayName())
                         .logoVariant(employer.getLogoVariant())
+                        .logoUrl(employer.getLogoUrl())
                         .verified(employer.getIsVerified())
                         .build())
                 .employmentType(job.getEmploymentType())

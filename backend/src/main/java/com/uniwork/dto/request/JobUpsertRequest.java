@@ -93,6 +93,9 @@ public class JobUpsertRequest {
         private String province;
         private String districtId;
         private String district;
+        /** Mã xã / phường (5 chữ số) — cấp hành chính chính thức từ 01/07/2025. */
+        private String wardId;
+        private String ward;
         private String address;
         private String branchName;
     }

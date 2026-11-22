@@ -23,6 +23,7 @@ public interface JobService {
             String positionIds,
             String provinceIds,
             String districtIds,
+            String wardIds,
             String employmentTypes,
             String workModes,
             Integer salaryMin,

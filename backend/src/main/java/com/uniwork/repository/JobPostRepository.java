@@ -21,31 +21,31 @@ import java.util.Optional;
 public interface JobPostRepository extends JpaRepository<JobPost, Long>, JpaSpecificationExecutor<JobPost> {
 
     @Override
-    @EntityGraph(attributePaths = {"employer", "category", "position"})
+    @EntityGraph(attributePaths = {"employer", "category", "position", "province", "district", "ward"})
     Page<JobPost> findAll(Specification<JobPost> spec, Pageable pageable);
 
-    @EntityGraph(attributePaths = {"employer", "category", "position"})
+    @EntityGraph(attributePaths = {"employer", "category", "position", "province", "district", "ward"})
     Optional<JobPost> findByIdAndDeletedAtIsNull(Long id);
 
-    @EntityGraph(attributePaths = {"employer", "category", "position"})
+    @EntityGraph(attributePaths = {"employer", "category", "position", "province", "district", "ward"})
     Optional<JobPost> findBySlugAndDeletedAtIsNull(String slug);
 
-    @EntityGraph(attributePaths = {"employer", "category", "position"})
+    @EntityGraph(attributePaths = {"employer", "category", "position", "province", "district", "ward"})
     Optional<JobPost> findByIdAndEmployerUserIdAndDeletedAtIsNull(Long id, Long employerId);
 
-    @EntityGraph(attributePaths = {"employer", "category", "position"})
+    @EntityGraph(attributePaths = {"employer", "category", "position", "province", "district", "ward"})
     List<JobPost> findByEmployerUserIdAndDeletedAtIsNullOrderByCreatedAtDesc(Long employerId);
 
-    @EntityGraph(attributePaths = {"employer", "category", "position"})
+    @EntityGraph(attributePaths = {"employer", "category", "position", "province", "district", "ward"})
     List<JobPost> findByEmployerUserIdAndStatusAndDeletedAtIsNullOrderByCreatedAtDesc(Long employerUserId, String status);
 
-    @EntityGraph(attributePaths = {"employer", "category", "position"})
+    @EntityGraph(attributePaths = {"employer", "category", "position", "province", "district", "ward"})
     List<JobPost> findByStatusAndDeletedAtIsNullOrderByCreatedAtDesc(String status);
 
-    @EntityGraph(attributePaths = {"employer", "category", "position"})
+    @EntityGraph(attributePaths = {"employer", "category", "position", "province", "district", "ward"})
     List<JobPost> findAllByDeletedAtIsNull();
 
-    @EntityGraph(attributePaths = {"employer", "category", "position"})
+    @EntityGraph(attributePaths = {"employer", "category", "position", "province", "district", "ward"})
     List<JobPost> findAllByDeletedAtIsNullOrderByCreatedAtDesc();
 
     long countByStatusAndDeletedAtIsNull(String status);
