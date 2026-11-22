@@ -1,4 +1,4 @@
-import { useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Link } from "react-router";
 import {
   Briefcase,
@@ -34,6 +34,13 @@ import { Input } from "@/components/ui/input";
 import { Progress } from "@/components/ui/progress";
 import { Textarea } from "@/components/ui/textarea";
 import { Separator } from "@/components/ui/separator";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   Select,
@@ -46,6 +53,9 @@ import { DashboardLayout } from "@/components/layout/dashboard-layout";
 import { ErrorState } from "@/components/shared/empty-state";
 import { DatePicker } from "@/components/shared/date-picker";
 import { RatingStars } from "@/components/shared/rating-stars";
+import { CvDownloadButton } from "@/components/shared/cv-file-row";
+import { CvViewer, PDF_MIME_TYPE } from "@/components/shared/cv-viewer";
+import { UserAvatar } from "@/components/shared/user-avatar";
 import {
   EMPLOYMENT_TYPE_LABELS,
   GENDER_LABELS,
@@ -60,7 +70,10 @@ import {
 } from "@/features/profile/hooks";
 import { useStudentWorkHistory } from "@/features/work-history/hooks";
 import { useJobCategories, useProvinces, useSkills } from "@/features/jobs/hooks/useJobs";
-import { useDeleteFile, useUploadFile } from "@/features/files/hooks";
+import {
+  cleanupReplacedFile,
+  useUploadFile,
+} from "@/features/files/hooks";
 import { formatDateVi, todayIso } from "@/lib/date";
 import { showApiError, toast } from "@/lib/toast";
 import { PATHS } from "@/config/paths";
@@ -92,6 +105,7 @@ const EMPTY_EXPERIENCE: StudentExperience = {
 
 export default function StudentProfilePage() {
   const { data: profile, isPending, isError, refetch } = useStudentProfile();
+  const uploadFile = useUploadFile();
   const updateProfile = useUpdateStudentProfile();
 
   const { data: categories = [] } = useJobCategories();
@@ -102,6 +116,8 @@ export default function StudentProfilePage() {
 
   const [form, setForm] = useState<StudentProfile | null>(null);
   const [skillInput, setSkillInput] = useState("");
+  /** Mở modal xem CV trực tiếp. */
+  const [cvOpen, setCvOpen] = useState(false);
   const [experience, setExperience] = useState<StudentExperience | null>(null);
   // Đồng bộ form khi hồ sơ tải về — pattern "adjust state khi dữ liệu đổi"
   const [syncedProfile, setSyncedProfile] = useState<StudentProfile | null>(null);
@@ -109,8 +125,46 @@ export default function StudentProfilePage() {
   const cvInputRef = useRef<HTMLInputElement>(null);
   const avatarInputRef = useRef<HTMLInputElement>(null);
 
-  const uploadFile = useUploadFile();
-  const deleteFile = useDeleteFile();
+  /**
+   * File vừa upload trong phiên nhưng **chưa lưu** vào hồ sơ.
+   *
+   * Nếu người dùng rời trang mà không bấm "Lưu hồ sơ", các file này sẽ thành
+   * rác trong bucket (và vẫn bị tính vào quota). Chúng được xoá khi unmount.
+   */
+  const unsavedFilesRef = useRef<Set<string>>(new Set());
+
+  /**
+   * File cũ đã bị thay/tháo khỏi form nhưng còn trong DB.
+   *
+   * Chỉ xoá **sau khi** hồ sơ lưu thành công, vì trước đó người dùng còn có
+   * thể đổi ý (không lưu) — khi đó file cũ phải được giữ nguyên.
+   */
+  const replacedFilesRef = useRef<Set<string>>(new Set());
+
+  /**
+   * Ảnh đại diện mà người dùng **chủ động gỡ** khỏi hồ sơ.
+   *
+   * Cần biết để phân biệt 2 trường hợp khi lưu hồ sơ:
+   *   - `avatarUrl = null` vì người dùng bấm nút xoá → gửi `""` để xoá.
+   *   - `avatarUrl = null` vì hồ sơ vốn chưa có ảnh → gửi `null` (không đổi).
+   *
+   * Nếu không phân biệt, `handleSave` sẽ gửi `""` cho cả hai → xoá nhầm
+   * ảnh đã lưu trong DB.
+   */
+  const removedAvatarRef = useRef(false);
+
+  /** Ghi nhận file vừa upload và dọn file cũ nếu nó chưa từng được lưu. */
+  const trackUpload = (url: string, previousUrl?: string | null) => {
+    unsavedFilesRef.current.add(url);
+    if (!previousUrl || previousUrl === url) return;
+
+    if (unsavedFilesRef.current.delete(previousUrl)) {
+      // File cũ cũng là file vừa upload trong phiên → xoá ngay được.
+      void cleanupReplacedFile(previousUrl);
+    } else {
+      replacedFilesRef.current.add(previousUrl);
+    }
+  };
 
   if (profile && profile !== syncedProfile) {
     setSyncedProfile(profile);
@@ -142,8 +196,30 @@ export default function StudentProfilePage() {
 
   const handleSave = async () => {
     if (!form) return;
+
+    // Quy ước với backend: `null` = "không đổi", chuỗi rỗng = "xoá file".
+    // Nhờ vậy người dùng xoá được CV / ảnh đại diện khỏi hồ sơ.
+    const { cvFileName: _cvFileName, ...rest } = form;
+    const payload: Partial<StudentProfile> = {
+      ...rest,
+      // Chỉ gửi `""` (xoá) khi người dùng thực sự bấm xoá ảnh. Nếu hồ sơ vốn
+      // chưa có ảnh thì gửi `null` → backend giữ nguyên, tránh xoá nhầm ảnh
+      // đã lưu sẵn trong DB.
+      avatarUrl: form.avatarUrl ?? (removedAvatarRef.current ? "" : null),
+      cvUrl: form.cvUrl ?? "",
+    };
+
     try {
-      await updateProfile.mutateAsync(form);
+      const updated = await updateProfile.mutateAsync(payload);
+      if (updated) setForm(updated);
+
+      // Hồ sơ đã lưu → file vừa upload trở thành chính thức, file cũ hết dùng.
+      unsavedFilesRef.current.clear();
+      removedAvatarRef.current = false;
+      const replaced = [...replacedFilesRef.current];
+      replacedFilesRef.current.clear();
+      await Promise.all(replaced.map((url) => cleanupReplacedFile(url)));
+
       toast.success("Đã lưu hồ sơ tìm việc.", {
         description: "Hồ sơ của bạn đã được cập nhật thành công.",
       });
@@ -151,6 +227,17 @@ export default function StudentProfilePage() {
       showApiError(error);
     }
   };
+
+  // Rời trang khi chưa lưu → dọn các file vừa upload để không để rác + hao quota.
+  useEffect(() => {
+    const unsaved = unsavedFilesRef.current;
+    const replaced = replacedFilesRef.current;
+    return () => {
+      unsaved.forEach((url) => void cleanupReplacedFile(url));
+      unsaved.clear();
+      replaced.clear();
+    };
+  }, []);
 
   const patch = (partial: Partial<StudentProfile>) => {
     setForm((prev) => (prev ? { ...prev, ...partial } : prev));
@@ -164,37 +251,83 @@ export default function StudentProfilePage() {
    */
   const handleCvUpload = async (file: File | undefined) => {
     if (!file) return;
+    const previous = form?.cvUrl;
     try {
       const uploaded = await uploadFile.mutateAsync({ file, kind: "CV" });
-      patch({ cvUrl: uploaded.url });
+      trackUpload(uploaded.url, previous);
+      patch({ cvUrl: uploaded.url, cvFileName: uploaded.fileName });
     } catch {
       // Lỗi đã được hiển thị qua toast trong useUploadFile.
     }
   };
 
-  /** Tải ảnh đại diện lên server rồi lưu URL vào hồ sơ. */
+  /**
+   * Tải ảnh đại diện lên server rồi **lưu ngay** vào hồ sơ.
+   *
+   * Vì sao lưu ngay chứ không đợi bấm "Lưu hồ sơ": trước đây URL chỉ nằm
+   * trong state của form → bấm F5 là mất ảnh (DB vẫn `avatar_url = NULL`),
+   * dù người dùng đã upload thành công và nhìn thấy ảnh. Ảnh đại diện là
+   * thay đổi độc lập, không cần chờ lưu cả hồ sơ.
+   */
   const handleAvatarUpload = async (file: File | undefined) => {
     if (!file) return;
+    const previous = form?.avatarUrl;
     try {
       const uploaded = await uploadFile.mutateAsync({ file, kind: "AVATAR" });
+      trackUpload(uploaded.url, previous);
       patch({ avatarUrl: uploaded.url });
+      removedAvatarRef.current = false;
+
+      // Ghi pointer file vào DB ngay → F5 / mở tab khác vẫn thấy ảnh.
+      const updated = await updateProfile.mutateAsync({
+        avatarUrl: uploaded.url,
+      });
+      if (updated) setForm(updated);
+
+      // Ảnh đã trở thành chính thức → không cần dọn khi rời trang nữa.
+      unsavedFilesRef.current.delete(uploaded.url);
+      if (previous && previous !== uploaded.url) {
+        void cleanupReplacedFile(previous);
+        replacedFilesRef.current.delete(previous);
+      }
     } catch {
       // Lỗi đã được hiển thị qua toast trong useUploadFile.
     }
   };
 
-  /** Xoá CV khỏi hồ sơ (xoá mềm file trên server + gỡ URL). */
-  const handleCvRemove = async () => {
-    const cvUrl = form?.cvUrl;
-    patch({ cvUrl: null });
+  /**
+   * Tháo file khỏi hồ sơ.
+   *
+   * File chưa từng được lưu (vừa upload trong phiên) → xoá ngay.
+   * File đã lưu trong DB → chỉ xoá sau khi bấm "Lưu hồ sơ" thành công.
+   */
+  const handleFileRemove = async (key: "cvUrl" | "avatarUrl") => {
+    const url = form?.[key];
+    patch(
+      key === "cvUrl"
+        ? { cvUrl: null, cvFileName: null }
+        : { avatarUrl: null }
+    );
+    if (key === "avatarUrl") removedAvatarRef.current = true;
+    if (!url) return;
 
-    if (!cvUrl) return;
-    const fileId = cvUrl.split("/").pop();
-    if (!fileId) return;
-    try {
-      await deleteFile.mutateAsync({ id: fileId, kind: "CV" });
-    } catch {
-      // Đã gỡ khỏi hồ sơ rồi — không cần báo lỗi thêm.
+    if (unsavedFilesRef.current.delete(url)) {
+      void cleanupReplacedFile(url);
+      return;
+    }
+    replacedFilesRef.current.add(url);
+
+    // Gỡ ảnh đại diện khỏi hồ sơ ngay — không đợi bấm "Lưu hồ sơ",
+    // nếu không người dùng bấm xoá rồi F5 thì ảnh cũ vẫn còn.
+    if (key === "avatarUrl") {
+      try {
+        const updated = await updateProfile.mutateAsync({ avatarUrl: "" });
+        if (updated) setForm(updated);
+        await cleanupReplacedFile(url);
+        replacedFilesRef.current.delete(url);
+      } catch {
+        // Lỗi đã được hiển thị qua toast.
+      }
     }
   };
 
@@ -294,17 +427,13 @@ export default function StudentProfilePage() {
         <CardContent className="flex flex-col gap-4 p-5 sm:flex-row sm:items-center">
           <div className="flex items-center gap-4">
             <div className="relative">
-              {form.avatarUrl ? (
-                <img
-                  src={form.avatarUrl}
-                  alt={form.fullName}
-                  className="size-16 rounded-2xl object-cover"
-                />
-              ) : (
-                <div className="flex size-16 items-center justify-center rounded-2xl bg-primary/10 text-lg font-semibold text-primary">
-                  {form.fullName.slice(0, 2).toUpperCase()}
-                </div>
-              )}
+              <UserAvatar
+                name={form.fullName}
+                imageUrl={form.avatarUrl}
+                size="lg"
+                shape="rounded"
+                className="size-16 bg-primary/10 text-lg text-primary"
+              />
               <button
                 type="button"
                 aria-label="Đổi ảnh đại diện"
@@ -314,6 +443,17 @@ export default function StudentProfilePage() {
               >
                 <Camera className="size-3.5" />
               </button>
+              {form.avatarUrl && (
+                <button
+                  type="button"
+                  aria-label="Xoá ảnh đại diện"
+                  disabled={updateProfile.isPending}
+                  className="absolute -bottom-1 -left-1 flex size-7 cursor-pointer items-center justify-center rounded-full bg-destructive/90 text-white ring-2 ring-card transition-transform hover:scale-105 disabled:cursor-not-allowed disabled:opacity-60"
+                  onClick={() => handleFileRemove("avatarUrl")}
+                >
+                  <Trash2 className="size-3.5" />
+                </button>
+              )}
               <input
                 ref={avatarInputRef}
                 type="file"
@@ -789,14 +929,24 @@ export default function StudentProfilePage() {
                     Chấp nhận PDF, DOC, DOCX — tối đa 5MB.
                   </FieldDescription>
                   {form.cvUrl ? (
-                    <div className="flex items-center justify-between gap-3 rounded-lg border border-border bg-muted/40 px-3 py-2.5">
+                    <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-border bg-muted/40 px-3 py-2.5">
                       <div className="flex min-w-0 items-center gap-2">
                         <FileText className="size-4 shrink-0 text-primary" />
                         <span className="truncate text-sm text-foreground">
-                          {form.cvUrl.split("/").pop()}
+                          {form.cvFileName || "CV đã tải lên"}
                         </span>
                       </div>
                       <div className="flex shrink-0 items-center gap-1">
+                        <CvDownloadButton
+                          url={form.cvUrl}
+                          fileName={form.cvFileName}
+                        />
+                        {form.cvMimeType === PDF_MIME_TYPE && (
+                          <Button variant="outline" size="sm" onClick={() => setCvOpen(true)}>
+                            <FileText className="size-4" />
+                            Xem CV
+                          </Button>
+                        )}
                         <Button
                           variant="ghost"
                           size="sm"
@@ -809,8 +959,8 @@ export default function StudentProfilePage() {
                         <Button
                           variant="ghost"
                           size="sm"
-                          disabled={deleteFile.isPending}
-                          onClick={() => void handleCvRemove()}
+                          disabled={updateProfile.isPending}
+                          onClick={() => handleFileRemove("cvUrl")}
                         >
                           <Trash2 className="size-4" />
                           Xoá
@@ -1167,6 +1317,26 @@ export default function StudentProfilePage() {
           {updateProfile.isPending ? "Đang lưu..." : "Lưu hồ sơ"}
         </Button>
       </div>
+
+      {/* MODAL XEM CV — sinh viên xem lại CV của chính mình */}
+      <Dialog open={cvOpen} onOpenChange={setCvOpen}>
+        <DialogContent className="sm:max-w-4xl">
+          <DialogHeader>
+            <DialogTitle>CV của bạn</DialogTitle>
+            <DialogDescription>
+              {form.cvFileName || "CV đã tải lên"}
+            </DialogDescription>
+          </DialogHeader>
+
+          {form.cvUrl && (
+            <CvViewer
+              url={form.cvUrl}
+              fileName={form.cvFileName}
+              mimeType={form.cvMimeType}
+            />
+          )}
+        </DialogContent>
+      </Dialog>
     </DashboardLayout>
   );
 }

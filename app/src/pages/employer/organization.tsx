@@ -1,4 +1,4 @@
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
   BadgeCheck,
   Camera,
@@ -44,7 +44,10 @@ import {
 import { useEmployerJobs } from "@/features/employer/hooks";
 import { useEmployerApplications } from "@/features/applications/hooks";
 import { useProvinces } from "@/features/jobs/hooks/useJobs";
-import { useDeleteFile, useUploadFile } from "@/features/files/hooks";
+import {
+  cleanupReplacedFile,
+  useUploadFile,
+} from "@/features/files/hooks";
 import {
   EMPLOYER_TYPE_LABELS,
   type EmployerProfile,
@@ -68,7 +71,20 @@ export default function EmployerOrganizationPage() {
   const logoInputRef = useRef<HTMLInputElement>(null);
 
   const uploadFile = useUploadFile();
-  const deleteFile = useDeleteFile();
+
+  /** File vừa upload trong phiên nhưng chưa lưu — xoá khi rời trang. */
+  const unsavedFilesRef = useRef<Set<string>>(new Set());
+
+  /**
+   * Logo mà người dùng **chủ động gỡ** khỏi hồ sơ.
+   *
+   * Phân biệt 2 trường hợp khi lưu: `logoUrl = null` vì người dùng bấm xoá
+   * → gửi `""` để xoá; `logoUrl = null` vì hồ sơ vốn chưa có logo → gửi `null`
+   * (không đổi). Nếu không phân biệt, `handleSave` xoá nhầm logo đã lưu trong DB.
+   */
+  const removedLogoRef = useRef(false);
+  /** File cũ bị thay/tháo — chỉ xoá sau khi lưu thành công. */
+  const replacedFilesRef = useRef<Set<string>>(new Set());
 
   if (profile && profile !== syncedProfile) {
     setSyncedProfile(profile);
@@ -78,41 +94,115 @@ export default function EmployerOrganizationPage() {
   const patch = (partial: Partial<EmployerProfile>) =>
     setForm((prev) => (prev ? { ...prev, ...partial } : prev));
 
-  /** Tải logo lên server rồi lưu URL vào hồ sơ. */
+  /**
+   * Tải logo lên server rồi **lưu ngay** vào hồ sơ.
+   *
+   * Vì sao lưu ngay chứ không đợi bấm "Lưu thay đổi": trước đây URL chỉ nằm
+   * trong state của form → bấm F5 là mất logo (DB vẫn `logo_url = NULL`),
+   * dù người dùng đã upload thành công và nhìn thấy logo. Logo là thay đổi
+   * độc lập, không cần chờ lưu cả hồ sơ.
+   */
   const handleLogoUpload = async (file: File | undefined) => {
     if (!file) return;
+    const previous = form?.logoUrl;
     try {
       const uploaded = await uploadFile.mutateAsync({ file, kind: "LOGO" });
+      unsavedFilesRef.current.add(uploaded.url);
+      if (previous && previous !== uploaded.url) {
+        if (unsavedFilesRef.current.delete(previous)) {
+          void cleanupReplacedFile(previous);
+        } else {
+          replacedFilesRef.current.add(previous);
+        }
+      }
       patch({ logoUrl: uploaded.url });
+      removedLogoRef.current = false;
+
+      // Ghi pointer file vào DB ngay → F5 / mở tab khác vẫn thấy logo.
+      const updated = await updateProfile.mutateAsync({
+        logoUrl: uploaded.url,
+      });
+      if (updated) setForm(updated);
+
+      // Logo đã trở thành chính thức → không cần dọn khi rời trang nữa.
+      unsavedFilesRef.current.delete(uploaded.url);
+      if (previous && previous !== uploaded.url) {
+        void cleanupReplacedFile(previous);
+        replacedFilesRef.current.delete(previous);
+      }
     } catch {
       // Lỗi đã được hiển thị qua toast trong useUploadFile.
     }
   };
 
-  /** Xoá logo khỏi hồ sơ (xoá mềm file trên server + gỡ URL). */
+  /**
+   * Tháo logo khỏi hồ sơ.
+   *
+   * File chưa lưu (vừa upload) → xoá ngay; file đã lưu trong DB → chỉ xoá sau
+   * khi bấm "Lưu thay đổi" thành công.
+   */
   const handleLogoRemove = async () => {
     const logoUrl = form?.logoUrl;
     patch({ logoUrl: null });
-
+    removedLogoRef.current = true;
     if (!logoUrl) return;
-    const fileId = logoUrl.split("/").pop();
-    if (!fileId) return;
+
+    if (unsavedFilesRef.current.delete(logoUrl)) {
+      void cleanupReplacedFile(logoUrl);
+      return;
+    }
+    replacedFilesRef.current.add(logoUrl);
+
+    // Gỡ logo khỏi hồ sơ ngay — không đợi bấm "Lưu thay đổi",
+    // nếu không người dùng bấm xoá rồi F5 thì logo cũ vẫn còn.
     try {
-      await deleteFile.mutateAsync({ id: fileId, kind: "LOGO" });
+      const updated = await updateProfile.mutateAsync({ logoUrl: "" });
+      if (updated) setForm(updated);
+      await cleanupReplacedFile(logoUrl);
+      replacedFilesRef.current.delete(logoUrl);
     } catch {
-      // Đã gỡ khỏi hồ sơ rồi — không cần báo lỗi thêm.
+      // Lỗi đã được hiển thị qua toast.
     }
   };
 
   const handleSave = async () => {
     if (!form) return;
+
+    // Quy ước với backend: `null` = "không đổi", chuỗi rỗng = "xoá file".
+    const payload: Partial<EmployerProfile> = {
+      ...form,
+      // Chỉ gửi `""` (xoá) khi người dùng thực sự bấm xoá logo. Nếu hồ sơ vốn
+      // chưa có logo thì gửi `null` → backend giữ nguyên, tránh xoá nhầm logo
+      // đã lưu sẵn trong DB.
+      logoUrl: form.logoUrl ?? (removedLogoRef.current ? "" : null),
+    };
+
     try {
-      await updateProfile.mutateAsync(form);
+      const updated = await updateProfile.mutateAsync(payload);
+      if (updated) setForm(updated);
+
+      unsavedFilesRef.current.clear();
+      removedLogoRef.current = false;
+      const replaced = [...replacedFilesRef.current];
+      replacedFilesRef.current.clear();
+      await Promise.all(replaced.map((url) => cleanupReplacedFile(url)));
+
       toast.success("Đã cập nhật thông tin tổ chức.");
     } catch (error) {
       showApiError(error);
     }
   };
+
+  // Rời trang khi chưa lưu → dọn file vừa upload để không để rác + hao quota.
+  useEffect(() => {
+    const unsaved = unsavedFilesRef.current;
+    const replaced = replacedFilesRef.current;
+    return () => {
+      unsaved.forEach((url) => void cleanupReplacedFile(url));
+      unsaved.clear();
+      replaced.clear();
+    };
+  }, []);
 
   if (isPending || !form) {
     return (
@@ -361,8 +451,8 @@ export default function EmployerOrganizationPage() {
                         <Button
                           variant="ghost"
                           size="sm"
-                          disabled={deleteFile.isPending}
-                          onClick={() => void handleLogoRemove()}
+                          disabled={updateProfile.isPending}
+                          onClick={handleLogoRemove}
                         >
                           Xoá logo
                         </Button>
