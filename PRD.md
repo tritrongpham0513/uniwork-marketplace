@@ -200,14 +200,30 @@
 **Đã hiện thực:**
 - `GET /api/v1/student/applications?status` — danh sách đơn của tôi, mới nhất trước.
 - `GET /api/v1/student/applications/{id}` — chi tiết + timeline trạng thái.
+- `GET /api/v1/student/applications/job/{jobId}` — đơn của tôi cho 1 tin (chưa ứng tuyển → `data: null`).
 - `PATCH /api/v1/student/applications/{id}/withdraw` — chỉ rút được khi đang `PENDING`; đã xử lý thì báo "liên hệ NTD".
 - Rút đơn → giảm `applicantCount`, đẩy trạng thái `WITHDRAWN`, NTD nhận thông báo.
 - Trang danh sách có modal xác nhận rút đơn nêu rõ hệ quả.
+
+**Ứng tuyển lại sau khi rút đơn (BR-06.18):**
+- Bảng `applications` có unique constraint `(job_post_id, student_id)` → 1 SV chỉ có **1 dòng đơn** cho mỗi tin.
+- Rút đơn **không xoá dòng**, chỉ đổi `status → WITHDRAWN` → nếu tạo dòng mới sẽ vi phạm unique constraint.
+- Nên `POST /api/v1/student/applications` với đơn cũ ở `WITHDRAWN` sẽ **tái kích hoạt dòng cũ**
+  (`WITHDRAWN → PENDING`) thay vì tạo dòng mới:
+  - Cập nhật lại `cover_letter` / `experience` / `expected_salary` / `available_from` / CV.
+  - Reset `decided_at`, `reviewed_at`, `employer_note`, `reject_reason` về `null`.
+  - Tăng lại `applicantCount` 1 (rút đơn đã giảm 1).
+  - Ghi thêm 1 dòng timeline `WITHDRAWN → PENDING` (giữ nguyên lịch sử cũ).
+  - NTD nhận thông báo "Ứng viên ứng tuyển lại".
+- Đơn cũ ở trạng thái **khác** `WITHDRAWN` → vẫn bị chặn 400 "Bạn đã ứng tuyển vào tin tuyển dụng này rồi."
+- Frontend: trang chi tiết tin hiện nút **"Ứng tuyển lại"** (đơn đã rút) hoặc **"Đã ứng tuyển — xem hồ sơ"**
+  (đã ứng tuyển); trang `/student/applications` có nút "Ứng tuyển lại" cho đơn `WITHDRAWN`.
 
 **Done khi:**
 - ✅ SV xem được toàn bộ đơn + lịch sử trạng thái.
 - ✅ Rút đơn thành công khi còn PENDING.
 - ✅ Rút đơn bị chặn với thông báo giải thích khi đã xử lý.
+- ✅ SV ứng tuyển lại được sau khi rút đơn (tái kích hoạt dòng cũ, không tạo dòng trùng).
 - ❌ (ngoài phạm vi) Nhắc việc lịch học qua lịch Google; chat với NTD.
 
 ---
@@ -699,6 +715,7 @@
 | BR-06.15 | Danh sách đơn của NTD: lọc theo tin (`jobId`) **hoặc** trạng thái (`status`); `status` rỗng/`ALL` → không lọc; tất cả sắp xếp `appliedAt DESC`. | `listByEmployer` |
 | BR-06.16 | Danh sách đơn của SV: `status` rỗng/`ALL` → không lọc; sắp xếp `appliedAt DESC`. | `listByStudent` |
 | BR-06.17 | ⚠️ **Chưa thống nhất:** `employerNote` được trả về cho **cả hai bên** (`ApplicationResponse` không phân nhánh theo vai trò) và trang chi tiết đơn của **sinh viên** đang **render** nó ("Ghi chú từ nhà tuyển dụng"), trong khi UI ghi chú gọi nhãn "Ghi chú nội bộ — riêng giữa bạn và đội ngũ tuyển dụng". | `ApplicationServiceImpl.toResponse` · `pages/student/application-detail.tsx` |
+| BR-06.18 | **Ứng tuyển lại sau khi rút đơn**: vì unique constraint `(job_post_id, student_id)`, đơn `WITHDRAWN` được **tái kích hoạt** (`WITHDRAWN → PENDING`) chứ không tạo dòng mới — cập nhật lại nội dung đơn, reset `decided_at`/`reviewed_at`/`employer_note`/`reject_reason`, tăng lại `applicantCount` 1, ghi thêm 1 dòng timeline. Đơn ở trạng thái khác `WITHDRAWN` → 400 "Bạn đã ứng tuyển vào tin tuyển dụng này rồi." | `ApplicationServiceImpl.create` → `reactivate` |
 
 > ⚠️ **Cần chốt hướng xử lý cho BR-06.17:** PRD cũ mô tả `PATCH /employer/applications/{id}/note` là *"chỉ NTD thấy, không gửi cho sinh viên"* nhưng code đang hiển thị cho cả hai bên. Chọn 1 trong 2: **(a)** tách 2 trường riêng (`employerNote` nội bộ vs `studentNote` thông báo cho SV) — khớp nguyên tắc "ghi chú nội bộ"; hoặc **(b)** sửa PRD + đổi nhãn UI thành "Ghi chú từ nhà tuyển dụng" và bỏ chữ "nội bộ".
 
@@ -854,7 +871,7 @@ NTD đánh giá uy tín ứng viên trước khi nhận.
 ### Tóm tắt các quy tắc cốt lõi (nếu chỉ nhớ 10 điều)
 
 1. **Tin mới luôn chờ duyệt** — sửa tin đã duyệt thì quay lại hàng đợi.
-2. **Ứng tuyển trùng bị chặn** ở cả service lẫn unique constraint DB.
+2. **Ứng tuyển trùng bị chặn** ở cả service lẫn unique constraint DB — **trừ** đơn đã rút (`WITHDRAWN`) được tái kích hoạt lại.
 3. **Chỉ rút được đơn khi còn `PENDING`**; bộ đếm ứng viên clamp ≥ 0.
 4. **Đủ suất → tin `FILLED`**, còn suất nhưng đã có người nhận → `IN_PROGRESS` (tự động).
 5. **Chỉ đánh giá sau `COMPLETED`**, 1 người 1 đánh giá / 1 đơn; điểm TB tính lại ở tầng service.
@@ -988,6 +1005,7 @@ NTD đánh giá uy tín ứng viên trước khi nhận.
 | Truy cập route khi chưa đăng nhập | Redirect `/login`; quay lại route cũ sau khi login. |
 | Xem đơn ứng tuyển của người khác | 403 `forbidden` — không lộ nội dung hồ sơ. |
 | Ứng tuyển trùng cùng 1 tin | 400 — "Bạn đã ứng tuyển vào tin tuyển dụng này rồi." |
+| Ứng tuyển lại tin đã rút đơn | 201 — tái kích hoạt dòng đơn cũ (`WITHDRAWN → PENDING`), **không** tạo dòng mới (unique constraint `job_post_id + student_id`). |
 | Ứng tuyển vào tin không còn `OPEN` | 400 — "Tin tuyển dụng này đã ngừng nhận ứng tuyển." |
 | Rút đơn khi đã xử lý (không còn PENDING) | 400 — "Đơn ứng tuyển đã được xử lý, không thể rút. Vui lòng liên hệ nhà tuyển dụng." |
 | Rút đơn → giảm `applicantCount` | Clamp về 0 (`Math.max(0, ...)`) — không xuống số âm. |
@@ -1126,7 +1144,8 @@ NTD đánh giá uy tín ứng viên trước khi nhận.
 | GET/PUT | `/student/profile` | Hồ sơ sinh viên (kèm kinh nghiệm, mục tiêu việc làm) |
 | GET | `/student/applications` | Đơn ứng tuyển của tôi (`?status=`) |
 | GET | `/student/applications/{id}` | Chi tiết đơn + timeline |
-| POST | `/student/applications` | Nộp đơn ứng tuyển |
+| GET | `/student/applications/job/{jobId}` | Đơn của tôi cho 1 tin (chưa ứng tuyển → `data: null`) |
+| POST | `/student/applications` | Nộp đơn ứng tuyển (đơn cũ `WITHDRAWN` → tái kích hoạt) |
 | PATCH | `/student/applications/{id}/withdraw` | Rút đơn |
 | GET | `/student/reviews` | Đánh giá sinh viên đã nhận từ nhà tuyển dụng |
 | POST | `/student/reviews/{id}/reply` | SV phản hồi đánh giá đã nhận (ô `reply`) |

@@ -88,7 +88,7 @@ Mọi service gọi qua `axiosInstance` tại `src/lib/axios.ts`:
 | -------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | Auth           | `POST /auth/register`, `POST /auth/login`, `POST /auth/google`, `POST /auth/verify-email`, `POST /auth/resend-verification`, `POST /auth/refresh`, `GET /auth/me`                                                         |
 | Public         | `GET /jobs/public`, `GET /jobs/public/{id}`, `GET /jobs/public/related`, `GET /public/{categories,positions,provinces,districts,skills,salary-benchmarks}`                                                                |
-| Sinh viên      | `GET/PUT /student/profile`, `GET/POST /student/applications`, `GET /student/applications/{id}`, `PATCH /student/applications/{id}/withdraw`, `GET/POST/DELETE /student/saved-jobs`, `GET /student/saved-jobs/ids`, `GET/POST/DELETE /student/job-notifications` |
+| Sinh viên      | `GET/PUT /student/profile`, `GET/POST /student/applications`, `GET /student/applications/{id}`, `GET /student/applications/job/{jobId}`, `PATCH /student/applications/{id}/withdraw`, `GET/POST/DELETE /student/saved-jobs`, `GET /student/saved-jobs/ids`, `GET/POST/DELETE /student/job-notifications` |
 | Nhà tuyển dụng | `GET/POST /employer/jobs`, `PUT/DELETE /employer/jobs/{id}`, `GET /employer/applications`, `GET/PATCH /employer/applications/{id}`, `PATCH /employer/applications/{id}/note`, `GET/PUT /employer/profile`, `POST /employer/reviews/{id}/reply` |
 | Đánh giá       | `POST /reviews`, `GET /reviews?targetType=&targetUserId=`                                                                                                                                                                 |
 | Thông báo      | `GET /notifications`, `GET /notifications/unread-count`, `PATCH /notifications/{id}/read`, `POST /notifications/read-all`                                                                                                 |
@@ -172,6 +172,23 @@ node scripts/verify-realtime-ws.mjs http://localhost:8081    # 7 sự kiện Web
 SMOKE_BASE_URL=http://localhost:5173 SMOKE_API_URL=http://localhost:8081 \
   node scripts/smoke-realtime-browser.mjs                    # toast + nút "Xem" trong Chrome
 ```
+
+### Kiểm chứng ứng tuyển lại sau khi rút đơn
+
+```bash
+cd app
+SMOKE_BASE_URL=http://localhost:5173 SMOKE_API_URL=http://localhost:8081/api/v1 \
+  pnpm verify:reapply
+```
+
+6 assert trên Chrome thật: trang chi tiết tin hiện nút **"Ứng tuyển lại"** cho đơn
+đã rút → form ứng tuyển đổi tiêu đề/nút submit → gửi lại thành công → đơn cũ được
+**tái kích hoạt** (không tạo dòng mới) → trang chi tiết tin chuyển sang
+"Đã ứng tuyển" → không có lỗi console / HTTP 4xx-5xx.
+
+> Script tự tạo dữ liệu nền qua API (ứng tuyển → rút) rồi thao tác trên UI.
+> Nếu SV demo đã ứng tuyển hết các tin `OPEN`, script tự **tạo tin mới + Admin duyệt**.
+> Cần backend dev (`:8081`) + frontend dev (`:5173`).
 
 ### Smoke test trình duyệt (tùy chọn)
 
@@ -293,6 +310,7 @@ const res = await filesService.upload(file, "CV"); // kind: CV | AVATAR | LOGO
 | Hook                        | Việc                                    |
 | --------------------------- | --------------------------------------- |
 | `useUploadFile()`           | Upload + validate phía client + toast   |
+| `useDownloadFile()`         | Tải CV qua API có `Authorization`       |
 | `useDeleteFile()`           | Xoá file đã upload                      |
 
 Nơi dùng: hồ sơ sinh viên (CV + ảnh đại diện), hồ sơ tổ chức (logo NTD), trang ứng tuyển (CV).
@@ -307,6 +325,18 @@ Nơi dùng: hồ sơ sinh viên (CV + ảnh đại diện), hồ sơ tổ chức
 > Nơi lưu trữ file duy nhất là **Cloudflare R2**. Luồng multipart (`POST /files/upload`)
 > vẫn còn (backend đọc bytes rồi đẩy lên R2) nhưng client không dùng.
 
+**Quy ước quan trọng (V11):**
+
+- `url` trả về **tương đối**: `/api/v1/files/{slug}` — không ghép domain, nên cùng một DB chạy
+  đúng ở dev `:5173`, prod `:8000` và domain deploy thật.
+- CV là tài nguyên riêng tư → **không** dùng `<a href={cvUrl}>` (trình duyệt không gắn
+  `Authorization` → 403). Dùng `useDownloadFile()` / component `CvFileRow`
+  (`app/src/components/shared/cv-file-row.tsx`): axios blob → object URL → `<a download>`.
+- Cập nhật hồ sơ: `null` = *không đổi*, chuỗi rỗng `""` = *xoá file* (backend chuẩn hoá
+  qua `FileUrlValidator`, chặn URL ngoài bằng `400`).
+- Upload xong mà rời trang không lưu → file vừa upload bị xoá khi unmount; file cũ bị thay
+  chỉ bị xoá sau khi lưu hồ sơ thành công (`cleanupReplacedFile`).
+
 **Kiểm chứng:**
 
 ```bash
@@ -315,8 +345,9 @@ API_URL=http://localhost:8080/api/v1 pnpm verify:files-storage
 API_URL=http://localhost:8081/api/v1 pnpm verify:files-storage
 ```
 
-15 assert: upload CV, bucket `private`, cấu trúc `storageKey`, quyền tải CV (chủ sở hữu /
-khách / NTD), magic bytes chặn file giả dạng, resize ảnh ≤ 512px, xoá file + giải phóng quota.
+23 assert: upload CV, bucket private, cấu trúc `storageKey`, URL tương đối, CV stream 200 kèm
+tên gốc, quyền tải CV (chủ sở hữu / khách / NTD), magic bytes chặn file giả dạng, resize ảnh ≤ 512px,
+ảnh công khai redirect 302 sang CDN, xoá file + giải phóng quota.
 
 Kiểm chứng trên UI thật (Chrome):
 

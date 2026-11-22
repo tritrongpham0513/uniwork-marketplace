@@ -326,15 +326,20 @@ File được lưu thật trên **Cloudflare R2** (S3-compatible) qua luồng pr
 POST   /api/v1/files/presign?kind=CV|AVATAR|LOGO&contentType=  → 200 (uploadUrl + storageKey)
 PUT    <uploadUrl>                                              → 200 (đẩy thẳng lên R2)
 POST   /api/v1/files/confirm                                    → 201 (metadata)
-GET    /api/v1/files/{id}                                       → 302 (redirect tới presigned GET / CDN)
-DELETE /api/v1/files/{id}                                       → 200 (xoá mềm)
+GET    /api/v1/files/{id}                                       → 200 (CV: stream qua backend) · 302 (ảnh: redirect CDN)
+DELETE /api/v1/files/{id}                                       → 200 (xoá mềm, 409 nếu đang được tham chiếu)
 ```
 
 - Cấu hình qua env: `R2_ENDPOINT`, `R2_ACCESS_KEY`, `R2_SECRET_KEY`, `R2_BUCKET_PUBLIC`, `R2_BUCKET_PRIVATE`.
-- `kind=CV` là **tài nguyên riêng tư**: chỉ chủ sở hữu, admin, và NTD đã nhận đơn ứng tuyển từ sinh viên đó mới đọc được (qua presigned GET có hạn).
-  `AVATAR` / `LOGO` là ảnh công khai (bucket public, có thể gắn Cloudflare CDN).
+- `FileUploadResponse.url` luôn **tương đối** (`/api/v1/files/{slug}`) → app và API cùng origin
+  (nginx / Vite proxy), chạy đúng ở mọi domain mà không cần cấu hình host.
+- `null` = "không đổi", chuỗi rỗng `""` = "xoá" cho `avatarUrl` / `cvUrl` / `logoUrl` khi cập nhật hồ sơ.
+- `kind=CV` là **tài nguyên riêng tư**: chỉ chủ sở hữu, admin, và NTD đã nhận đơn ứng tuyển từ sinh viên đó mới đọc được.
+  Client tải CV bằng axios `responseType: "blob"` (có `Authorization`) — **không** dùng `<a href>`.
+  `AVATAR` / `LOGO` là ảnh công khai (bucket public, redirect CDN kèm `Cache-Control: immutable`).
 - Backend xác minh **magic bytes** (không tin `Content-Type` của client) và resize ảnh về ≤ 512px.
-- Frontend: `src/features/files/` (`files.service.ts` + `useUploadFile` / `useDeleteFile`) — gọi thẳng API thật.
+- Frontend: `src/features/files/` (`files.service.ts` + `useUploadFile` / `useDownloadFile` / `useDeleteFile`)
+  và component dùng chung `CvFileRow` — gọi thẳng API thật.
 
 > **Lưu ý Windows/Git Bash**: `curl -F "file=@/tmp/x.pdf"` sẽ lỗi `(26) Failed to open/read local data from file`
 > vì curl native không hiểu đường dẫn POSIX. Luôn dùng **đường dẫn tương đối** trong thư mục hiện tại
@@ -348,6 +353,31 @@ Dữ liệu demo nằm trong `backend/src/main/resources/db/migration/`:
 
 Đây là **SQL tĩnh** → checksum ổn định, không gây `Migration checksum mismatch` cho Flyway khi rebuild container.
 Muốn đổi dữ liệu demo: sửa trực tiếp file SQL → `./dev.sh reset` (xoá volume `mysql-dev-data` → migrate lại từ V1).
+
+### Dữ liệu địa lý Việt Nam (34 tỉnh + 3.321 xã/phường)
+
+`V12__full_vietnam_admin_divisions.sql` nạp danh mục hành chính **đầy đủ** theo cấu trúc
+2 cấp (từ 01/07/2025 bỏ cấp huyện — Quyết định 19/2025/QĐ-TTg):
+
+| Bảng | Nội dung |
+| --- | --- |
+| `provinces` | 34 tỉnh. `code` = mã chính thức 2 chữ số (`01` Hà Nội, `79` TP.HCM, …) |
+| `wards` | 3.321 xã/phường. `code` = mã 5 chữ số, kèm tên EN + mã bưu chính |
+| `legacy_district_ward_map` | Map 37 quận/huyện cũ → xã/phường mới |
+
+Nguồn (open source): [thanglequoc/vietnamese-provinces-database](https://github.com/thanglequoc/vietnamese-provinces-database) (MIT)
++ [HuyChuong/vietnam-administrative-units](https://github.com/HuyChuong/vietnam-administrative-units) (CC-BY-4.0),
+dữ liệu gốc từ API Cục Thống kê.
+
+Khi nguồn cập nhật, sinh lại file migration:
+
+```bash
+cd backend/scripts
+python3 generate_admin_divisions_migration.py
+```
+
+Bảng `districts` (quận cũ) **được giữ lại** để không break frontend hiện tại;
+`job_posts.ward_id` đã được backfill từ bảng map.
 
 ---
 
