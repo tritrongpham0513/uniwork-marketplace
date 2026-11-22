@@ -473,7 +473,13 @@ export interface SalaryBenchmark {
 /** Kết quả so sánh lương của 1 tin tuyển dụng với benchmark */
 export interface SalaryComparison {
   benchmark: SalaryBenchmark;
-  /** Phần trăm xếp hạng (cao hơn = số lớn hơn) */
+  /**
+   * Phần trăm xếp hạng, hiển thị dạng "Top X%".
+   *
+   * <p>Nghĩa: mức lương này **cao hơn (100 − X)%** tin cùng nhóm. Số nhỏ =
+   * lương càng cao. Cụ thể: `percentile = 93` → "Top 93%" (thấp hơn trung
+   * bình), `percentile = 8` → "Top 8%" (cao hơn trung bình).
+   */
   percentile: number;
   /** "Cao hơn trung bình" | "Thấp hơn trung bình" | "Trung bình" */
   verdict: "ABOVE" | "BELOW" | "AVERAGE";

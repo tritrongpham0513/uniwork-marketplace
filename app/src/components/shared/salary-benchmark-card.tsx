@@ -90,7 +90,10 @@ export function SalaryBenchmarkCard({
           </span>
         </p>
 
-        <Progress value={percentile} className="gap-1" />
+        {/* Thanh tiến độ tượng trưng "mức lương so với dải benchmark":
+            đầy = lương cao. `percentile` là "Top X%" nên lương cao ⇔
+            percentile nhỏ → lấy 100 - percentile. */}
+        <Progress value={100 - percentile} className="gap-1" />
 
         <div className="flex items-center justify-between text-[11px] text-muted-foreground">
           <span>{verdictLabel}</span>

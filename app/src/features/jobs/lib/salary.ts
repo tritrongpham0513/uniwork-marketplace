@@ -36,10 +36,17 @@ export const compareSalary = (
 
   const { avgHourly, minHourly, maxHourly } = benchmark;
 
-  // Xếp hạng: vị trí của mức lương trong dải [min, max]
+  // Xếp hạng: vị trí của mức lương trong dải [min, max].
+  //
+  // `ratio` = phần trăm tin có lương THẤP HƠN mức này (tính từ dưới lên).
+  // Nhưng "Top X%" trên UI được hiểu là "cao hơn (100 - X)% tin còn lại" —
+  // tức tính từ TRÊN xuống. Nên ta đảo lại: percentile = 100 - ratio.
+  //
+  // Ví dụ lương = min → ratio 0 → percentile 100 → "Top 100%" (thấp nhất).
+  //       lương = max → ratio 1 → percentile 1   → "Top 1%"   (cao nhất).
   const span = Math.max(1, maxHourly - minHourly);
   const ratio = Math.min(1, Math.max(0, (hourly - minHourly) / span));
-  const percentile = Math.round(ratio * 100);
+  const percentile = Math.round((1 - ratio) * 100);
 
   const diff = hourly - avgHourly;
 

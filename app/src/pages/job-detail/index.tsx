@@ -15,6 +15,7 @@ import {
   Info,
   MapPin,
   Share2,
+  TrendingDown,
   TrendingUp,
   Users,
 } from "lucide-react";
@@ -289,7 +290,11 @@ export function JobDetailPage() {
 
                 {comparison && (
                   <div className="mt-2 flex flex-wrap items-center gap-2 text-xs">
-                    <TrendingUp className="size-3.5 text-primary" />
+                    {comparison.verdict === "BELOW" ? (
+                      <TrendingDown className="size-3.5 text-muted-foreground" />
+                    ) : (
+                      <TrendingUp className="size-3.5 text-primary" />
+                    )}
                     <span className="font-semibold text-foreground">
                       Top {comparison.percentile}%
                     </span>

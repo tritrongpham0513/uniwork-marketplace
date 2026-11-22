@@ -16,6 +16,7 @@ import {
   Clock,
   MapPin,
   Sparkles,
+  TrendingDown,
   TrendingUp,
   Users,
 } from "lucide-react";
@@ -127,16 +128,22 @@ export function JobCard({
         </div>
 
         {/* Xếp hạng lương — Viecoday */}
-        {comparison && comparison.verdict !== "AVERAGE" && (
+        {comparison && (
           <div className="flex items-center gap-2 text-xs">
-            <TrendingUp className="size-3.5 text-primary" />
+            {comparison.verdict === "BELOW" ? (
+              <TrendingDown className="size-3.5 text-muted-foreground" />
+            ) : (
+              <TrendingUp className="size-3.5 text-primary" />
+            )}
             <span className="font-medium text-foreground">
               Top {comparison.percentile}%
             </span>
             <span className="text-muted-foreground">
               {comparison.verdict === "ABOVE"
                 ? "· Cao hơn trung bình"
-                : "· Thấp hơn trung bình"}
+                : comparison.verdict === "BELOW"
+                  ? "· Thấp hơn trung bình"
+                  : "· Trung bình ngành"}
             </span>
             <span className="ml-auto text-muted-foreground">
               {comparison.benchmark.sampleSize} tin cùng ngành
