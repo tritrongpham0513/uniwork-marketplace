@@ -1,4 +1,5 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { normalizeApiError } from "@/lib/api-error";
 import { toast } from "@/lib/toast";
 import {
   filesService,
@@ -105,9 +106,10 @@ export const useDownloadFile = () => {
 /**
  * Dọn file cũ sau khi hồ sơ đã trỏ sang file mới.
  *
- * Bỏ qua mọi lỗi: file cũ có thể đang được đơn ứng tuyển / đánh giá tham chiếu
- * (`409 FILE_IN_USE`) hoặc đã bị xoá trước đó (`404`). Dọn dẹp không được phép
- * làm hỏng thao tác lưu hồ sơ đã thành công.
+ * <p>Bỏ qua lỗi 404 (file đã bị xoá trước đó) và 409 `FILE_IN_USE` — CV còn
+ * bị đơn ứng tuyển trỏ tới thì backend giữ lại blob nên vẫn xem được, không
+ * phải lỗi. Mọi lỗi khác được báo lại để người dùng biết file rác còn
+ * nằm trong hệ thống.
  *
  * @param oldUrl URL file cũ (chỉ xử lý nếu là file do hệ thống quản lý)
  */
@@ -118,8 +120,16 @@ export const cleanupReplacedFile = async (
   if (!id) return;
   try {
     await filesService.remove(id);
-  } catch {
-    // Cố ý bỏ qua — xem jsdoc ở trên.
+  } catch (error) {
+    // 404 = đã xoá rồi · 409 = còn được tham chiếu (backend tự giữ blob).
+    const status = normalizeApiError(error).status;
+    if (status === 404 || status === 409) return;
+
+    toast.warning("Không xoá được file cũ.", {
+      description:
+        normalizeApiError(error).message ??
+        "File cũ vẫn còn trong hệ thống. Bạn vẫn có thể tải file mới lên.",
+    });
   }
 };
 

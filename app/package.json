@@ -27,6 +27,7 @@
     "verify:cv-viewer": "node scripts/verify-cv-viewer.mjs",
     "smoke:cv-viewer": "node scripts/smoke-cv-viewer.mjs",
     "verify:cv-zoom": "node scripts/verify-cv-zoom.mjs",
+    "verify:cv-quota": "node scripts/verify-cv-quota.mjs",
     "verify": "npm run verify:toast && npm run verify:integration && npm run verify:e2e"
   },
   "dependencies": {

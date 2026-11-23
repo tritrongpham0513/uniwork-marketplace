@@ -181,6 +181,10 @@ public interface FileStorageService {
     /**
      * Xoá mềm file (chỉ chủ sở hữu được xoá).
      *
+     * <p>CV còn bị đơn ứng tuyển trỏ tới vẫn xoá được, nhưng object trên
+     * nơi lưu trữ được giữ lại để nhà tuyển dụng xem được CV đúng như lúc
+     * sinh viên nộp. Ảnh đại diện đang hiển thị trong đánh giá thì bị chặn.
+     *
      * @return {@code true} nếu xoá thành công
      */
     boolean remove(String publicId, User owner);

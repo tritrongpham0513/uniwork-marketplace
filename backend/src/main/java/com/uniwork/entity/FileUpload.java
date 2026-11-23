@@ -75,4 +75,15 @@ public class FileUpload {
     /** Xoá mềm — file vẫn còn trên disk cho tới khi dọn dẹp định kỳ. */
     @Column(name = "deleted_at")
     private LocalDateTime deletedAt;
+
+    /**
+     * File đã xoá mềm nhưng vẫn giữ object trên nơi lưu trữ.
+     *
+     * <p>Dùng cho CV còn bị đơn ứng tuyển trỏ tới: sinh viên gỡ CV khỏi
+     * hồ sơ được, nhưng nhà tuyển dụng vẫn xem được CV đúng như lúc nộp.
+     * {@code false} nghĩa là xoá thật — object đã bị xoá khỏi nơi lưu trữ.
+     */
+    @Column(name = "blob_kept", nullable = false)
+    @Builder.Default
+    private Boolean blobKept = false;
 }

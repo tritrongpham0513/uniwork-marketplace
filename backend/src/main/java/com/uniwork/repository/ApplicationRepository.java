@@ -3,6 +3,8 @@ package com.uniwork.repository;
 import com.uniwork.entity.Application;
 import org.springframework.data.jpa.repository.EntityGraph;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
 import java.util.List;
@@ -56,6 +58,20 @@ public interface ApplicationRepository extends JpaRepository<Application, Long> 
 
     /** CV này có đang được dùng trong đơn ứng tuyển nào không? */
     boolean existsByCvUrl(String cvUrl);
+
+    /**
+     * Nhà tuyển dụng nào đang giữ CV này trong đơn ứng tuyển.
+     *
+     * <p>Dùng để giới hạn ai đọc được CV đã bị gỡ khỏi hồ sơ: chỉ nhà tuyển
+     * dụng có đơn ứng tuyển **trỏ tới đúng CV này** mới xem được — không phải
+     * mọi NTD từng nhận đơn của sinh viên đó.
+     */
+    @Query("""
+            SELECT DISTINCT a.jobPost.employer.userId
+            FROM Application a
+            WHERE a.cvUrl = :cvUrl
+            """)
+    List<Long> findEmployerUserIdsByCvUrl(@Param("cvUrl") String cvUrl);
 
     long countByJobPostIdAndStatus(Long jobPostId, String status);
 

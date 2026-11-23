@@ -134,14 +134,6 @@ export default function StudentProfilePage() {
   const unsavedFilesRef = useRef<Set<string>>(new Set());
 
   /**
-   * File cũ đã bị thay/tháo khỏi form nhưng còn trong DB.
-   *
-   * Chỉ xoá **sau khi** hồ sơ lưu thành công, vì trước đó người dùng còn có
-   * thể đổi ý (không lưu) — khi đó file cũ phải được giữ nguyên.
-   */
-  const replacedFilesRef = useRef<Set<string>>(new Set());
-
-  /**
    * Ảnh đại diện mà người dùng **chủ động gỡ** khỏi hồ sơ.
    *
    * Cần biết để phân biệt 2 trường hợp khi lưu hồ sơ:
@@ -153,17 +145,9 @@ export default function StudentProfilePage() {
    */
   const removedAvatarRef = useRef(false);
 
-  /** Ghi nhận file vừa upload và dọn file cũ nếu nó chưa từng được lưu. */
-  const trackUpload = (url: string, previousUrl?: string | null) => {
+  /** Ghi nhận file vừa upload để dọn nếu người dùng rời trang mà chưa gắn vào hồ sơ. */
+  const trackUpload = (url: string) => {
     unsavedFilesRef.current.add(url);
-    if (!previousUrl || previousUrl === url) return;
-
-    if (unsavedFilesRef.current.delete(previousUrl)) {
-      // File cũ cũng là file vừa upload trong phiên → xoá ngay được.
-      void cleanupReplacedFile(previousUrl);
-    } else {
-      replacedFilesRef.current.add(previousUrl);
-    }
   };
 
   if (profile && profile !== syncedProfile) {
@@ -213,12 +197,10 @@ export default function StudentProfilePage() {
       const updated = await updateProfile.mutateAsync(payload);
       if (updated) setForm(updated);
 
-      // Hồ sơ đã lưu → file vừa upload trở thành chính thức, file cũ hết dùng.
+      // Hồ sơ đã lưu → file vừa upload trở thành chính thức.
+      // File cũ đã được xoá ngay lúc thay/tháo nên không cần dọn ở đây.
       unsavedFilesRef.current.clear();
       removedAvatarRef.current = false;
-      const replaced = [...replacedFilesRef.current];
-      replacedFilesRef.current.clear();
-      await Promise.all(replaced.map((url) => cleanupReplacedFile(url)));
 
       toast.success("Đã lưu hồ sơ tìm việc.", {
         description: "Hồ sơ của bạn đã được cập nhật thành công.",
@@ -231,11 +213,9 @@ export default function StudentProfilePage() {
   // Rời trang khi chưa lưu → dọn các file vừa upload để không để rác + hao quota.
   useEffect(() => {
     const unsaved = unsavedFilesRef.current;
-    const replaced = replacedFilesRef.current;
     return () => {
       unsaved.forEach((url) => void cleanupReplacedFile(url));
       unsaved.clear();
-      replaced.clear();
     };
   }, []);
 
@@ -244,18 +224,46 @@ export default function StudentProfilePage() {
   };
 
   /**
-   * Tải CV lên server rồi lưu URL vào hồ sơ.
+   * Tải CV lên server rồi **lưu ngay** vào hồ sơ, đồng thời xoá CV cũ.
    *
-   * File được upload ngay khi chọn — URL trả về được ghi vào form, người dùng
-   * bấm "Lưu hồ sơ" để lưu xuống DB.
+   * Vì sao lưu ngay chứ không đợi bấm "Lưu hồ sơ":
+   *   - CV là thay đổi độc lập, không cần chờ lưu cả hồ sơ.
+   *   - Nếu chỉ đợi "Lưu hồ sơ" thì file CV cũ vẫn còn trong DB/bucket cho
+   *     tới lúc đó → mỗi lần thay CV lại cộng thêm 1 file rác.
+   *
+   * Sau khi lưu pointer mới, CV cũ được xoá ngay. Nếu CV cũ đã gửi kèm đơn
+   * ứng tuyển thì backend giữ lại blob (chỉ gỡ khỏi hồ sơ) → nhà tuyển dụng
+   * vẫn xem được CV đúng như lúc sinh viên nộp.
    */
   const handleCvUpload = async (file: File | undefined) => {
     if (!file) return;
+    if (uploadFile.isPending) return;
     const previous = form?.cvUrl;
+    const previousCvName = form?.cvFileName;
     try {
       const uploaded = await uploadFile.mutateAsync({ file, kind: "CV" });
-      trackUpload(uploaded.url, previous);
+      trackUpload(uploaded.url);
       patch({ cvUrl: uploaded.url, cvFileName: uploaded.fileName });
+
+      try {
+        // Ghi pointer file vào DB ngay → F5 / mở tab khác vẫn thấy CV mới.
+        // Không dùng `setForm(updated)` để không xoá mất các thay đổi chưa lưu
+        // khác của người dùng (tiểu sử, kỹ năng, kinh nghiệm…).
+        await updateProfile.mutateAsync({ cvUrl: uploaded.url });
+      } catch {
+        // Lưu pointer thất bại → trả lại CV cũ và dọn file mới, nếu không hồ sơ
+        // sẽ trỏ tới một file bị xoá khi rời trang.
+        patch({ cvUrl: previous ?? null, cvFileName: previousCvName });
+        unsavedFilesRef.current.delete(uploaded.url);
+        void cleanupReplacedFile(uploaded.url);
+        return;
+      }
+
+      // CV mới đã trở thành chính thức → không dọn khi rời trang nữa.
+      unsavedFilesRef.current.delete(uploaded.url);
+      if (previous && previous !== uploaded.url) {
+        void cleanupReplacedFile(previous);
+      }
     } catch {
       // Lỗi đã được hiển thị qua toast trong useUploadFile.
     }
@@ -274,21 +282,27 @@ export default function StudentProfilePage() {
     const previous = form?.avatarUrl;
     try {
       const uploaded = await uploadFile.mutateAsync({ file, kind: "AVATAR" });
-      trackUpload(uploaded.url, previous);
+      trackUpload(uploaded.url);
       patch({ avatarUrl: uploaded.url });
       removedAvatarRef.current = false;
 
-      // Ghi pointer file vào DB ngay → F5 / mở tab khác vẫn thấy ảnh.
-      const updated = await updateProfile.mutateAsync({
-        avatarUrl: uploaded.url,
-      });
-      if (updated) setForm(updated);
+      try {
+        // Ghi pointer file vào DB ngay → F5 / mở tab khác vẫn thấy ảnh.
+        // Không dùng `setForm(updated)` để không xoá mất các thay đổi chưa lưu
+        // khác của người dùng (tiểu sử, kỹ năng, kinh nghiệm…).
+        await updateProfile.mutateAsync({ avatarUrl: uploaded.url });
+      } catch {
+        // Lưu pointer thất bại → trả lại ảnh cũ và dọn file mới.
+        patch({ avatarUrl: previous ?? null });
+        unsavedFilesRef.current.delete(uploaded.url);
+        void cleanupReplacedFile(uploaded.url);
+        return;
+      }
 
       // Ảnh đã trở thành chính thức → không cần dọn khi rời trang nữa.
       unsavedFilesRef.current.delete(uploaded.url);
       if (previous && previous !== uploaded.url) {
         void cleanupReplacedFile(previous);
-        replacedFilesRef.current.delete(previous);
       }
     } catch {
       // Lỗi đã được hiển thị qua toast trong useUploadFile.
@@ -296,10 +310,14 @@ export default function StudentProfilePage() {
   };
 
   /**
-   * Tháo file khỏi hồ sơ.
+   * Tháo file khỏi hồ sơ — **lưu ngay** xuống DB và xoá file.
    *
-   * File chưa từng được lưu (vừa upload trong phiên) → xoá ngay.
-   * File đã lưu trong DB → chỉ xoá sau khi bấm "Lưu hồ sơ" thành công.
+   * Cách này giống cách xừ làm với ảnh đại diện:
+   *   - File chưa từng được lưu (vừa upload trong phiên) → xoá ngay.
+   *   - File đã lưu trong DB → gửi `""` để backend xoá pointer, rồi xoá file.
+   *
+   * Không đợi bấm "Lưu hồ sơ" để tránh việc bấm xoá rồi F5 được
+   * giữ file cũ (và cốn chiếm quota) dù đã xoá khỏi hồ sơ.
    */
   const handleFileRemove = async (key: "cvUrl" | "avatarUrl") => {
     const url = form?.[key];
@@ -311,23 +329,22 @@ export default function StudentProfilePage() {
     if (key === "avatarUrl") removedAvatarRef.current = true;
     if (!url) return;
 
+    // File vừa upload trong phiên chưa găn vào hồ sơ → xoá ngay.
     if (unsavedFilesRef.current.delete(url)) {
       void cleanupReplacedFile(url);
       return;
     }
-    replacedFilesRef.current.add(url);
 
-    // Gỡ ảnh đại diện khỏi hồ sơ ngay — không đợi bấm "Lưu hồ sơ",
-    // nếu không người dùng bấm xoá rồi F5 thì ảnh cũ vẫn còn.
-    if (key === "avatarUrl") {
-      try {
-        const updated = await updateProfile.mutateAsync({ avatarUrl: "" });
-        if (updated) setForm(updated);
-        await cleanupReplacedFile(url);
-        replacedFilesRef.current.delete(url);
-      } catch {
-        // Lỗi đã được hiển thị qua toast.
-      }
+    // Gỡ pointer khỏi hồ sơ khỏi ngay — không đợi bấm "Lưu hồ sơ".
+    try {
+      await updateProfile.mutateAsync(
+        key === "avatarUrl" ? { avatarUrl: "" } : { cvUrl: "" }
+      );
+      // Không dùng `setForm(updated)` để không xoá mất các thay đổi chưa lưu
+      // khác của người dùng (tiểu sữ, kỹ năng, kinh nghiệm…).
+      await cleanupReplacedFile(url);
+    } catch {
+      // Lỗi đã được hiển thị qua toast.
     }
   };
 

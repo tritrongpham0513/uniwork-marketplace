@@ -245,6 +245,7 @@ Hai bản **chạy song song** được — không đụng nhau.
 ./dev.sh logs          # theo dõi log
 ./dev.sh down          # dừng
 ./dev.sh reset         # xoá volume MySQL dev + build lại (reset DB từ đầu)
+./dev.sh seed          # nạp bộ dữ liệu DEMO "như app thật" (dùng để quay video demo)
 
 # Cách 2 — docker compose trực tiếp
 docker compose -f docker-compose.dev.yml up --build
@@ -327,7 +328,7 @@ POST   /api/v1/files/presign?kind=CV|AVATAR|LOGO&contentType=  → 200 (uploadUr
 PUT    <uploadUrl>                                              → 200 (đẩy thẳng lên R2)
 POST   /api/v1/files/confirm                                    → 201 (metadata)
 GET    /api/v1/files/{id}                                       → 200 (CV: stream qua backend) · 302 (ảnh: redirect CDN)
-DELETE /api/v1/files/{id}                                       → 200 (xoá mềm, 409 nếu đang được tham chiếu)
+DELETE /api/v1/files/{id}                                       → 200 (xoá mềm)
 ```
 
 - Cấu hình qua env: `R2_ENDPOINT`, `R2_ACCESS_KEY`, `R2_SECRET_KEY`, `R2_BUCKET_PUBLIC`, `R2_BUCKET_PRIVATE`.
@@ -338,8 +339,19 @@ DELETE /api/v1/files/{id}                                       → 200 (xoá m�
   Client tải CV bằng axios `responseType: "blob"` (có `Authorization`) — **không** dùng `<a href>`.
   `AVATAR` / `LOGO` là ảnh công khai (bucket public, redirect CDN kèm `Cache-Control: immutable`).
 - Backend xác minh **magic bytes** (không tin `Content-Type` của client) và resize ảnh về ≤ 512px.
+- **Quota**: chỉ giới hạn tổng dung lượng 20MB/user, **không giới hạn số lượng file**.
+  Hồ sơ chỉ cần 1 CV hiện hành — đếm số file chỉ gây kẹt người dùng sau vài lần thay CV.
+- **Vòng đời file** (chuẩn, áp dụng cho CV / ảnh đại diện / logo):
+  1. Upload → lưu pointer vào DB **ngay** (không đợi bấm "Lưu hồ sơ") → F5 vẫn thấy file.
+  2. Thay thế → xoá file cũ ngay sau khi lưu pointer mới.
+  3. Xoá khỏi hồ sơ → ghi `""` (xoá pointer) + xoá file ngay.
+  4. CV đã gửi kèm đơn ứng tuyển → vẫn xoá được, nhưng **giữ blob** (`blob_kept = TRUE`)
+     → nhà tuyển dụng **đang giữ đúng CV này** vẫn xem được (đúng như lúc SV nộp);
+     NTD khác bị chặn 403. Blob giữ lại vẫn tính vào quota dung lượng và vẫn
+     xoá được khi không còn đơn nào trỏ tới.
 - Frontend: `src/features/files/` (`files.service.ts` + `useUploadFile` / `useDownloadFile` / `useDeleteFile`)
   và component dùng chung `CvFileRow` — gọi thẳng API thật.
+- Kiểm chứng: `cd app && API_URL=http://localhost:8081/api/v1 node scripts/verify-cv-quota.mjs`
 
 > **Lưu ý Windows/Git Bash**: `curl -F "file=@/tmp/x.pdf"` sẽ lỗi `(26) Failed to open/read local data from file`
 > vì curl native không hiểu đường dẫn POSIX. Luôn dùng **đường dẫn tương đối** trong thư mục hiện tại
@@ -353,6 +365,8 @@ Dữ liệu demo nằm trong `backend/src/main/resources/db/migration/`:
 
 Đây là **SQL tĩnh** → checksum ổn định, không gây `Migration checksum mismatch` cho Flyway khi rebuild container.
 Muốn đổi dữ liệu demo: sửa trực tiếp file SQL → `./dev.sh reset` (xoá volume `mysql-dev-data` → migrate lại từ V1).
+
+> 🎬 **Cần bộ dữ liệu "như app thật" để quay video demo?** Xem [`seed/README.md`](seed/README.md) — chạy `./dev.sh seed`.
 
 ### Dữ liệu địa lý Việt Nam (34 tỉnh + 3.321 xã/phường)
 

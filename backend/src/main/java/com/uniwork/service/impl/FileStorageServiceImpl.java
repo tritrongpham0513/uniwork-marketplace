@@ -54,10 +54,13 @@ public class FileStorageServiceImpl implements FileStorageService {
     /** Số byte đầu đủ để nhận diện mọi chữ ký file (RIFF/WEBP cần 12 byte). */
     private static final int SIGNATURE_LENGTH = 12;
 
-    /** Số file tối đa mỗi loại (file cũ bị thay thế sẽ được dọn sau khi lưu hồ sơ). */
-    private static final int MAX_FILES_PER_KIND = 10;
-
-    /** Tổng dung lượng tối đa mỗi user (20 MB) — bảo vệ free tier của R2. */
+    /**
+     * Tổng dung lượng tối đa mỗi user (20 MB) — bảo vệ free tier của R2.
+     *
+     * <p>Không giới hạn số lượng file: hồ sơ chỉ cần 1 CV hiện hành, mỗi lần
+     * thay CV là 1 file vào 1 file ra nên giới hạn đếm file chỉ gây kẹt người
+     * dùng (file cũ bị giữ lại cho đơn ứng tuyển cũ vẫn chiếm slot).
+     */
     private static final long MAX_TOTAL_BYTES_PER_USER = 20L * 1024 * 1024;
 
     /**
@@ -114,7 +117,7 @@ public class FileStorageServiceImpl implements FileStorageService {
         }
 
         validateSize(content.length, kind);
-        enforceQuota(owner.getId(), kind, content.length);
+        enforceQuota(owner.getId(), content.length);
 
         String originalName = sanitizeName(file.getOriginalFilename());
         String extension = FileSignatureValidator.extensionFor(mimeType);
@@ -151,8 +154,9 @@ public class FileStorageServiceImpl implements FileStorageService {
 
     @Override
     public PresignUploadResponse presign(Kind kind, User owner, String requestedContentType) {
-        // Chặn sớm khi user đã đầy quota — tránh bắt client upload rồi mới báo lỗi.
-        enforceQuota(owner.getId(), kind, 0);
+        // Chặn sớm khi user đã đầy quota dung lượng — tránh bắt client upload
+        // rồi mới báo lỗi.
+        enforceQuota(owner.getId(), 0);
 
         // MIME type này được KÝ vào presigned URL nên client buộc phải gửi đúng
         // header khi PUT (sai là 403 SignatureDoesNotMatch).
@@ -254,7 +258,7 @@ public class FileStorageServiceImpl implements FileStorageService {
             }
 
             validateSize(finalSize, kind);
-            enforceQuota(owner.getId(), kind, finalSize);
+            enforceQuota(owner.getId(), finalSize);
 
             FileUpload saved = fileUploadRepository.save(FileUpload.builder()
                     .slug(newSlug())
@@ -308,7 +312,7 @@ public class FileStorageServiceImpl implements FileStorageService {
     @Override
     @Transactional(readOnly = true)
     public ResolvedFile resolveForRead(String publicId, Long userId) {
-        FileUpload file = requireFile(publicId);
+        FileUpload file = requireReadableFile(publicId);
         if (!canRead(file, userId)) {
             throw ApiErrors.forbidden("Bạn không có quyền xem file này.");
         }
@@ -324,7 +328,7 @@ public class FileStorageServiceImpl implements FileStorageService {
         if (slug == null) {
             return null;
         }
-        return fileUploadRepository.findBySlugAndDeletedAtIsNull(slug)
+        return fileUploadRepository.findReadableBySlug(slug)
                 .map(FileUpload::getOriginalName)
                 .orElse(null);
     }
@@ -336,7 +340,7 @@ public class FileStorageServiceImpl implements FileStorageService {
         if (slug == null) {
             return null;
         }
-        return fileUploadRepository.findBySlugAndDeletedAtIsNull(slug)
+        return fileUploadRepository.findReadableBySlug(slug)
                 .map(FileUpload::getMimeType)
                 .orElse(null);
     }
@@ -344,7 +348,7 @@ public class FileStorageServiceImpl implements FileStorageService {
     @Override
     @Transactional(readOnly = true)
     public boolean canRead(FileUploadResponse file, Long userId) {
-        return fileUploadRepository.findBySlugAndDeletedAtIsNull(file.getId())
+        return fileUploadRepository.findReadableBySlug(file.getId())
                 .map(entity -> canRead(entity, userId))
                 .orElse(false);
     }
@@ -354,8 +358,11 @@ public class FileStorageServiceImpl implements FileStorageService {
      *
      * <ul>
      *   <li>Avatar / logo: công khai.</li>
-     *   <li>CV: chủ sở hữu, quản trị viên, hoặc nhà tuyển dụng đã từng nhận
-     *       đơn ứng tuyển của sinh viên đó.</li>
+     *   <li>CV đang sống: chủ sở hữu, quản trị viên, hoặc nhà tuyển dụng đã từng
+     *       nhận đơn ứng tuyển của sinh viên đó.</li>
+     *   <li>CV đã gỡ khỏi hồ sơ nhưng còn giữ blob: chỉ chủ sở hữu, quản trị
+     *       viên, và nhà tuyển dụng đang giữ <b>đúng CV này</b> trong đơn ứng
+     *       tuyển — không phải mọi NTD từng nhận đơn của sinh viên đó.</li>
      * </ul>
      */
     private boolean canRead(FileUpload file, Long userId) {
@@ -377,10 +384,20 @@ public class FileStorageServiceImpl implements FileStorageService {
             return true;
         }
         if ("EMPLOYER".equals(user.getRole().getCode())) {
-            return applicationRepository
-                    .existsByJobPostEmployerUserIdAndStudentUserId(userId, file.getOwnerUserId());
+            if (!isBlobKept(file)) {
+                return applicationRepository
+                        .existsByJobPostEmployerUserIdAndStudentUserId(userId, file.getOwnerUserId());
+            }
+            // CV đã bị gỡ khỏi hồ sơ → chỉ NTD đang giữ đúng CV này được xem.
+            return applicationRepository.findEmployerUserIdsByCvUrl(fileUrl(file.getSlug()))
+                    .contains(userId);
         }
         return false;
+    }
+
+    /** File đã xoá mềm nhưng còn giữ blob trên nơi lưu trữ? */
+    private boolean isBlobKept(FileUpload file) {
+        return file.getDeletedAt() != null && Boolean.TRUE.equals(file.getBlobKept());
     }
 
     // ------------------------------------------------------------------
@@ -390,29 +407,33 @@ public class FileStorageServiceImpl implements FileStorageService {
     @Override
     @Transactional
     public boolean remove(String publicId, User owner) {
-        FileUpload file = requireFile(publicId);
+        FileUpload file = requireRemovableFile(publicId);
         if (!file.getOwnerUserId().equals(owner.getId())) {
             throw ApiErrors.forbidden("Bạn không có quyền xoá file này.");
         }
 
         String url = fileUrl(file.getSlug());
 
-        // Không xoá file đang được dữ liệu nghiệp vụ khác tham chiếu — nếu xoá,
-        // link CV trong đơn cũ / ảnh trong đánh giá cũ sẽ chết.
-        if (Kind.CV.name().equals(file.getKind()) && applicationRepository.existsByCvUrl(url)) {
-            throw ApiErrors.conflict(
-                    "CV này đang được dùng trong đơn ứng tuyển nên không thể xoá.", "FILE_IN_USE");
-        }
+        // Ảnh đại diện đang hiển thị trong đánh giá là nội dung người khác viết
+        // -> xoá sẽ làm hỏng đánh giá nên vẫn chặn.
         if (Kind.AVATAR.name().equals(file.getKind()) && reviewRepository.existsByFromAvatarUrl(url)) {
             throw ApiErrors.conflict(
                     "Ảnh đại diện này đang được hiển thị trong đánh giá nên không thể xoá.", "FILE_IN_USE");
         }
 
+        // CV còn bị đơn ứng tuyển trỏ tới → cho gỡ khỏi hồ sơ nhưng GIỮ blob,
+        // để nhà tuyển dụng vẫn xem được CV đúng như lúc sinh viên nộp.
+        boolean keepBlob = Kind.CV.name().equals(file.getKind())
+                && applicationRepository.existsByCvUrl(url);
+
         file.setDeletedAt(LocalDateTime.now());
+        file.setBlobKept(keepBlob);
         fileUploadRepository.save(file);
 
-        boolean isPublic = !Kind.CV.name().equals(file.getKind());
-        storageProvider.delete(storageBuckets.resolve(file.getBucket(), isPublic), file.getStorageKey());
+        if (!keepBlob) {
+            boolean isPublic = !Kind.CV.name().equals(file.getKind());
+            storageProvider.delete(storageBuckets.resolve(file.getBucket(), isPublic), file.getStorageKey());
+        }
         return true;
     }
 
@@ -422,6 +443,33 @@ public class FileStorageServiceImpl implements FileStorageService {
 
     private FileUpload requireFile(String publicId) {
         return fileUploadRepository.findBySlugAndDeletedAtIsNull(publicId)
+                .orElseThrow(() -> ApiErrors.notFound("Không tìm thấy file."));
+    }
+
+    /**
+     * File có thể xoá — gồm cả file đã xoá mềm nhưng còn giữ blob.
+     *
+     * <p>Cho phép xoá lại CV đang giữ blob: khi đơn ứng tuyển không còn trỏ
+     * tới nó nữa thì blob phải được dọn đi, nếu không file sẽ sống mãi trên
+     * nơi lưu trữ mà không ai dọn được.
+     */
+    private FileUpload requireRemovableFile(String publicId) {
+        FileUpload file = fileUploadRepository.findReadableBySlug(publicId)
+                .orElseThrow(() -> ApiErrors.notFound("Không tìm thấy file."));
+        if (file.getDeletedAt() != null && !isBlobKept(file)) {
+            throw ApiErrors.notFound("Không tìm thấy file.");
+        }
+        return file;
+    }
+
+    /**
+     * File còn đọc được — kể cả file đã xoá mềm nhưng còn giữ blob.
+     *
+     * <p>Áp dụng cho CV còn bị đơn ứng tuyển trỏ tới: nhà tuyển dụng vẫn xem
+     * được CV đúng như lúc sinh viên nộp, dù SV đã gỡ CV khỏi hồ sơ.
+     */
+    private FileUpload requireReadableFile(String publicId) {
+        return fileUploadRepository.findReadableBySlug(publicId)
                 .orElseThrow(() -> ApiErrors.notFound("Không tìm thấy file."));
     }
 
@@ -477,25 +525,20 @@ public class FileStorageServiceImpl implements FileStorageService {
     }
 
     /**
-     * Kiểm tra quota theo user: số file mỗi loại + tổng dung lượng.
+     * Kiểm tra quota theo user: tổng dung lượng.
+     *
+     * <p>Không giới hạn số lượng file — hồ sơ chỉ giữ 1 CV hiện hành, còn
+     * các bản CV cũ được giữ lại cho đơn ứng tuyển đã nộp. Đếm file sẽ kẹt
+     * người dùng sau vài lần thay CV dù họ có đúng 1 CV trong hồ sơ.
      *
      * @param ownerUserId  id chủ file
-     * @param kind         loại file đang upload
      * @param incomingSize dung lượng file mới (byte), 0 khi chỉ muốn kiểm tra sớm
      */
-    private void enforceQuota(Long ownerUserId, Kind kind, long incomingSize) {
-        var existing = fileUploadRepository.findByOwnerUserIdAndKindAndDeletedAtIsNull(ownerUserId, kind.name());
-        if (existing.size() >= MAX_FILES_PER_KIND) {
-            throw ApiErrors.badRequest(
-                    "Bạn đã tải lên tối đa " + MAX_FILES_PER_KIND + " " + kind.getLabel()
-                            + ". Vui lòng xoá file cũ trước khi tải thêm.",
-                    ApiErrors.errors("file", "Quá nhiều file."));
-        }
-
+    private void enforceQuota(Long ownerUserId, long incomingSize) {
         long total = 0;
         for (String otherKind : List.of(Kind.CV.name(), Kind.AVATAR.name(), Kind.LOGO.name())) {
             for (FileUpload file : fileUploadRepository
-                    .findByOwnerUserIdAndKindAndDeletedAtIsNull(ownerUserId, otherKind)) {
+                    .findByOwnerUserIdAndKindAndStillStored(ownerUserId, otherKind)) {
                 total += file.getSizeBytes() == null ? 0 : file.getSizeBytes();
             }
         }

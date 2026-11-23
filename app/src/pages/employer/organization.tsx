@@ -83,9 +83,6 @@ export default function EmployerOrganizationPage() {
    * (không đổi). Nếu không phân biệt, `handleSave` xoá nhầm logo đã lưu trong DB.
    */
   const removedLogoRef = useRef(false);
-  /** File cũ bị thay/tháo — chỉ xoá sau khi lưu thành công. */
-  const replacedFilesRef = useRef<Set<string>>(new Set());
-
   if (profile && profile !== syncedProfile) {
     setSyncedProfile(profile);
     if (!form) setForm(profile);
@@ -108,27 +105,28 @@ export default function EmployerOrganizationPage() {
     try {
       const uploaded = await uploadFile.mutateAsync({ file, kind: "LOGO" });
       unsavedFilesRef.current.add(uploaded.url);
-      if (previous && previous !== uploaded.url) {
-        if (unsavedFilesRef.current.delete(previous)) {
-          void cleanupReplacedFile(previous);
-        } else {
-          replacedFilesRef.current.add(previous);
-        }
-      }
       patch({ logoUrl: uploaded.url });
       removedLogoRef.current = false;
 
-      // Ghi pointer file vào DB ngay → F5 / mở tab khác vẫn thấy logo.
-      const updated = await updateProfile.mutateAsync({
-        logoUrl: uploaded.url,
-      });
-      if (updated) setForm(updated);
+      try {
+        // Ghi pointer file vào DB ngay → F5 / mở tab khác vẫn thấy logo.
+        // Không dùng `setForm(updated)` để không xoá mất các thay đổi chưa lưu
+        // khác của người dùng.
+        await updateProfile.mutateAsync({ logoUrl: uploaded.url });
+      } catch {
+        // Lưu pointer thất bại → trả lại logo cũ và dọn file mới, nếu không
+        // hồ sơ sẽ trỏ tới một file bị xoá khi rời trang.
+        patch({ logoUrl: previous ?? null });
+        removedLogoRef.current = previous ? false : true;
+        unsavedFilesRef.current.delete(uploaded.url);
+        void cleanupReplacedFile(uploaded.url);
+        return;
+      }
 
       // Logo đã trở thành chính thức → không cần dọn khi rời trang nữa.
       unsavedFilesRef.current.delete(uploaded.url);
       if (previous && previous !== uploaded.url) {
         void cleanupReplacedFile(previous);
-        replacedFilesRef.current.delete(previous);
       }
     } catch {
       // Lỗi đã được hiển thị qua toast trong useUploadFile.
@@ -147,19 +145,17 @@ export default function EmployerOrganizationPage() {
     removedLogoRef.current = true;
     if (!logoUrl) return;
 
+    // File vừa upload trong phiên chưa gắn vào hồ sơ → xoá ngay.
     if (unsavedFilesRef.current.delete(logoUrl)) {
       void cleanupReplacedFile(logoUrl);
       return;
     }
-    replacedFilesRef.current.add(logoUrl);
 
     // Gỡ logo khỏi hồ sơ ngay — không đợi bấm "Lưu thay đổi",
     // nếu không người dùng bấm xoá rồi F5 thì logo cũ vẫn còn.
     try {
-      const updated = await updateProfile.mutateAsync({ logoUrl: "" });
-      if (updated) setForm(updated);
+      await updateProfile.mutateAsync({ logoUrl: "" });
       await cleanupReplacedFile(logoUrl);
-      replacedFilesRef.current.delete(logoUrl);
     } catch {
       // Lỗi đã được hiển thị qua toast.
     }
@@ -181,11 +177,9 @@ export default function EmployerOrganizationPage() {
       const updated = await updateProfile.mutateAsync(payload);
       if (updated) setForm(updated);
 
+      // File cũ đã được xoá ngay lúc thay/tháo nên không cần dọn ở đây.
       unsavedFilesRef.current.clear();
       removedLogoRef.current = false;
-      const replaced = [...replacedFilesRef.current];
-      replacedFilesRef.current.clear();
-      await Promise.all(replaced.map((url) => cleanupReplacedFile(url)));
 
       toast.success("Đã cập nhật thông tin tổ chức.");
     } catch (error) {
@@ -196,11 +190,9 @@ export default function EmployerOrganizationPage() {
   // Rời trang khi chưa lưu → dọn file vừa upload để không để rác + hao quota.
   useEffect(() => {
     const unsaved = unsavedFilesRef.current;
-    const replaced = replacedFilesRef.current;
     return () => {
       unsaved.forEach((url) => void cleanupReplacedFile(url));
       unsaved.clear();
-      replaced.clear();
     };
   }, []);
 

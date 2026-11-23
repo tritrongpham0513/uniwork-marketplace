@@ -334,8 +334,15 @@ Nơi dùng: hồ sơ sinh viên (CV + ảnh đại diện), hồ sơ tổ chức
   (`app/src/components/shared/cv-file-row.tsx`): axios blob → object URL → `<a download>`.
 - Cập nhật hồ sơ: `null` = *không đổi*, chuỗi rỗng `""` = *xoá file* (backend chuẩn hoá
   qua `FileUrlValidator`, chặn URL ngoài bằng `400`).
-- Upload xong mà rời trang không lưu → file vừa upload bị xoá khi unmount; file cũ bị thay
-  chỉ bị xoá sau khi lưu hồ sơ thành công (`cleanupReplacedFile`).
+- Upload xong mà rời trang không lưu → file vừa upload bị xoá khi unmount.
+- **CV / avatar / logo đều lưu ngay vào DB** (không đợi bấm "Lưu hồ sơ") và file cũ bị xoá
+  ngay lúc thay thế — không còn trạng thái "đã upload nhưng chưa lưu" sinh file rác.
+  Xoá khỏi hồ sơ cũng ghi ngay `""` (xoá pointer) + xoá file, nên bấm xoá rồi F5 không
+  còn giữ lại file cũ.
+- **Không giới hạn số lượng file** — chỉ giới hạn tổng dung lượng 20MB/user
+  (blob giữ lại cho đơn ứng tuyển cũng vẫn tính vào quota).
+  Xoá CV đã gửi kèm đơn ứng tuyển vẫn được (backend giữ blob, xem mục backend).
+- `cleanupReplacedFile` báo toast cảnh báo khi xoá file cũ thất bại (bỏ qua 404/409).
 
 **Kiểm chứng:**
 
