@@ -1,0 +1,4 @@
+{
+  "*.{ts,tsx,md}": "cd app && npx prettier --write",
+  "*.{ts,tsx}": "cd app && npx eslint --fix"
+}

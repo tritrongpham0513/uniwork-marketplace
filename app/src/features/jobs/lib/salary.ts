@@ -15,7 +15,9 @@ const HOURS_PER_UNIT = {
 } as const;
 
 /** Quy đổi mức lương tối thiểu của tin về đồng/giờ */
-export const jobToHourly = (job: Pick<Job, "salaryType" | "salaryMin">): number => {
+export const jobToHourly = (
+  job: Pick<Job, "salaryType" | "salaryMin">
+): number => {
   if (job.salaryType === "NEGOTIABLE") return 0;
   return job.salaryMin / HOURS_PER_UNIT[job.salaryType];
 };
@@ -72,6 +74,4 @@ export const findBenchmarkFor = (
   benchmarks.find(
     (b) => b.categoryId === categoryId && b.provinceId === provinceId
   ) ??
-  benchmarks.find(
-    (b) => b.categoryId === categoryId && b.provinceId === "79"
-  );
+  benchmarks.find((b) => b.categoryId === categoryId && b.provinceId === "79");
