@@ -1,0 +1,35 @@
+# ============================================
+# Git attributes — chuẩn hoá line ending
+#
+# Vấn đề: repo không có file này nên Git dùng `core.autocrlf=true` (mặc định
+# trên Windows). Prettier trong pre-commit hook ghi file bằng LF, Git lại convert
+# về CRLF khi checkout -> working tree luôn hiện "modified" dù nội dung không
+# đổi. Điều này làm nhiễu `git status` / `git diff` sau mỗi lần commit.
+#
+# Giải pháp: chốt rõ line ending cho từng loại file.
+# ============================================
+
+# Mặc định: tự động detect, file text trong repo dùng LF.
+* text=auto eol=lf
+
+# File Windows bắt buộc dùng CRLF.
+*.bat text eol=crlf
+*.cmd text eol=crlf
+*.ps1 text eol=crlf
+
+# File nhị phân — không đụng line ending.
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.webp binary
+*.ico binary
+*.pdf binary
+*.zip binary
+*.jar binary
+*.woff binary
+*.woff2 binary
+*.mp4 binary
+
+# Lockfile: giữ nguyên, không cho Git đổi EOL (pnpm so sánh checksum).
+pnpm-lock.yaml -text
