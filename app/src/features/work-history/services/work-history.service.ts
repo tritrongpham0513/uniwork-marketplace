@@ -1,5 +1,4 @@
-import type { WorkHistory } from "@/features/shared/types";
-import type { ApiResponse } from "@/features/auth/types";
+import type { ApiResponse, WorkHistory } from "@/features/shared/types";
 import http from "@/lib/axios";
 
 export const workHistoryService = {

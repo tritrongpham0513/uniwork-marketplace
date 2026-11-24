@@ -1,16 +1,12 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import type { Review } from "@/features/shared/types";
-import { reviewService, type CreateReviewPayload } from "../services/reviews.service";
+import { REVIEW_KEYS } from "@/features/shared/query-keys";
+import {
+  reviewService,
+  type CreateReviewPayload,
+} from "../services/reviews.service";
 
-export const REVIEW_KEYS = {
-  all: ["reviews"] as const,
-  list: (params?: Record<string, unknown>) =>
-    [...REVIEW_KEYS.all, "list", params ?? {}] as const,
-  student: () => [...REVIEW_KEYS.all, "student"] as const,
-  employer: () => [...REVIEW_KEYS.all, "employer"] as const,
-  application: (applicationId: string) =>
-    [...REVIEW_KEYS.all, "application", applicationId] as const,
-};
+export { REVIEW_KEYS };
 
 /** Danh sách đánh giá */
 export const useReviews = (params?: {

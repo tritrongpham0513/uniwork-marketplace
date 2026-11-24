@@ -1,32 +1,9 @@
 import { useQuery, type UseQueryOptions } from "@tanstack/react-query";
 import { jobsService } from "../services/jobs.service";
-import type {
-  Job,
-  JobFilters,
-  JobListResponse,
-} from "@/features/jobs/types";
+import type { Job, JobFilters, JobListResponse } from "@/features/jobs/types";
+import { JOB_KEYS } from "@/features/shared/query-keys";
 
-export const JOB_KEYS = {
-  all: ["jobs"] as const,
-  lists: () => [...JOB_KEYS.all, "list"] as const,
-  list: (filters: JobFilters) => [...JOB_KEYS.lists(), filters] as const,
-  details: () => [...JOB_KEYS.all, "detail"] as const,
-  detail: (id: string) => [...JOB_KEYS.details(), id] as const,
-  detailsByIds: (ids: string[]) =>
-    [...JOB_KEYS.details(), "by-ids", ...ids] as const,
-  related: (categoryId: string, excludeId: string) =>
-    [...JOB_KEYS.details(), "related", categoryId, excludeId] as const,
-  meta: () => [...JOB_KEYS.all, "meta"] as const,
-  categories: () => [...JOB_KEYS.all, "categories"] as const,
-  positions: () => [...JOB_KEYS.all, "positions"] as const,
-  provinces: () => [...JOB_KEYS.all, "provinces"] as const,
-  districts: (provinceId?: string) =>
-    [...JOB_KEYS.all, "districts", provinceId ?? "all"] as const,
-  wards: (provinceId?: string) =>
-    [...JOB_KEYS.all, "wards", provinceId ?? "all"] as const,
-  skills: () => [...JOB_KEYS.all, "skills"] as const,
-  benchmarks: () => [...JOB_KEYS.all, "salary-benchmarks"] as const,
-};
+export { JOB_KEYS };
 
 /** Danh sách tin tuyển dụng theo bộ lọc */
 export const useJobs = (

@@ -1,18 +1,9 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import type {
-  EmployerProfile,
-  StudentProfile,
-} from "@/features/shared/types";
-import { AUTH_KEYS } from "@/features/auth/hooks/useCurrentUser";
+import type { EmployerProfile, StudentProfile } from "@/features/shared/types";
+import { AUTH_KEYS, PROFILE_KEYS } from "@/features/shared/query-keys";
 import { profileService } from "../services/profile.service";
 
-export const PROFILE_KEYS = {
-  all: ["profile"] as const,
-  student: () => [...PROFILE_KEYS.all, "student"] as const,
-  employer: () => [...PROFILE_KEYS.all, "employer"] as const,
-  publicEmployer: (id: string) =>
-    [...PROFILE_KEYS.all, "public-employer", id] as const,
-};
+export { PROFILE_KEYS };
 
 /** Hồ sơ sinh viên */
 export const useStudentProfile = () =>
@@ -38,7 +29,9 @@ export const useUpdateStudentProfile = () => {
       // Avatar ở header/sidebar lấy từ endpoint /auth/me → làm mới để
       // ảnh mới hiện ngay mà không cần F5.
       if (data.avatarUrl !== undefined) {
-        void queryClient.invalidateQueries({ queryKey: AUTH_KEYS.currentUser() });
+        void queryClient.invalidateQueries({
+          queryKey: AUTH_KEYS.currentUser(),
+        });
       }
     },
   });
@@ -79,7 +72,9 @@ export const useUpdateEmployerProfile = () => {
       // Logo ở header/sidebar lấy từ endpoint /auth/me → làm mới để
       // logo mới hiện ngay mà không cần F5.
       if (data.logoUrl !== undefined) {
-        void queryClient.invalidateQueries({ queryKey: AUTH_KEYS.currentUser() });
+        void queryClient.invalidateQueries({
+          queryKey: AUTH_KEYS.currentUser(),
+        });
       }
     },
   });

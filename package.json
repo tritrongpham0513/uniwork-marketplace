@@ -1,8 +1,7 @@
 {
   "private": true,
-  "workspaces": ["app", "backend"],
   "scripts": {
-    "prepare": "husky install"
+    "prepare": "husky"
   },
   "devDependencies": {
     "husky": "^9.1.7",

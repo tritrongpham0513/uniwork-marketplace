@@ -1,4 +1,13 @@
 #!/bin/sh
-cd app
-pnpm lint --fix
-pnpm typecheck
+# Pre-commit hook.
+#
+# 1. lint-staged: format + lint CHỈ những file đang staged (nhanh).
+# 2. typecheck: tsc -b toàn bộ project (chậm hơn lint nhưng cần thiết vì
+#    một file có thể phá type của file khác).
+#
+# Cố ý KHÔNG chạy `pnpm test` ở đây — test chậm, chạy ở `pnpm check`.
+# Xem AGENTS.md > Kiểm chứng.
+
+npx lint-staged
+
+cd app && pnpm typecheck

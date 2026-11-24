@@ -1,5 +1,4 @@
-import type { Job, JobStatus } from "@/features/shared/types";
-import type { ApiResponse } from "@/features/auth/types";
+import type { ApiResponse, Job, JobStatus } from "@/features/shared/types";
 import http from "@/lib/axios";
 
 export interface CreateJobPayload {
@@ -45,7 +44,10 @@ export const employerJobService = {
   /**
    * PUT /api/v1/employer/jobs/{id} — cập nhật tin tuyển dụng.
    */
-  update(id: string, payload: Partial<CreateJobPayload>): Promise<ApiResponse<Job>> {
+  update(
+    id: string,
+    payload: Partial<CreateJobPayload>
+  ): Promise<ApiResponse<Job>> {
     return http.put<ApiResponse<Job>, Partial<CreateJobPayload>>(
       `/api/v1/employer/jobs/${id}`,
       payload as unknown as Partial<Job>

@@ -1,8 +1,8 @@
 import type {
+  ApiResponse,
   Notification,
   NotificationType,
 } from "@/features/shared/types";
-import type { ApiResponse } from "@/features/auth/types";
 import http from "@/lib/axios";
 
 export const notificationService = {
@@ -48,7 +48,9 @@ export const notificationService = {
    * Xin vé dùng một lần để mở kết nối WebSocket. Vé hạn 60 giây — nhờ đó JWT
    * không bao giờ phải đi trong query string của WebSocket.
    */
-  requestSocketTicket(): Promise<ApiResponse<{ ticket: string; expiresIn: number }>> {
+  requestSocketTicket(): Promise<
+    ApiResponse<{ ticket: string; expiresIn: number }>
+  > {
     return http.post<ApiResponse<{ ticket: string; expiresIn: number }>>(
       "/api/v1/ws/ticket"
     );

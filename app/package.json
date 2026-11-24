@@ -4,7 +4,6 @@
   "version": "0.0.0",
   "type": "module",
   "scripts": {
-    "prepare": "cd .. && husky install",
     "dev": "vite",
     "build": "tsc -b && vite build",
     "typecheck": "tsc -b",

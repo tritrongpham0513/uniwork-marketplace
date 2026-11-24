@@ -1,10 +1,10 @@
 import type {
   AdminUser,
+  ApiResponse,
   Job,
   JobCategory,
   JobStatus,
 } from "@/features/shared/types";
-import type { ApiResponse } from "@/features/auth/types";
 import http from "@/lib/axios";
 
 export interface AdminDashboardStats {
@@ -40,9 +40,10 @@ export const adminService = {
   /**
    * GET /api/v1/admin/users — danh sách người dùng.
    */
-  listUsers(params?: { role?: string; keyword?: string }): Promise<
-    ApiResponse<AdminUser[]>
-  > {
+  listUsers(params?: {
+    role?: string;
+    keyword?: string;
+  }): Promise<ApiResponse<AdminUser[]>> {
     return http.get<ApiResponse<AdminUser[]>>("/api/v1/admin/users", {
       params,
     });
@@ -93,7 +94,9 @@ export const adminService = {
   /**
    * POST /api/v1/admin/categories — tạo nhóm việc.
    */
-  createCategory(payload: AdminCategoryPayload): Promise<ApiResponse<JobCategory>> {
+  createCategory(
+    payload: AdminCategoryPayload
+  ): Promise<ApiResponse<JobCategory>> {
     return http.post<ApiResponse<JobCategory>, AdminCategoryPayload>(
       "/api/v1/admin/categories",
       payload

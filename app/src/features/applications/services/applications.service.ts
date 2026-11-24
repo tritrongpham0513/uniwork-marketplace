@@ -1,8 +1,8 @@
 import type {
+  ApiResponse,
   Application,
   ApplicationStatus,
 } from "@/features/shared/types";
-import type { ApiResponse } from "@/features/auth/types";
 import http from "@/lib/axios";
 
 export interface CreateApplicationPayload {
@@ -27,9 +27,12 @@ export const applicationService = {
    * GET /api/v1/student/applications — đơn ứng tuyển của sinh viên.
    */
   listByStudent(status?: string): Promise<ApiResponse<Application[]>> {
-    return http.get<ApiResponse<Application[]>>("/api/v1/student/applications", {
-      params: status && status !== "ALL" ? { status } : undefined,
-    });
+    return http.get<ApiResponse<Application[]>>(
+      "/api/v1/student/applications",
+      {
+        params: status && status !== "ALL" ? { status } : undefined,
+      }
+    );
   },
 
   /**
@@ -44,9 +47,7 @@ export const applicationService = {
   /**
    * POST /api/v1/student/applications — nộp đơn ứng tuyển.
    */
-  create(
-    payload: CreateApplicationPayload
-  ): Promise<ApiResponse<Application>> {
+  create(payload: CreateApplicationPayload): Promise<ApiResponse<Application>> {
     return http.post<ApiResponse<Application>, CreateApplicationPayload>(
       "/api/v1/student/applications",
       payload
@@ -76,9 +77,10 @@ export const applicationService = {
   /**
    * GET /api/v1/employer/applications — danh sách ứng viên.
    */
-  listByEmployer(
-    params?: { jobId?: string; status?: string }
-  ): Promise<ApiResponse<Application[]>> {
+  listByEmployer(params?: {
+    jobId?: string;
+    status?: string;
+  }): Promise<ApiResponse<Application[]>> {
     return http.get<ApiResponse<Application[]>>(
       "/api/v1/employer/applications",
       { params }
@@ -112,10 +114,7 @@ export const applicationService = {
    *
    * <p>Ghi chú chỉ hiển thị với nhà tuyển dụng, không gửi cho sinh viên.
    */
-  updateNote(
-    id: string,
-    note: string
-  ): Promise<ApiResponse<Application>> {
+  updateNote(id: string, note: string): Promise<ApiResponse<Application>> {
     return http.patch<ApiResponse<Application>, { note: string }>(
       `/api/v1/employer/applications/${id}/note`,
       { note }

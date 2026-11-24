@@ -11,7 +11,7 @@ import type {
   SalaryBenchmark,
 } from "@/features/jobs/types";
 import { HOURS_PER_SALARY_UNIT } from "@/features/jobs/types";
-import type { ApiResponse } from "@/features/auth/types";
+import type { ApiResponse } from "@/features/shared/types";
 import { axiosInstance } from "@/lib/axios";
 
 // ============================================

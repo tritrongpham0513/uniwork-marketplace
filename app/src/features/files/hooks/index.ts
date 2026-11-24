@@ -1,6 +1,7 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { normalizeApiError } from "@/lib/api-error";
 import { toast } from "@/lib/toast";
+import { FILE_KEYS } from "@/features/shared/query-keys";
 import {
   filesService,
   fileIdFromUrl,
@@ -9,9 +10,7 @@ import {
   type UploadedFile,
 } from "../services/files.service";
 
-export const FILE_KEYS = {
-  all: ["files"] as const,
-};
+export { FILE_KEYS };
 
 /**
  * Hook upload file.

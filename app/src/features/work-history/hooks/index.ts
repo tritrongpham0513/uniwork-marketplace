@@ -1,13 +1,9 @@
 import { useQuery } from "@tanstack/react-query";
 import type { WorkHistory } from "@/features/shared/types";
+import { WORK_HISTORY_KEYS } from "@/features/shared/query-keys";
 import { workHistoryService } from "../services/work-history.service";
 
-export const WORK_HISTORY_KEYS = {
-  all: ["work-history"] as const,
-  student: () => [...WORK_HISTORY_KEYS.all, "student"] as const,
-  application: (applicationId: string) =>
-    [...WORK_HISTORY_KEYS.all, "application", applicationId] as const,
-};
+export { WORK_HISTORY_KEYS };
 
 /**
  * Kinh nghiệm làm việc của ứng viên trong 1 đơn ứng tuyển (phía nhà tuyển dụng).
@@ -19,7 +15,8 @@ export const useApplicationWorkHistory = (applicationId: string) =>
   useQuery({
     queryKey: WORK_HISTORY_KEYS.application(applicationId),
     queryFn: async () => {
-      const response = await workHistoryService.listForApplication(applicationId);
+      const response =
+        await workHistoryService.listForApplication(applicationId);
       return response.data;
     },
     enabled: Boolean(applicationId),

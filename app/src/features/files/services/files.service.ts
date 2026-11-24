@@ -1,4 +1,4 @@
-import type { ApiResponse } from "@/features/auth/types";
+import type { ApiResponse } from "@/features/shared/types";
 import http from "@/lib/axios";
 
 /**
@@ -235,7 +235,9 @@ const putToPresignedUrl = (
       );
 
     xhr.ontimeout = () =>
-      reject(new Error("Tải lên file quá thời gian cho phép. Vui lòng thử lại."));
+      reject(
+        new Error("Tải lên file quá thời gian cho phép. Vui lòng thử lại.")
+      );
 
     xhr.send(file);
   });

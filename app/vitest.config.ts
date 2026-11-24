@@ -11,7 +11,9 @@ export default defineConfig({
   },
   resolve: {
     alias: {
-      "@": path.resolve(__dirname, "./src"),
+      // `import.meta.dirname` thay cho `__dirname` để tương thích với
+      // Vite config loader native (sẽ là mặc định ở Vite 9).
+      "@": path.resolve(import.meta.dirname, "./src"),
     },
   },
 });

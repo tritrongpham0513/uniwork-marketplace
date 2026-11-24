@@ -65,12 +65,14 @@ student-job-marketplace/
 ### 1. Đọc GLOSSARY.md nếu không hiểu thuật ngữ
 
 Dự án dùng các từ cụ thể: "tin tuyển dụng", "đơn ứng tuyển", "nhà tuyển dụng", "xếp hạng lương". Nếu cần viết spec hoặc hỏi về tính năng — hãy dùng đúng từ từ `GLOSSARY.md`. Ví dụ:
+
 - **Sai**: "cần thêm tính năng yêu thích tin"
 - **Đúng**: "cần thêm tính năng lưu việc cho tin tuyển dụng"
 
 ### 2. Đọc docs/adr/ nếu tò mò tại sao
 
 Nếu ngạc nhiên vì quyết định nào (ví dụ "tại sao phải duyệt tin qua admin?"), hãy đọc:
+
 - `docs/adr/0003-job-requires-admin-review-before-going-live.md`
 
 ### 3. Kiểm tra CODING_STANDARDS.md khi review
@@ -118,6 +120,25 @@ cd backend/
 ./mvnw clean package
 ```
 
+> **Máy chưa cài Maven?** Chạy test backend qua Docker (Maven + JDK 17 có sẵn trong image):
+>
+> ```bash
+> # từ gốc repo
+> docker run --rm \
+>   -v "$(pwd)/backend:/app" \
+>   -v "$HOME/.m2:/root/.m2" \
+>   -w /app maven:3.9-eclipse-temurin-17 mvn -B test
+> ```
+>
+> Trên Windows (Git Bash) dùng đường dẫn Windows + `MSYS_NO_PATHCONV=1`:
+>
+> ```bash
+> MSYS_NO_PATHCONV=1 docker run --rm \
+>   -v "d:/code/Project/student-job-marketplace/backend:/app" \
+>   -v "C:/Users/<user>/.m2:/root/.m2" \
+>   -w /app maven:3.9-eclipse-temurin-17 mvn -B test
+> ```
+
 ---
 
 ## Ranh giới import
@@ -134,15 +155,40 @@ features/jobs/types/index.ts
 features/jobs/hooks/useJobs.ts
   ↓ (import được từ)
 features/shared/types/   (chỉ cấp này)
+features/shared/query-keys.ts
 lib/                      (utilities)
 ```
 
 **Cấm**:
+
 - `features/jobs/` import từ `features/applications/` (trừ qua `features/shared`)
 - `features/jobs/` import từ `pages/`
 - `lib/` không import từ `features/` (libraries phải pure)
 
-**ESLint rule** (mức warning): `no-restricted-imports` sẽ catch các vi phạm.
+**ESLint rule** (mức warning) sẽ catch các vi phạm:
+
+- `no-restricted-imports` chặn `@/pages/*` bên trong `features/`.
+- `no-restricted-imports` chặn import chéo giữa các `features/<x>` (trừ `shared`).
+- `no-restricted-imports` chặn `features/` & `pages/` bên trong `lib/`.
+- `no-console` chặn `console.log` bên trong `src/` (cho phép `warn`/`error`).
+
+### Query key dùng chung
+
+Một feature có thể cần invalidate cache của feature khác (ví dụ: thông báo "đơn ứng tuyển
+đổi trạng thái" -> danh sách đơn của nhà tuyển dụng phải refetch).
+
+**Luật**: **toàn bộ định nghĩa query key nằm ở `features/shared/query-keys.ts`**.
+Mỗi feature chỉ re-export phần của mình (`export { JOB_KEYS }`), và import từ
+`@/features/shared/query-keys` khi cần dùng.
+
+```
+features/shared/query-keys.ts   <- nguồn sự thật duy nhất
+  ↓ re-export
+features/jobs/hooks/useJobs.ts        export { JOB_KEYS }
+features/notifications/hooks/invalidate.ts   import { APPLICATION_KEYS, ... } từ shared
+```
+
+Thêm feature mới -> thêm key vào `features/shared/query-keys.ts`, **không** tạo import chéo.
 
 ---
 
@@ -166,6 +212,7 @@ features/<name>/
 ```
 
 **Quy tắc**:
+
 - Logic nghiệp vụ nằm ở `services/`, không nằm trong component.
 - Mỗi component không có `useEffect` nếu có thể tính toán được từ state/props.
 - Comment: chỉ giải thích _tại sao_, không giải thích _cái gì_.
@@ -174,16 +221,16 @@ features/<name>/
 
 ## Ranh giới Frontend / Backend
 
-| Phần | Frontend | Backend |
-|---|---|---|
-| **Giao diện** | ✅ React components | ❌ |
-| **Form validation** | ✅ Zod schema | ✅ Validation DTO |
-| **Business logic** | ❌ | ✅ Service classes |
-| **Database queries** | ❌ | ✅ Repository |
-| **State management** | ✅ React Query | ❌ |
-| **API calls** | ✅ axios | ❌ |
-| **JWT generation** | ❌ | ✅ JwtService |
-| **File upload** | ✅ presigned URL | ✅ verify + R2 store |
+| Phần                 | Frontend            | Backend              |
+| -------------------- | ------------------- | -------------------- |
+| **Giao diện**        | ✅ React components | ❌                   |
+| **Form validation**  | ✅ Zod schema       | ✅ Validation DTO    |
+| **Business logic**   | ❌                  | ✅ Service classes   |
+| **Database queries** | ❌                  | ✅ Repository        |
+| **State management** | ✅ React Query      | ❌                   |
+| **API calls**        | ✅ axios            | ❌                   |
+| **JWT generation**   | ❌                  | ✅ JwtService        |
+| **File upload**      | ✅ presigned URL    | ✅ verify + R2 store |
 
 ---
 

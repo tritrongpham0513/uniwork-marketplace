@@ -1,4 +1,4 @@
-import type { ApiResponse } from "@/features/auth/types";
+import type { ApiResponse } from "@/features/shared/types";
 import http from "@/lib/axios";
 
 /**
@@ -36,10 +36,10 @@ export const jobNotifyService = {
   subscribe(
     payload: JobNotifyPreferencePayload
   ): Promise<ApiResponse<JobNotifyPreference>> {
-    return http.post<ApiResponse<JobNotifyPreference>, JobNotifyPreferencePayload>(
-      "/api/v1/student/job-notifications",
-      payload
-    );
+    return http.post<
+      ApiResponse<JobNotifyPreference>,
+      JobNotifyPreferencePayload
+    >("/api/v1/student/job-notifications", payload);
   },
 
   /**
@@ -49,15 +49,12 @@ export const jobNotifyService = {
     categoryCode: string,
     provinceCode?: string | null
   ): Promise<ApiResponse<null>> {
-    return http.delete<ApiResponse<null>>(
-      "/api/v1/student/job-notifications",
-      {
-        params: {
-          categoryCode,
-          ...(provinceCode ? { provinceCode } : {}),
-        },
-      }
-    );
+    return http.delete<ApiResponse<null>>("/api/v1/student/job-notifications", {
+      params: {
+        categoryCode,
+        ...(provinceCode ? { provinceCode } : {}),
+      },
+    });
   },
 };
 

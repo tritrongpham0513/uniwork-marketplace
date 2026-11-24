@@ -1,23 +1,13 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import type {
-  AdminUser,
-  Job,
-  JobCategory,
-} from "@/features/shared/types";
+import type { AdminUser, Job, JobCategory } from "@/features/shared/types";
+import { ADMIN_KEYS } from "@/features/shared/query-keys";
 import {
   adminService,
   type AdminCategoryPayload,
   type AdminDashboardStats,
 } from "../services/admin.service";
 
-export const ADMIN_KEYS = {
-  all: ["admin"] as const,
-  dashboard: () => [...ADMIN_KEYS.all, "dashboard"] as const,
-  users: (role?: string, keyword?: string) =>
-    [...ADMIN_KEYS.all, "users", role ?? "ALL", keyword ?? ""] as const,
-  jobs: (status?: string) => [...ADMIN_KEYS.all, "jobs", status ?? "ALL"] as const,
-  categories: () => [...ADMIN_KEYS.all, "categories"] as const,
-};
+export { ADMIN_KEYS };
 
 /** Số liệu tổng quan hệ thống */
 export const useAdminDashboard = () =>

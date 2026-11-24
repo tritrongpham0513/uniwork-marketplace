@@ -14,6 +14,7 @@ import com.uniwork.entity.User;
 import com.uniwork.entity.UserToken;
 import com.uniwork.exception.AppException;
 import com.uniwork.repository.EmployerProfileRepository;
+import com.uniwork.repository.RefreshTokenRepository;
 import com.uniwork.repository.RoleRepository;
 import com.uniwork.repository.StudentProfileRepository;
 import com.uniwork.repository.UserRepository;
@@ -66,6 +67,9 @@ class AuthServiceTest {
 
     @Mock
     private UserTokenRepository userTokenRepository;
+
+    @Mock
+    private RefreshTokenRepository refreshTokenRepository;
 
     @Mock
     private PasswordEncoder passwordEncoder;
@@ -331,6 +335,12 @@ class AuthServiceTest {
         assertEquals(86400L, res.getExpiresIn());
         assertNotNull(res.getUser());
         assertEquals("active@uniwork.vn", res.getUser().getEmail());
+        // Refresh token phải được cấp mới và lưu lại dạng băm SHA-256.
+        assertNotNull(res.getRefreshToken());
+        verify(refreshTokenRepository).save(argThat(token ->
+                token.getTokenHash() != null
+                        && token.getTokenHash().length() == 64
+                        && token.getExpiresAt().isAfter(LocalDateTime.now())));
     }
 
     // ================================================================

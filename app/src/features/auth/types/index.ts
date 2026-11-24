@@ -1,12 +1,12 @@
 // ============================================
 // CHUNG (API RESPONSE WRAPPER)
 // Khớp với com.uniwork.dto.response.ApiResponse
+//
+// `ApiResponse` là wrapper chung của mọi endpoint -> nguồn sự thật nằm ở
+// `features/shared/types`. Ở đây chỉ re-export để giữ tương thích với code
+// cũ đang import `@/features/auth/types`.
 // ============================================
-export interface ApiResponse<T = unknown> {
-  success: boolean;
-  message: string;
-  data: T;
-}
+export type { ApiResponse } from "@/features/shared/types";
 
 // ============================================
 // ERROR TYPES

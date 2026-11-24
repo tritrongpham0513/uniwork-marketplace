@@ -1,5 +1,4 @@
-import type { Review } from "@/features/shared/types";
-import type { ApiResponse } from "@/features/auth/types";
+import type { ApiResponse, Review } from "@/features/shared/types";
 import http from "@/lib/axios";
 
 export interface CreateReviewPayload {

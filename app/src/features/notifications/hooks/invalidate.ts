@@ -10,15 +10,20 @@
  */
 
 import type { QueryClient } from "@tanstack/react-query";
-import { APPLICATION_KEYS } from "@/features/applications/hooks";
-import { EMPLOYER_JOB_KEYS } from "@/features/employer/hooks";
-import { ADMIN_KEYS } from "@/features/admin/hooks";
-import { REVIEW_KEYS } from "@/features/reviews/hooks";
-import { PROFILE_KEYS } from "@/features/profile/hooks";
-import { WORK_HISTORY_KEYS } from "@/features/work-history/hooks";
+import {
+  ADMIN_KEYS,
+  APPLICATION_KEYS,
+  EMPLOYER_JOB_KEYS,
+  PROFILE_KEYS,
+  REVIEW_KEYS,
+  WORK_HISTORY_KEYS,
+} from "@/features/shared/query-keys";
 
 /** Loại thông báo -> danh sách query key cần invalidate. */
-const RELATED_KEYS_BY_TYPE: Record<string, ReadonlyArray<readonly unknown[]>> = {
+const RELATED_KEYS_BY_TYPE: Record<
+  string,
+  ReadonlyArray<readonly unknown[]>
+> = {
   /** Sinh viên ứng tuyển -> danh sách đơn của NTD đổi. */
   APPLICATION: [APPLICATION_KEYS.all],
   /**

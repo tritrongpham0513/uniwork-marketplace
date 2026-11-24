@@ -3,16 +3,12 @@ import { authService } from "../services/auth.services";
 import type { ApiResponse, UserSummaryResponse } from "../types";
 import { getLocalAccessToken } from "@/utils/authStorage";
 import type { ApiError } from "@/lib/api-error";
+import { AUTH_KEYS } from "@/features/shared/query-keys";
 
-export const AUTH_KEYS = {
-  all: ["auth"] as const,
-  currentUser: () => [...AUTH_KEYS.all, "me"] as const,
-};
+export { AUTH_KEYS };
 
 export const useCurrentUser = (
-  options?: Partial<
-    UseQueryOptions<ApiResponse<UserSummaryResponse>, ApiError>
-  >
+  options?: Partial<UseQueryOptions<ApiResponse<UserSummaryResponse>, ApiError>>
 ) => {
   const token = getLocalAccessToken();
   return useQuery({

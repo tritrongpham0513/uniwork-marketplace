@@ -5,13 +5,26 @@
 //        features/jobs/types sẽ re-export lại từ đây.
 // ============================================
 
+// ============================================
+// API ENVELOPE + ERROR TYPES
+// `ApiResponse` là wrapper chung của mọi endpoint nên thuộc về `shared`
+// (không phải `auth`), để các feature khác không phải import chéo vào `auth`.
+// ============================================
+
+/** Khớp với com.uniwork.dto.response.ApiResponse */
+export interface ApiResponse<T = unknown> {
+  success: boolean;
+  message: string;
+  data: T;
+}
+
+/** Lỗi chuẩn hoá từ Backend — nguồn sự thật nằm ở `@/lib/api-error` */
 export type {
   ApiError,
   ApiErrorKind,
-  ApiResponse,
   ErrorResponse,
   FieldErrorDetail,
-} from "@/features/auth/types";
+} from "@/lib/api-error";
 
 // ============================================
 // ENUMS — mirror trực tiếp giá trị trong DB
@@ -28,19 +41,10 @@ export type WorkMode = "ONSITE" | "REMOTE" | "HYBRID";
 
 /** Kiểu trả lương */
 export type SalaryType =
-  | "HOURLY"
-  | "DAILY"
-  | "WEEKLY"
-  | "MONTHLY"
-  | "PER_TASK"
-  | "NEGOTIABLE";
+  "HOURLY" | "DAILY" | "WEEKLY" | "MONTHLY" | "PER_TASK" | "NEGOTIABLE";
 
 /** Loại hình làm việc */
-export type EmploymentType =
-  | "FULL_TIME"
-  | "PART_TIME"
-  | "FLEXIBLE"
-  | "CASUAL";
+export type EmploymentType = "FULL_TIME" | "PART_TIME" | "FLEXIBLE" | "CASUAL";
 
 /** Trạng thái tin tuyển dụng */
 export type JobStatus =
@@ -69,11 +73,7 @@ export type DayOfWeek = 1 | 2 | 3 | 4 | 5 | 6 | 7;
 export type ReviewTargetType = "EMPLOYER" | "STUDENT";
 
 export type NotificationType =
-  | "APPLICATION"
-  | "APPLICATION_STATUS"
-  | "JOB"
-  | "REVIEW"
-  | "SYSTEM";
+  "APPLICATION" | "APPLICATION_STATUS" | "JOB" | "REVIEW" | "SYSTEM";
 
 // ============================================
 // MASTER DATA

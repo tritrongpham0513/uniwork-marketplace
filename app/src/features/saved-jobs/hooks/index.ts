@@ -1,12 +1,9 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { SAVED_JOB_KEYS } from "@/features/shared/query-keys";
 import { savedJobService } from "../services/saved-jobs.service";
 import { getLocalAccessToken } from "@/utils/authStorage";
 
-export const SAVED_JOB_KEYS = {
-  all: ["saved-jobs"] as const,
-  list: () => [...SAVED_JOB_KEYS.all, "list"] as const,
-  ids: () => [...SAVED_JOB_KEYS.all, "ids"] as const,
-};
+export { SAVED_JOB_KEYS };
 
 /** Danh sách tin đã lưu */
 export const useSavedJobs = () =>
@@ -39,13 +36,7 @@ export const useToggleSavedJob = () => {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: async ({
-      jobId,
-      saved,
-    }: {
-      jobId: string;
-      saved: boolean;
-    }) => {
+    mutationFn: async ({ jobId, saved }: { jobId: string; saved: boolean }) => {
       if (saved) {
         await savedJobService.remove(jobId);
       } else {

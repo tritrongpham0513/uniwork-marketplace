@@ -7,11 +7,13 @@ Tài liệu này ghi các _judgement call_ (mục không thể lint hoàn toàn 
 ## Ngôn ngữ
 
 **Dùng đúng thuật ngữ từ GLOSSARY.md**:
+
 - Không viết "tin việc làm", hãy viết "tin tuyển dụng".
 - Không viết "ứng viên", hãy viết "sinh viên" (nếu nói chung chung) hoặc "ứng tuyển viên" (nếu nói về đơn cụ thể).
 - Không dịch "employer" thành "chủ", hãy viết "nhà tuyển dụng".
 
 **Tiếng Anh cho tên biến/hàm/class** — ví dụ:
+
 ```typescript
 // ✅ Đúng
 const jobToHourly = (job: Job): number => { ... }
@@ -23,6 +25,7 @@ interface SoSanhLuong { ... }
 ```
 
 **Tiếng Việt cho comment/JSDoc** — để khớp với code hiện tại:
+
 ```typescript
 /**
  * Quy đổi mức lương tối thiểu sang đồng/giờ.
@@ -133,11 +136,43 @@ export type LoginInput = z.infer<typeof LoginSchema>;
 ```
 
 Dùng trong component:
+
 ```typescript
 import { LoginSchema } from "@/features/auth/schema/auth.schema";
 
-const { handleSubmit, formState } = useForm({ resolver: zodResolver(LoginSchema) });
+const { handleSubmit, formState } = useForm({
+  resolver: zodResolver(LoginSchema),
+});
 ```
+
+#### 5. Query key dùng chung nằm ở `features/shared/query-keys.ts`
+
+Khi một feature cần invalidate cache của feature khác, **không** import chéo.
+Định nghĩa toàn bộ query key ở `features/shared/query-keys.ts` (điểm neo duy nhất),
+mỗi feature chỉ re-export phần của mình.
+
+```typescript
+// ❌ Sai: import chéo giữa các feature
+// app/src/features/notifications/hooks/invalidate.ts
+import { APPLICATION_KEYS } from "@/features/applications/hooks";
+import { REVIEW_KEYS } from "@/features/reviews/hooks";
+
+// ✅ Đúng: import từ shared
+import { APPLICATION_KEYS, REVIEW_KEYS } from "@/features/shared/query-keys";
+```
+
+Trong feature, re-export key của mình để giữ import path cũ hoạt động:
+
+```typescript
+// app/src/features/jobs/hooks/useJobs.ts
+import { JOB_KEYS } from "@/features/shared/query-keys";
+
+export { JOB_KEYS };
+```
+
+Tương tự, `ApiResponse` là wrapper chung của **mọi** endpoint nên nằm ở
+`features/shared/types` — không phải `features/auth/types`. `auth/types` chỉ
+re-export để tương thích.
 
 ### Backend
 
@@ -293,27 +328,29 @@ DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm:ss
 ### 1. Type safety
 
 Sử dụng TypeScript/Java type system tối đa:
+
 ```typescript
 // ❌ Sai
-const handleFilter = (filterKey, filterValue) => { };
+const handleFilter = (filterKey, filterValue) => {};
 
 // ✅ Đúng
 type FilterKey = "categoryId" | "provinceId" | "salaryMin";
-const handleFilter = (filterKey: FilterKey, filterValue: string | number) => { };
+const handleFilter = (filterKey: FilterKey, filterValue: string | number) => {};
 ```
 
 ### 2. Naming conventions
 
 - **Boolean prefix**: `is`, `has`, `should`, `can`
+
   ```typescript
-  const isVerified = true;    // ✅
-  const verified = true;       // ❌ (mơ hồ)
+  const isVerified = true; // ✅
+  const verified = true; // ❌ (mơ hồ)
   ```
 
 - **Function/method**: verb + noun
   ```typescript
-  const getUserById = (id: number) => { };     // ✅
-  const getUser = (id: number) => { };        // ❌ (mơ hồ)
+  const getUserById = (id: number) => {}; // ✅
+  const getUser = (id: number) => {}; // ❌ (mơ hồ)
   ```
 
 ### 3. Giãn cách logic (Separation of Concerns)
@@ -325,9 +362,9 @@ Mỗi hàm/class: **một trách nhiệm duy nhất**.
 export const getJobsWithRanking = async (categoryId: string) => {
   const jobs = await jobsService.getJobs(categoryId);
   const benchmarks = await salaryService.getBenchmarks(categoryId);
-  const withRanking = jobs.map(job => ({
+  const withRanking = jobs.map((job) => ({
     ...job,
-    ranking: calculateRanking(job, benchmarks)
+    ranking: calculateRanking(job, benchmarks),
   }));
   return withRanking;
 };
@@ -337,10 +374,13 @@ export const getJobs = async (categoryId: string) => {
   return jobsService.getJobs(categoryId);
 };
 
-export const enrichWithRanking = (jobs: Job[], benchmarks: SalaryBenchmark[]) => {
-  return jobs.map(job => ({
+export const enrichWithRanking = (
+  jobs: Job[],
+  benchmarks: SalaryBenchmark[],
+) => {
+  return jobs.map((job) => ({
     ...job,
-    ranking: calculateRanking(job, benchmarks)
+    ranking: calculateRanking(job, benchmarks),
   }));
 };
 ```
@@ -350,6 +390,7 @@ export const enrichWithRanking = (jobs: Job[], benchmarks: SalaryBenchmark[]) =>
 ## Test
 
 Ngoài code chính, hãy viết test cho:
+
 - **Frontend**: các hàm thuần, hook custom, schema validation.
 - **Backend**: business logic ở service, không cần test repository (JPA + H2 đủ rồi).
 

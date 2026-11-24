@@ -1,15 +1,12 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import type { Job } from "@/features/shared/types";
+import { EMPLOYER_JOB_KEYS } from "@/features/shared/query-keys";
 import {
   employerJobService,
   type CreateJobPayload,
 } from "../services/employer-jobs.service";
 
-export const EMPLOYER_JOB_KEYS = {
-  all: ["employer-jobs"] as const,
-  list: (status?: string) => [...EMPLOYER_JOB_KEYS.all, "list", status ?? "ALL"] as const,
-  detail: (id: string) => [...EMPLOYER_JOB_KEYS.all, "detail", id] as const,
-};
+export { EMPLOYER_JOB_KEYS };
 
 /** Danh sách tin tuyển dụng của nhà tuyển dụng */
 export const useEmployerJobs = (status?: string) =>

@@ -1,5 +1,4 @@
-import type { SavedJob } from "@/features/shared/types";
-import type { ApiResponse } from "@/features/auth/types";
+import type { ApiResponse, SavedJob } from "@/features/shared/types";
 import http from "@/lib/axios";
 
 export const savedJobService = {
