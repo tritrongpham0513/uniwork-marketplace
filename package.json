@@ -1,0 +1,11 @@
+{
+  "private": true,
+  "workspaces": ["app", "backend"],
+  "scripts": {
+    "prepare": "husky install"
+  },
+  "devDependencies": {
+    "husky": "^9.1.7",
+    "lint-staged": "^17.6.2"
+  }
+}

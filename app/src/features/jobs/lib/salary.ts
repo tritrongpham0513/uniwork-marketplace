@@ -26,7 +26,7 @@ export const jobToHourly = (job: Pick<Job, "salaryType" | "salaryMin">): number 
  * Trả về `null` khi không có dữ liệu benchmark.
  */
 export const compareSalary = (
-  job: Job,
+  job: Pick<Job, "salaryType" | "salaryMin" | "salaryMax">,
   benchmark: SalaryBenchmark | undefined
 ): SalaryComparison | null => {
   if (!benchmark || job.salaryType === "NEGOTIABLE") return null;

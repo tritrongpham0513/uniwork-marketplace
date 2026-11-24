@@ -67,6 +67,22 @@ export default defineConfig([
       // Chỉ là quy tắc HMR-DX: các file `ui/*` của shadcn preset export
       // kèm `*Variants` (buttonVariants, badgeVariants...) nên không thể tách file.
       "react-refresh/only-export-components": "off",
+
+      // ============================================
+      // Cấm module boundaries (mức cảnh báo)
+      // ============================================
+
+      // Cấm import từ pages/* trong features/**
+      "no-restricted-imports": [
+        "warn",
+        {
+          name: "@/pages",
+          message: "features/* không được import từ pages/. Pages là route-level, features là business logic layer.",
+        },
+      ],
+
+      // Lưu ý: ESLint flat config không có pattern match dễ dàng cho cấm chéo features
+      // Workaround: dùng custom lint-staged hoặc pre-commit hook check
     },
   },
   eslintConfigPrettier,
