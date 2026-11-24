@@ -1,9 +1,10 @@
 import {
+  Bookmark,
   Briefcase,
   CheckCircle2,
-  ClipboardList,
   FileText,
   FolderKanban,
+  LayoutDashboard,
   Search,
   ShieldCheck,
   Star,
@@ -44,7 +45,7 @@ export const WORKSPACE_NAV: Record<RoleType, WorkspaceNavConfig> = {
         id: "student-dashboard",
         label: "Bảng điều khiển",
         to: PATHS.STUDENT.ROOT,
-        icon: ClipboardList,
+        icon: LayoutDashboard,
         end: true,
       },
       {
@@ -69,7 +70,7 @@ export const WORKSPACE_NAV: Record<RoleType, WorkspaceNavConfig> = {
         id: "student-saved",
         label: "Việc đã lưu",
         to: PATHS.SAVED,
-        icon: Star,
+        icon: Bookmark,
       },
       {
         id: "student-jobs",
@@ -87,7 +88,7 @@ export const WORKSPACE_NAV: Record<RoleType, WorkspaceNavConfig> = {
         id: "employer-dashboard",
         label: "Bảng điều khiển",
         to: PATHS.EMPLOYER.ROOT,
-        icon: FileText,
+        icon: LayoutDashboard,
         end: true,
       },
       {
@@ -124,7 +125,7 @@ export const WORKSPACE_NAV: Record<RoleType, WorkspaceNavConfig> = {
         id: "admin-dashboard",
         label: "Bảng điều khiển",
         to: PATHS.ADMIN.ROOT,
-        icon: FileText,
+        icon: LayoutDashboard,
         end: true,
       },
       {

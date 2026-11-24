@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { Link, NavLink, useNavigate } from "react-router";
+import { Link, NavLink } from "react-router";
 import {
   Bell,
   BookmarkCheck,
@@ -56,7 +56,6 @@ const SITE_NAV: HeaderNavItem[] = [
 
 export function Header() {
   const { user, isAuthenticated, logout } = useAuth();
-  const navigate = useNavigate();
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const [isMobileOpen, setIsMobileOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
@@ -93,8 +92,9 @@ export function Header() {
       : PATHS.STUDENT.PROFILE;
 
   const handleLogout = () => {
+    // Chỉ đăng xuất tại chỗ, không chuyển hướng.
     logout();
-    navigate(PATHS.HOME);
+    setIsDropdownOpen(false);
   };
 
   return (

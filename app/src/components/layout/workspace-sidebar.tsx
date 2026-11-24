@@ -1,4 +1,4 @@
-import { Link, useLocation, useNavigate } from "react-router";
+import { Link, useLocation } from "react-router";
 import {
   Bell,
   Briefcase,
@@ -166,7 +166,6 @@ function NavEntry({
 function UserMenu() {
   const { user, logout } = useAuth();
   const { state } = useSidebar();
-  const navigate = useNavigate();
 
   if (!user) return null;
 
@@ -174,8 +173,8 @@ function UserMenu() {
   const profilePath = PROFILE_PATH_BY_ROLE[user.role];
 
   const handleLogout = () => {
+    // Chỉ đăng xuất tại chỗ, không chuyển hướng.
     logout();
-    navigate(PATHS.AUTH.LOGIN);
   };
 
   const avatar = (

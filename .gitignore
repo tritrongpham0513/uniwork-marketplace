@@ -23,6 +23,10 @@ backend/.env
 
 # Local SQL scripts
 schema_parttime_marketplace_mysql.sql
+schema_tmp.sql
+
+# Temporary seed-export scripts (sinh dữ liệu demo, không cần trong repo)
+.tmp-seed/
 
 # Frontend build/test artifacts
 app/dist/

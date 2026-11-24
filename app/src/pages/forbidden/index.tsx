@@ -31,7 +31,7 @@ export default function ForbiddenPage() {
       </p>
 
       <Card className="mt-8 w-full border-border/60">
-        <CardContent className="space-y-4 p-6 text-left">
+        <CardContent className="flex flex-col items-center justify-center space-y-4 p-6 text-left">
           <div className="flex items-start gap-3">
             <div className="mt-0.5 flex size-8 shrink-0 items-center justify-center rounded-lg bg-muted text-muted-foreground">
               <Home className="size-4" />

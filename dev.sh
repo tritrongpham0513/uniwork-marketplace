@@ -11,6 +11,10 @@
 #
 # Bản production (nginx + jar) vẫn chạy độc lập ở:
 #   http://localhost:8000 / :8080 / :3306
+#
+# Lệnh đặc biệt:
+#   ./dev.sh seed        → nạp dữ liệu DEMO "như app thật" (để quay video)
+#   ./dev.sh seed-prod   → tương tự nhưng nạp vào DB production
 # ---------------------------------------------------------------------
 set -euo pipefail
 
@@ -42,6 +46,16 @@ case "${1:-up}" in
     docker compose -f "$COMPOSE_FILE" down -v "$@"
     docker compose -f "$COMPOSE_FILE" up -d --build "$@"
     ;;
+  seed)
+    # Nạp bộ dữ liệu DEMO "như app thật" (dùng để quay video demo).
+    # Dev bình thường KHÔNG cần lệnh này.
+    shift || true
+    exec ./seed/seed-demo.sh "$@"
+    ;;
+  seed-prod)
+    shift || true
+    exec ./seed/seed-demo.sh --prod "$@"
+    ;;
   logs)
     shift
     docker compose -f "$COMPOSE_FILE" logs -f "$@"
@@ -51,7 +65,7 @@ case "${1:-up}" in
     docker compose -f "$COMPOSE_FILE" ps "$@"
     ;;
   *)
-    echo "Dùng: $0 [up|up-d|down|reset|logs|ps]" >&2
+    echo "Dùng: $0 [up|up-d|down|reset|seed|seed-prod|logs|ps]" >&2
     exit 1
     ;;
 esac
