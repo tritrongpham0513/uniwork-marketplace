@@ -409,3 +409,178 @@ Bảng `districts` (quận cũ) **được giữ lại** để không break fron
    .\mvnw.cmd spring-boot:run
    ```
 3. Kiểm tra server: Truy cập [http://localhost:8080/swagger-ui.html](http://localhost:8080/swagger-ui.html).
+
+---
+
+## 🚀 7. Deploy lên Vercel (frontend) + Render (backend)
+
+Kiến trúc đã chốt:
+
+```
+                    ┌──────────────────────────┐
+  Người dùng ──────►│  Vercel (SPA tĩnh)      │
+                    │  *.vercel.app            │
+                    │  /api/*  ──rewrite──┐    │
+                    └──────────────────────┼────┘
+                                           │  HTTPS
+                    ┌──────────────────────▼────┐
+                    │  Render (Spring Boot)      │
+                    │  *.onrender.com            │
+                    │  wss://…/ws/notifications  │
+                    └────────────┬───────────────┘
+                                 │
+              ┌──────────────────┼──────────────────┐
+              ▼                  ▼                  ▼
+      Enzonic MySQL 8.4    Cloudflare R2      (không dùng)
+      (TLS bắt buộc)     (CV / avatar / logo)
+```
+
+* **Frontend** trên Vercel: `/api/*` được **rewrite** về Render ⇒ gọi API
+  **same-origin** (không cần CORS, không lộ URL API).
+* **WebSocket** phải trỏ **thẳng** về Render (`VITE_WS_URL`) — Vercel rewrite
+  **không** nâng cấp được header `Upgrade` sang origin ngoài
+  ([Vercel docs](https://vercel.com/docs/routing/rewrites)).
+* **Backend** trên Render: runtime **Docker** (Render không có Java native),
+  plan **Free** (0.1 CPU / 512 MB RAM).
+* **Database**: [Enzonic MySQL 8.4](https://enzonic.dev/databases/mysql/) —
+  miễn phí vĩnh viễn, **TLS bắt buộc**, ngủ sau 5′ không kết nối (dữ liệu
+  được giữ nguyên).
+
+### 7.1. Trước khi bắt đầu — chuẩn bị
+
+| # | Việc | Ở đâu | Ghi chú |
+|---|------|-------|---------|
+| 1 | Tạo DB MySQL 8.4 | [databases.enzonic.com](https://databases.enzonic.com/) | DB tên `main`. Copy **host**, **port**, **user**, **password** |
+| 2 | Tạo bucket R2 + token | Cloudflare Dashboard → R2 | Token cần quyền **Object Read & Write** |
+| 3 | Bật r2.dev cho bucket public | R2 → bucket `viejob-public` → Public Access | Bắt buộc, nếu không `<img>` sẽ 403 |
+| 4 | Đặt CORS cho R2 | R2 → bucket → Settings → CORS | Thêm origin production (mục 7.5) |
+| 5 | Push code lên nhánh `dev-viejob` | `git push origin dev-viejob` | Render/Vercel đọc code từ GitHub |
+
+### 7.2. Deploy Backend lên Render (Blueprint)
+
+1. Vào <https://dashboard.render.com> → **New → Blueprint**.
+2. Chọn repo `tritrongpham0513/uniwork-marketplace`, nhánh **`dev-viejob`**.
+3. Render đọc `render.yaml` ở gốc repo ⇒ tự tạo web service `viejob-api`.
+4. **Điền các biến `sync: false`** (Render hiển thị ô nhập):
+   * `DB_PASSWORD` — mật khẩu Enzonic
+   * `ADMIN_INITIAL_PASSWORD` — mật khẩu admin (tự chọn)
+   * `R2_ENDPOINT`, `R2_ACCESS_KEY`, `R2_SECRET_KEY`
+   * `R2_PUBLIC_BASE_URL` — dạng `https://pub-xxxx.r2.dev`
+5. **Sửa `DB_URL`** trong Render Dashboard (Environment) — thay `<enzonic-host>`
+   bằng hostname thật của Enzonic:
+   ```
+   jdbc:mysql://<ten-db>.db.enzonic.com:3306/main?sslMode=REQUIRED&serverTimezone=UTC&characterEncoding=UTF-8&allowPublicKeyRetrieval=true
+   ```
+   `JWT_SECRET` đã được Render tự sinh (`generateValue: true`).
+6. Bấm **Apply** ⇒ chờ build Docker (~3–6 phút).
+7. Khi deploy thành công, Render cấp URL dạng `https://viejob-api.onrender.com`.
+
+> **Lưu ý Render Free:** service **ngủ sau 15′ không có traffic** ⇒ lần đầu
+> truy cập phải chờ ~1 phút (cold start). WebSocket có ping 25 s nên giữ service
+> thức, nhưng sau khi hết tab thì vẫn ngủ. Plan **Starter ($7/tháng)** nếu cần
+> luôn bật.
+
+### 7.3. Deploy Frontend lên Vercel
+
+1. Vào <https://vercel.com/new> → **Import Project** → chọn repo
+   `tritrongpham0513/uniwork-marketplace`.
+2. **Root Directory**: để trống (repo root) — `vercel.json` ở gốc.
+3. Framework Preset: **Other** (`framework: null` trong `vercel.json` đã set).
+4. **Environment Variables** — thêm:
+   | Key | Value |
+   |-----|-------|
+   | `VITE_WS_URL` | `wss://viejob-api.onrender.com` |
+5. Bấm **Deploy**.
+6. Vercel cấp URL dạng `https://<project>.vercel.app`.
+
+> **Bắt buộc:** `vercel.json` phải được **commit** vào Git (Vercel không báo lỗi
+> nếu thiếu — chỉ là rewrite không có tác dụng). Kiểm tra bằng
+> `git log --oneline -- vercel.json`.
+>
+> `VITE_WS_URL` là biến **build-time**: đổi giá trị ⇒ phải **Redeploy**.
+
+### 7.4. Cập nhật `vercel.json` với URL Render thật
+
+`vercel.json` đang trỏ tới `https://viejob-api.onrender.com`. Nếu Render cấp
+tên khác (ví dụ `viejob-api-xyz.onrender.com`), sửa `destination` rồi push:
+
+```bash
+# sửa vercel.json: destination của rewrite /api/:path*
+git add vercel.json && git commit -m "chore(deploy): cap nhat URL Render" && git push origin dev-viejob
+```
+
+### 7.5. Danh sách biến môi trường production
+
+| Biến | Đặt ở đâu | Bắt buộc | Ghi chú |
+|------|-----------|----------|---------|
+| `SPRING_PROFILES_ACTIVE` | Render (`render.yaml`) | ✅ | `prod` → nạp `application-prod.yml` |
+| `DB_URL` | Render | ✅ | JDBC URL của Enzonic, `sslMode=REQUIRED` |
+| `DB_USERNAME` | Render | ✅ | `main` |
+| `DB_PASSWORD` | Render | ✅ | `sync: false` |
+| `JWT_SECRET` | Render | ✅ | Render tự sinh, ≥ 32 byte |
+| `ADMIN_INITIAL_EMAIL` | Render | ➖ | Mặc định `admin@viejob.vn` |
+| `ADMIN_INITIAL_PASSWORD` | Render | ✅ | `sync: false` |
+| `DEMO_STUDENT_PASSWORD` | Render | ➖ | Mặc định `Student@123` |
+| `DEMO_EMPLOYER_PASSWORD` | Render | ➖ | Mặc định `Employer@123` |
+| `DEMO_ADMIN_PASSWORD` | Render | ➖ | Mặc định `Admin@123` |
+| `APP_BASE_URL` | Render | ✅ | URL Render (link trong email xác thực) |
+| `APP_PUBLIC_BASE_URL` | Render | ✅ | URL Render |
+| `CORS_ALLOWED_ORIGINS` | Render | ✅ | Danh sách origin, phân tách bằng `,` |
+| `R2_ENDPOINT` | Render | ✅ | `https://<ACCOUNT_ID>.r2.cloudflarestorage.com` |
+| `R2_ACCESS_KEY` / `R2_SECRET_KEY` | Render | ✅ | `sync: false` |
+| `R2_BUCKET_PUBLIC` / `R2_BUCKET_PRIVATE` | Render | ➖ | Mặc định `viejob-public` / `viejob-private` |
+| `R2_PUBLIC_BASE_URL` | Render | ✅ | `https://pub-xxxx.r2.dev` |
+| `MAIL_HOST` / `MAIL_PORT` | Render | ➖ | Mặc định `smtp.gmail.com:587` |
+| `MAIL_USERNAME` / `MAIL_PASSWORD` | Render | ➖ | **Trống ⇒ tính năng gửi email xác thực tắt** |
+| `APP_MAIL_FROM` | Render | ➖ | `UniWork Marketplace <no-reply@viejob.vn>` |
+| `VITE_WS_URL` | Vercel | ✅ | `wss://viejob-api.onrender.com` |
+
+> ⚠️ **Giới hạn đã biết (production):**
+> * **Chưa bật xác thực email.** `MAIL_USERNAME`/`MAIL_PASSWORD` để trống ⇒
+>   tài khoản đăng ký mới ở trạng thái `PENDING_VERIFY` và **không đăng nhập
+>   được** (HTTP 403 `EMAIL_NOT_VERIFIED`). Chỉ tài khoản demo seed sẵn đăng
+>   nhập được. Muốn bật: điền SMTP Gmail + App Password rồi restart service.
+> * **Nút "Đăng nhập với Google"** hiện chỉ hiển thị thông báo, chưa tích hợp
+>   script `accounts.google.com` ⇒ không cần `GOOGLE_CLIENT_ID` để deploy.
+
+### 7.6. Kiểm tra sau khi deploy
+
+```bash
+cd app
+APP_URL=https://<app>.vercel.app \
+API_URL=https://viejob-api.onrender.com \
+node scripts/verify-deploy.mjs
+```
+
+Script kiểm tra 9 mục: SPA build, deep-link fallback, master data, API qua
+rewrite Vercel, chặn endpoint private, đăng nhập demo, endpoint có token,
+WebSocket handshake, presigned URL của R2.
+
+### 7.7. Đổi sang domain riêng (sau này)
+
+Khi đã mua domain và muốn dùng `job.viejoy.io.vn` (app) +
+`api-job.viejoy.io.vn` (API), sửa **đúng 5 chỗ**:
+
+| # | Chỗ sửa | Thay bằng |
+|---|---------|-----------|
+| 1 | `vercel.json` → `rewrites[0].destination` | `https://api-job.viejoy.io.vn/api/:path*` |
+| 2 | Vercel env `VITE_WS_URL` | `wss://api-job.viejoy.io.vn` (**phải redeploy**) |
+| 3 | Render env `APP_BASE_URL` + `APP_PUBLIC_BASE_URL` | `https://api-job.viejoy.io.vn` |
+| 4 | Render env `CORS_ALLOWED_ORIGINS` | thêm `https://job.viejoy.io.vn` |
+| 5 | Cloudflare R2 → CORS của cả 2 bucket | thêm `https://job.viejoy.io.vn` |
+
+DNS:
+* `job` → CNAME → `cname.vercel-dns.com` (Vercel tự cấp trong dashboard)
+* `api-job` → CNAME → `<slug>.onrender.com` (Render tự cấp trong dashboard)
+
+### 7.8. Cấu trúc file deploy trong repo
+
+| File | Vai trò |
+|------|---------|
+| `vercel.json` | Build command, output dir, rewrite `/api/*` → Render, SPA fallback |
+| `render.yaml` | Blueprint Render: web service Docker + health check + biến môi trường |
+| `backend/src/main/resources/application-prod.yml` | Profile prod: bắt buộc secret từ env, Flyway retry, graceful shutdown |
+| `backend/Dockerfile` | Build Maven + runtime JRE 17, JVM tuning cho 512 MB |
+| `app/src/config/env.ts` | Thêm biến `VITE_WS_URL` |
+| `app/scripts/verify-deploy.mjs` | Script kiểm chứng 9 mục sau deploy |
+| `.env.example` / `app/.env.example` | Danh sách biến cho dev |

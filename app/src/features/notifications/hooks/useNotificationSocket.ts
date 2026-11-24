@@ -132,6 +132,9 @@ export const useNotificationSocket = ({
 
     const client = new RealtimeNotificationClient({
       apiBaseUrl: env.API_URL_DEV,
+      // Vercel không proxy được WebSocket sang origin ngoài -> socket trỏ
+      // thẳng về Render khi `VITE_WS_URL` được đặt.
+      wsUrl: env.WS_URL,
       requestTicket: async () => {
         const response = await notificationService.requestSocketTicket();
         return response.data.ticket;

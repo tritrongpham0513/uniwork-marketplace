@@ -1,0 +1,22 @@
+{
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "framework": null,
+  "installCommand": "npm install -g pnpm@10 && cd app && pnpm install --frozen-lockfile",
+  "buildCommand": "cd app && pnpm build",
+  "outputDirectory": "app/dist",
+  "git": {
+    "deploymentEnabled": {
+      "dev-viejob": true
+    }
+  },
+  "rewrites": [
+    {
+      "source": "/api/:path*",
+      "destination": "https://viejob-api.onrender.com/api/:path*"
+    },
+    {
+      "source": "/(.*)",
+      "destination": "/index.html"
+    }
+  ]
+}

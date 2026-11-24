@@ -1,5 +1,8 @@
 server:
-  port: 8080
+  # Render inject PORT=10000; local (docker compose) không set PORT => 8080.
+  # Bắt buộc bind 0.0.0.0: Render quét port từ network namespace khác,
+  # process chỉ bind loopback sẽ không được nhận traffic.
+  port: ${PORT:8080}
   address: 0.0.0.0
 
 spring:
@@ -105,6 +108,17 @@ app:
   admin:
     initial-email: ${ADMIN_INITIAL_EMAIL:admin@uniwork.vn}
     initial-password: ${ADMIN_INITIAL_PASSWORD:admin123456}
+  # Mật khẩu cho tài khoản DEMO có sẵn trong seed V3 (student@viejob.vn,
+  # employer@viejob.vn, admin@viejob.vn). Migration V3 tạo user với
+  # password_hash = 'SEED_PENDING' (không phải hash BCrypt hợp lệ), nên
+  # DemoAccountInitializer gán lại mật khẩu BCrypt lúc app khởi động.
+  #
+  # Biến môi trường: DEMO_STUDENT_PASSWORD / DEMO_EMPLOYER_PASSWORD /
+  # DEMO_ADMIN_PASSWORD (xem render.yaml).
+  demo:
+    student-password: ${DEMO_STUDENT_PASSWORD:Student@123}
+    employer-password: ${DEMO_EMPLOYER_PASSWORD:Employer@123}
+    admin-password: ${DEMO_ADMIN_PASSWORD:Admin@123}
 
 # Cấu hình ghi log
 logging:

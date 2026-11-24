@@ -32,6 +32,14 @@ export type RealtimeStatus = "idle" | "connecting" | "open" | "closed";
 export interface RealtimeNotificationClientOptions {
   /** Base URL của API — dùng để suy ra URL WebSocket (giữ nguyên origin). */
   apiBaseUrl: string;
+  /**
+   * Base URL riêng cho WebSocket (đã bao gồm scheme `ws://` / `wss://`).
+   *
+   * Vercel rewrite **không** nâng cấp được header `Upgrade` sang origin
+   * ngoài, nên khi frontend deploy trên Vercel và API trên Render, socket
+   * phải trỏ thẳng về Render. Rỗng = dùng `apiBaseUrl` / `window.location.origin`.
+   */
+  wsUrl?: string;
   /** Xin vé kết nối (một lần cho mỗi lần mở socket). */
   requestTicket: () => Promise<string>;
   /** Nhận payload thông báo mới. */
@@ -52,7 +60,7 @@ const BASE_RECONNECT_DELAY = 1_000;
 const PING_INTERVAL = 25_000;
 
 /**
- * Suy ra URL WebSocket từ base URL của API.
+ * Suy ra URL WebSocket.
  *
  * `http://localhost:5173` -> `ws://localhost:5173/ws/notifications`.
  * Giữ nguyên origin để request đi qua đúng proxy (nginx ở production,
@@ -60,15 +68,25 @@ const PING_INTERVAL = 25_000;
  *
  * Khi `apiBaseUrl` rỗng (app chạy cùng origin với API) -> dùng
  * `window.location.origin` để URL WebSocket vẫn đi qua đúng proxy.
+ *
+ * `wsUrl` (biến `VITE_WS_URL`) được ưu tiên cao nhất: dùng khi API đặt ở
+ * domain khác với app (Vercel -> Render) và rewrite không nâng cấp được
+ * header `Upgrade`.
  */
 export const buildNotificationSocketUrl = (
   apiBaseUrl: string,
-  ticket: string
+  ticket: string,
+  wsUrl?: string
 ): string => {
+  const explicit = (wsUrl ?? "").trim();
+  if (explicit) {
+    const wsBase = explicit.replace(/\/+$/, "");
+    return `${wsBase}/ws/notifications?ticket=${encodeURIComponent(ticket)}`;
+  }
+
   const trimmed = apiBaseUrl.trim().replace(/\/+$/, "");
   const base =
-    trimmed ||
-    (typeof window !== "undefined" ? window.location.origin : "");
+    trimmed || (typeof window !== "undefined" ? window.location.origin : "");
   const wsBase = base.replace(/^http:/, "ws:").replace(/^https:/, "wss:");
   return `${wsBase}/ws/notifications?ticket=${encodeURIComponent(ticket)}`;
 };
@@ -140,7 +158,11 @@ export class RealtimeNotificationClient {
 
     if (this.closedByUser) return;
 
-    const url = buildNotificationSocketUrl(this.options.apiBaseUrl, ticket);
+    const url = buildNotificationSocketUrl(
+      this.options.apiBaseUrl,
+      ticket,
+      this.options.wsUrl
+    );
 
     try {
       const socket = new WebSocket(url);
