@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react";
-import { CheckCircle2, Eye, Search, XCircle } from "lucide-react";
+import { CheckCircle2, Eye, Search, Sparkles, XCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
@@ -29,11 +29,28 @@ import { Textarea } from "@/components/ui/textarea";
 import { DashboardLayout } from "@/components/layout/dashboard-layout";
 import { JobStatusBadge } from "@/components/shared/status-badge";
 import { EmptyState, ErrorState } from "@/components/shared/empty-state";
-import { useAdminJobs, useReviewJob } from "@/features/admin/hooks";
+import {
+  useAdminJobs,
+  useAdminSalaryBenchmarks,
+  useAiFeatureStatus,
+  useAiReviewJob,
+  useEmployerTrust,
+  useReviewJob,
+} from "@/features/admin/hooks";
+import { AiReviewBadge } from "@/features/admin/components/ai-review-badge";
+import { AiReviewPanel } from "@/features/admin/components/ai-review-panel";
+import { JobTrustInfo } from "@/features/admin/components/job-trust-info";
+import { sortJobsByAiSeverity } from "@/features/admin/lib/ai-review";
+import {
+  compareSalary,
+  findBenchmarkFor,
+} from "@/features/admin/lib/salary-benchmark";
 import {
   JOB_STATUS_LABELS,
+  type AiReview,
   type Job,
   type JobStatus,
+  type SalaryComparison,
 } from "@/features/shared/types";
 import { formatSalary, formatPostedAgo } from "@/features/jobs/lib/format";
 
@@ -53,13 +70,69 @@ export default function AdminJobsPage() {
   const [preview, setPreview] = useState<Job | null>(null);
   const [rejectTarget, setRejectTarget] = useState<Job | null>(null);
   const [rejectReason, setRejectReason] = useState("");
+  /**
+   * Kết quả kiểm tra AI trả về ngay trong phiên xem nội dung.
+   *
+   * <p>Tách riêng khỏi dữ liệu trong `preview` vì endpoint kiểm tra thủ công
+   * trả kết quả mới, còn list thì chỉ refresh sau khi invalidate.
+   */
+  const [manualReview, setManualReview] = useState<AiReview | null>(null);
+  /** Đã bấm "Kiểm tra bằng AI" trong phiên xem nội dung hiện tại. */
+  const [hasManualCheck, setHasManualCheck] = useState(false);
 
   const { data: jobs = [], isPending, isError, refetch } = useAdminJobs();
   const reviewJob = useReviewJob();
+  const aiReviewJob = useAiReviewJob();
+  const { data: aiStatus } = useAiFeatureStatus();
+  const { data: benchmarks = [] } = useAdminSalaryBenchmarks();
+  // Chỉ tải hồ sơ của nhà tuyển dụng đang xem trong dialog — tránh gọi
+  // N request cho cả danh sách.
+  const { data: employerTrust } = useEmployerTrust(preview?.employer.id);
+
+  // Backend tự ẩn tính năng khi thiếu khoá API -> nút phải biến mất,
+  // không phải hiện rồi báo lỗi khi bấm.
+  const isAiEnabled = aiStatus?.enabled === true;
+
+  /**
+   * So lương từng tin với bảng xếp hạng lương của ngành + tỉnh.
+   *
+   * <p>Tính 1 lần cho cả danh sách vì bảng xếp hạng là 1 request chung.
+   */
+  const comparisons = useMemo(() => {
+    const map = new Map<string, SalaryComparison | null>();
+
+    for (const job of jobs) {
+      const benchmark = findBenchmarkFor(
+        benchmarks,
+        job.category.id,
+        job.location.provinceId
+      );
+      map.set(job.id, compareSalary(job, benchmark));
+    }
+
+    return map;
+  }, [jobs, benchmarks]);
+
+  /**
+   * Kết quả AI đã lưu trên bản ghi tin tuyển dụng.
+   *
+   * <p>Dùng khi quản trị viên mở dialog mà chưa bấm kiểm tra thủ công —
+   * `manualReview` (kết quả vừa gọi) được ưu tiên hơn.
+   */
+  const previewAiReview = useMemo<AiReview | null>(() => {
+    if (!preview || !preview.aiVerdict) return null;
+
+    return {
+      verdict: preview.aiVerdict,
+      summary: "",
+      reasons: preview.aiReasons ?? [],
+      aiCheckedAt: preview.aiCheckedAt ?? "",
+    };
+  }, [preview]);
 
   const visible = useMemo(() => {
     const query = keyword.trim().toLowerCase();
-    return jobs.filter((job) => {
+    const filtered = jobs.filter((job) => {
       if (status !== "ALL" && job.status !== status) return false;
       if (!query) return true;
       return (
@@ -68,9 +141,14 @@ export default function AdminJobsPage() {
         job.category.name.toLowerCase().includes(query)
       );
     });
+
+    // Tin bị gắn cờ nổi lên đầu — quản trị viên soi tin đáng ngờ trước.
+    return sortJobsByAiSeverity(filtered);
   }, [jobs, status, keyword]);
 
-  const pendingCount = jobs.filter((job) => job.status === "PENDING_REVIEW").length;
+  const pendingCount = jobs.filter(
+    (job) => job.status === "PENDING_REVIEW"
+  ).length;
 
   const handleApprove = async (job: Job) => {
     try {
@@ -79,6 +157,31 @@ export default function AdminJobsPage() {
         description: `Tin "${job.title}" đã hiển thị công khai.`,
       });
     } catch (error) {
+      showApiError(error);
+    }
+  };
+
+  /** Mở dialog xem nội dung — reset kết quả kiểm tra AI của tin trước đó. */
+  const handleOpenPreview = (job: Job) => {
+    setPreview(job);
+    setManualReview(null);
+    setHasManualCheck(false);
+  };
+
+  /**
+   * Kiểm tra thủ công 1 tin bằng AI.
+   *
+   * <p>Dùng được cho cả tin chưa kiểm tra lẫn tin đã có kết quả (kiểm tra
+   * lại) — mỗi lần bấm là một lượt AI.
+   */
+  const handleAiCheck = async (job: Job) => {
+    try {
+      const review = await aiReviewJob.mutateAsync(job.id);
+      setManualReview(review);
+      setHasManualCheck(true);
+      toast.success("Đã kiểm tra tin tuyển dụng bằng AI.");
+    } catch (error) {
+      // Backend trả thông điệp tiếng Việt (hết hạn mức / lỗi dịch vụ...).
       showApiError(error);
     }
   };
@@ -152,7 +255,10 @@ export default function AdminJobsPage() {
         {isPending && (
           <div className="space-y-3">
             {Array.from({ length: 3 }).map((_, index) => (
-              <div key={index} className="h-32 animate-pulse rounded-xl bg-muted/60" />
+              <div
+                key={index}
+                className="h-32 animate-pulse rounded-xl bg-muted/60"
+              />
             ))}
           </div>
         )}
@@ -197,15 +303,36 @@ export default function AdminJobsPage() {
                             status={job.status}
                             label={JOB_STATUS_LABELS[job.status]}
                           />
+                          <AiReviewBadge verdict={job.aiVerdict} />
                         </div>
 
                         <p className="font-heading text-base font-semibold text-foreground">
                           {job.title}
                         </p>
                         <p className="mt-0.5 text-xs text-muted-foreground">
-                          {job.employer.name} · {formatPostedAgo(job.postedAt)} ·{" "}
-                          {job.location.ward || job.location.district}, {job.location.province}
+                          {job.employer.name} · {formatPostedAgo(job.postedAt)}{" "}
+                          · {job.location.ward || job.location.district},{" "}
+                          {job.location.province}
                         </p>
+
+                        {job.aiCheckedAt && (
+                          <p className="mt-1 text-[11px] text-muted-foreground">
+                            AI đã kiểm tra lúc{" "}
+                            {new Date(job.aiCheckedAt).toLocaleString("vi-VN", {
+                              day: "2-digit",
+                              month: "2-digit",
+                              year: "numeric",
+                              hour: "2-digit",
+                              minute: "2-digit",
+                            })}
+                          </p>
+                        )}
+
+                        <JobTrustInfo
+                          comparison={comparisons.get(job.id) ?? null}
+                          trust={undefined}
+                          verified={job.employer.verified}
+                        />
 
                         <div className="mt-3 grid grid-cols-2 gap-x-4 gap-y-2 rounded-lg bg-muted/40 p-3 sm:grid-cols-4">
                           <div>
@@ -247,11 +374,28 @@ export default function AdminJobsPage() {
                         <Button
                           variant="outline"
                           size="sm"
-                          onClick={() => setPreview(job)}
+                          onClick={() => handleOpenPreview(job)}
                         >
                           <Eye className="size-4" />
                           Xem nội dung
                         </Button>
+
+                        {/* Nút này chỉ hiện khi backend báo tính năng đang bật
+                            (tức là có khoá API). Mỗi lần bấm là 1 lượt AI. */}
+                        {isAiEnabled && (
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            title="Mỗi lần kiểm tra sẽ dùng 1 lượt AI."
+                            onClick={() => void handleAiCheck(job)}
+                            disabled={aiReviewJob.isPending}
+                          >
+                            <Sparkles className="size-4" />
+                            {aiReviewJob.isPending
+                              ? "Đang kiểm tra..."
+                              : "Kiểm tra bằng AI"}
+                          </Button>
+                        )}
 
                         {job.status === "PENDING_REVIEW" && (
                           <>
@@ -400,14 +544,32 @@ export default function AdminJobsPage() {
                 </p>
                 <p className="text-muted-foreground">
                   {preview.location.branchName && (
-                    <>
-                      {preview.location.branchName} —{" "}
-                    </>
+                    <>{preview.location.branchName} — </>
                   )}
-                  {preview.location.address}, {preview.location.ward || preview.location.district},{" "}
+                  {preview.location.address},{" "}
+                  {preview.location.ward || preview.location.district},{" "}
                   {preview.location.province}
                 </p>
               </div>
+
+              {/* Điểm uy tín + mức lương so với thị trường — cùng dữ liệu mà
+                  AI dùng để suy luận, để quản trị viên tự đối chiếu. */}
+              <JobTrustInfo
+                comparison={comparisons.get(preview.id) ?? null}
+                trust={employerTrust}
+                verified={preview.employer.verified}
+              />
+
+              {/* Đánh giá của AI đặt SAU nội dung tin — quản trị viên đọc
+                  nội dung thật trước rồi mới đối chiếu với góp ý AI. */}
+              <AiReviewPanel
+                review={manualReview ?? previewAiReview}
+                checkedAt={
+                  manualReview?.aiCheckedAt ?? preview.aiCheckedAt ?? null
+                }
+                isChecking={aiReviewJob.isPending}
+                hasChecked={hasManualCheck}
+              />
             </div>
           )}
 
@@ -415,6 +577,26 @@ export default function AdminJobsPage() {
             <Button variant="outline" onClick={() => setPreview(null)}>
               Đóng
             </Button>
+
+            {/* Ẩn hoàn toàn khi backend tắt tính năng (thiếu khoá API). */}
+            {isAiEnabled && preview && (
+              <div className="flex flex-col items-end gap-1">
+                <Button
+                  variant="outline"
+                  onClick={() => void handleAiCheck(preview)}
+                  disabled={aiReviewJob.isPending}
+                >
+                  <Sparkles className="size-4" />
+                  {aiReviewJob.isPending
+                    ? "Đang kiểm tra..."
+                    : "Kiểm tra bằng AI"}
+                </Button>
+                <p className="text-[11px] text-muted-foreground">
+                  Mỗi lần kiểm tra sẽ dùng 1 lượt AI.
+                </p>
+              </div>
+            )}
+
             {preview && preview.status === "PENDING_REVIEW" && (
               <>
                 <Button
@@ -456,8 +638,7 @@ export default function AdminJobsPage() {
           <DialogHeader>
             <DialogTitle>Từ chối tin tuyển dụng</DialogTitle>
             <DialogDescription>
-              Tin: {rejectTarget?.title}. Lý do sẽ được gửi tới nhà tuyển
-              dụng.
+              Tin: {rejectTarget?.title}. Lý do sẽ được gửi tới nhà tuyển dụng.
             </DialogDescription>
           </DialogHeader>
 

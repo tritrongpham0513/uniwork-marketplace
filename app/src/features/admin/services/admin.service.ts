@@ -1,11 +1,23 @@
 import type {
   AdminUser,
+  AiFeatureStatus,
+  AiReview,
   ApiResponse,
+  EmployerProfile,
   Job,
   JobCategory,
   JobStatus,
+  Review,
+  SalaryBenchmark,
 } from "@/features/shared/types";
 import http from "@/lib/axios";
+
+/** Hồ sơ NTD công khai — bọc gồm hồ sơ, tin tuyển dụng và đánh giá. */
+export interface PublicEmployerProfile {
+  profile: EmployerProfile;
+  jobs: Job[];
+  reviews: Review[];
+}
 
 export interface AdminDashboardStats {
   totalUsers: number;
@@ -81,6 +93,51 @@ export const adminService = {
     return http.patch<ApiResponse<Job>, typeof payload>(
       `/api/v1/admin/jobs/${id}/review`,
       payload
+    );
+  },
+
+  /**
+   * POST /api/v1/admin/jobs/{id}/ai-review — kiểm tra thủ công 1 tin bằng AI.
+   *
+   * <p>Mỗi lần gọi là **một lượt AI** — nên gọi có chủ đích.
+   * <p>Endpoint **không** đổi trạng thái tin tuyển dụng.
+   */
+  reviewJobWithAi(id: string): Promise<ApiResponse<AiReview>> {
+    return http.post<ApiResponse<AiReview>>(
+      `/api/v1/admin/jobs/${id}/ai-review`
+    );
+  },
+
+  /**
+   * GET /api/v1/admin/ai/status — tính năng AI có đang bật không.
+   *
+   * <p>Backend trả `enabled = false` khi thiếu khoá API -> frontend ẩn nút
+   * "Kiểm tra bằng AI" thay vì để quản trị viên bấm vào rồi nhận lỗi.
+   */
+  aiStatus(): Promise<ApiResponse<AiFeatureStatus>> {
+    return http.get<ApiResponse<AiFeatureStatus>>("/api/v1/admin/ai/status");
+  },
+
+  /**
+   * GET /api/v1/public/salary-benchmarks — bảng xếp hạng lương ngành × tỉnh.
+   *
+   * <p>Dùng để quản trị viên thấy mức lương của tin so với mức trung bình
+   * của ngành và tỉnh — một trong những dấu hiệu AI dùng để gắn cờ.
+   */
+  salaryBenchmarks(): Promise<ApiResponse<SalaryBenchmark[]>> {
+    return http.get<ApiResponse<SalaryBenchmark[]>>(
+      "/api/v1/public/salary-benchmarks"
+    );
+  },
+
+  /**
+   * GET /api/v1/public/employers/{id} — hồ sơ nhà tuyển dụng công khai.
+   *
+   * <p>Quản trị viên cần xem điểm uy tín để cân nhắc khi duyệt tin.
+   */
+  publicEmployer(id: string): Promise<ApiResponse<PublicEmployerProfile>> {
+    return http.get<ApiResponse<PublicEmployerProfile>>(
+      `/api/v1/public/employers/${id}`
     );
   },
 
