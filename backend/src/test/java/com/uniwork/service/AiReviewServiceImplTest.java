@@ -4,6 +4,9 @@ import com.uniwork.entity.JobCategory;
 import com.uniwork.entity.JobPost;
 import com.uniwork.exception.AppException;
 import com.uniwork.repository.JobPostRepository;
+import com.uniwork.repository.ProvinceRepository;
+import com.uniwork.repository.SalaryBenchmarkRepository;
+import com.uniwork.service.ai.AiContextAssembler;
 import com.uniwork.service.ai.AiProvider;
 import com.uniwork.service.ai.AiProviderException;
 import com.uniwork.service.ai.AiReason;
@@ -44,12 +47,21 @@ class AiReviewServiceImplTest {
     @Mock
     private JobPostRepository jobPostRepository;
 
+    @Mock
+    private SalaryBenchmarkRepository salaryBenchmarkRepository;
+
+    @Mock
+    private ProvinceRepository provinceRepository;
+
+    private AiContextAssembler contextAssembler;
+
     private FakeAiProvider fakeProvider;
 
     private AiReviewService aiReviewService;
 
     @BeforeEach
     void setUp() {
+        contextAssembler = new AiContextAssembler(salaryBenchmarkRepository, provinceRepository);
         fakeProvider = new FakeAiProvider();
         useProvider(fakeProvider);
     }
@@ -327,6 +339,6 @@ class AiReviewServiceImplTest {
 
     /** Dựng lại service với nhà cung cấp AI giả. */
     private void useProvider(AiProvider provider) {
-        aiReviewService = new AiReviewService(jobPostRepository, provider, true, "fake");
+        aiReviewService = new AiReviewService(jobPostRepository, contextAssembler, provider, true, "fake");
     }
 }
