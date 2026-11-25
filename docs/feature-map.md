@@ -89,6 +89,22 @@ Cung cấp bởi `WorkspaceLayout` + `RequireRole(["ADMIN"])`.
 | **Quản lý tài khoản**    | Danh sách sinh viên / nhà tuyển dụng, khoá tài khoản | `/admin/users`      | `pages/admin/users.tsx`      |
 | **Thống kê đánh giá**    | Danh sách đánh giá, lọc theo điểm                    | `/admin/reviews`    | `pages/admin/reviews.tsx`    |
 
+**Tính năng nằm trong trang, không có route riêng**:
+
+| Tính năng                       | Mô tả                                                                                         | Nơi chứa                                                  |
+| ------------------------------- | --------------------------------------------------------------------------------------------- | --------------------------------------------------------- |
+| **Kiểm duyệt nội dung bằng AI** | Góp ý AI cho quản trị viên: badge mức độ trên thẻ tin, panel kết quả, nút "Kiểm tra bằng AI" | `pages/admin/jobs.tsx` (dialog xem nội dung tin)          |
+| Sắp xếp tin theo mức độ AI     | Tin `SUSPECT` → `WARN` → `OK` → chưa kiểm tra, nổi lên đầu danh sách                        | `features/admin/lib/ai-review.ts` (`sortJobsByAiSeverity`) |
+
+> AI **chỉ góp ý, không quyết định**: tin bị gắn cờ vẫn vào hàng đợi duyệt, quản trị viên bấm Duyệt / Từ chối như trước. Kết quả AI **chỉ quản trị viên thấy** — nhà tuyển dụng và danh sách tin công khai không có trường AI. Xem `docs/adr/0005-ai-review-layer-for-job-posts.md`.
+
+**Endpoint riêng cho quản trị viên**:
+
+| Endpoint                                 | Mô tả                                                    |
+| ---------------------------------------- | -------------------------------------------------------- |
+| `POST /api/v1/admin/jobs/{id}/ai-review` | Kiểm tra thủ công một tin tuyển dụng bằng AI (1 lượt AI) |
+| `GET /api/v1/admin/ai/status`            | Tính năng AI có đang bật không (thiếu khoá API thì ẩn nút) |
+
 ---
 
 ## Quyền truy cập
@@ -96,7 +112,7 @@ Cung cấp bởi `WorkspaceLayout` + `RequireRole(["ADMIN"])`.
 - **Chưa đăng nhập**: `/`, `/about`, `/jobs`, `/jobs/:id`, `/employer/:id`, `/login`, `/register`, `/verify-email`
 - **STUDENT**: toàn bộ `/student/*`, `/saved`, `/notifications`, `/jobs/*` (đầy đủ, gồm ứng tuyển)
 - **EMPLOYER**: toàn bộ `/employer/*` (trừ hồ sơ công khai), `/notifications`, `/jobs` (chỉ xem)
-- **ADMIN**: toàn bộ `/admin/*`, `/notifications`
+- **ADMIN**: toàn bộ `/admin/*`, `/notifications`, và các endpoint kiểm duyệt AI (`/api/v1/admin/jobs/{id}/ai-review`, `/api/v1/admin/ai/status`)
 - **Mọi vai trò đã đăng nhập**: `/notifications`
 
 Cơ chế chặn nằm ở `app/src/components/guards/require-auth.tsx`.
