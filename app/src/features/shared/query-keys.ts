@@ -143,6 +143,18 @@ export const ADMIN_KEYS = {
   jobs: (status?: string) =>
     [...ADMIN_KEYS.all, "jobs", status ?? "ALL"] as const,
   categories: () => [...ADMIN_KEYS.all, "categories"] as const,
+  /**
+   * Trạng thái tính năng kiểm duyệt AI.
+   *
+   * <p>Backend tự trả `enabled = false` khi thiếu khoá API -> frontend ẩn
+   * nút "Kiểm tra bằng AI" thay vì báo lỗi cho quản trị viên.
+   */
+  aiStatus: () => [...ADMIN_KEYS.all, "ai-status"] as const,
+  /** Bảng xếp hạng lương theo ngành × tỉnh — để so lương tin với thị trường. */
+  benchmarks: () => [...ADMIN_KEYS.all, "salary-benchmarks"] as const,
+  /** Điểm uy tín nhà tuyển dụng — để quản trị viên cân nhắc khi duyệt tin. */
+  employerTrust: (id: string) =>
+    [...ADMIN_KEYS.all, "employer-trust", id] as const,
 };
 
 // ============================================
