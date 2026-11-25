@@ -1,6 +1,8 @@
 package com.uniwork.service.impl;
 
 import com.uniwork.dto.request.JobUpsertRequest;
+import com.uniwork.dto.response.AdminJobResponse;
+import com.uniwork.dto.response.AiReasonResponse;
 import com.uniwork.dto.response.EmployerSummaryResponse;
 import com.uniwork.dto.response.JobCategoryResponse;
 import com.uniwork.dto.response.JobListResponse;
@@ -354,12 +356,12 @@ public class JobServiceImpl implements JobService {
 
     @Override
     @Transactional(readOnly = true)
-    public List<JobResponse> listForAdmin(String status) {
+    public List<AdminJobResponse> listForAdmin(String status) {
         List<JobPost> jobs = (status == null || status.isBlank() || "ALL".equalsIgnoreCase(status))
                 ? jobPostRepository.findAllByDeletedAtIsNullOrderByCreatedAtDesc()
                 : jobPostRepository.findByStatusAndDeletedAtIsNullOrderByCreatedAtDesc(status);
 
-        return jobs.stream().map(this::toResponse).toList();
+        return jobs.stream().map(this::toAdminResponse).toList();
     }
 
     @Override
@@ -590,6 +592,43 @@ public class JobServiceImpl implements JobService {
 
     @Transactional(readOnly = true)
     public JobResponse toResponse(JobPost job) {
+        return fillBase(job, JobResponse.builder()).build();
+    }
+
+    /**
+     * Ánh xạ tin tuyển dụng cho quản trị viên — kèm 3 trường kết quả kiểm duyệt AI.
+     *
+     * <p>Chỉ endpoint {@code GET /api/v1/admin/jobs} dùng hàm này. Mọi endpoint
+     * công khai và endpoint dành cho nhà tuyển dụng dùng {@link #toResponse(JobPost)}
+     * nên không thể lộ ra kết quả AI (CONTRACT.md mục 6).
+     */
+    @Transactional(readOnly = true)
+    public AdminJobResponse toAdminResponse(JobPost job) {
+        AdminJobResponse.AdminJobResponseBuilder<?, ?> builder = AdminJobResponse.builder();
+        fillBase(job, builder);
+
+        builder.aiVerdict(job.getAiVerdict());
+        builder.aiReasons(job.getAiReasons() == null ? null : job.getAiReasons().stream()
+                .map(reason -> AiReasonResponse.builder()
+                        .code(reason.getCode())
+                        .evidence(reason.getEvidence())
+                        .detail(reason.getDetail())
+                        .build())
+                .toList());
+        builder.aiCheckedAt(DateTimeUtils.toIso(job.getAiCheckedAt()));
+
+        return builder.build();
+    }
+
+    /**
+     * Điền các trường chung của tin tuyển dụng vào builder.
+     *
+     * <p>Dùng chung giữa {@link #toResponse(JobPost)} và {@link #toAdminResponse(JobPost)}
+     * để hai hình dạng không lệch nhau theo thời gian.
+     */
+    private JobResponse.JobResponseBuilder<?, ?> fillBase(
+            JobPost job, JobResponse.JobResponseBuilder<?, ?> builder) {
+
         JobCategory category = job.getCategory();
         JobPosition position = job.getPosition();
         EmployerProfile employer = job.getEmployer();
@@ -620,7 +659,7 @@ public class JobServiceImpl implements JobService {
                 .branchName(job.getBranchName())
                 .build();
 
-        return JobResponse.builder()
+        return builder
                 .id(job.getSlug())
                 .title(job.getTitle())
                 .description(job.getDescription())
@@ -666,8 +705,7 @@ public class JobServiceImpl implements JobService {
                 .applicantCount(job.getApplicantCount() != null ? job.getApplicantCount() : 0)
                 .isUrgent(job.getIsUrgent())
                 .viewCount(job.getViewCount() != null ? job.getViewCount() : 0)
-                .employerId(employer.getSlug())
-                .build();
+                .employerId(employer.getSlug());
     }
 
     /** Quy đổi mức lương về đồng/giờ — dùng để so sánh với benchmark. */

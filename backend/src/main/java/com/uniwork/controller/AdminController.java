@@ -5,8 +5,10 @@ import com.uniwork.dto.request.AdminUpdateUserRequest;
 import com.uniwork.dto.request.CategoryUpsertRequest;
 import com.uniwork.dto.request.JobReviewRequest;
 import com.uniwork.dto.response.AdminDashboardResponse;
+import com.uniwork.dto.response.AdminJobResponse;
 import com.uniwork.dto.response.AdminUserResponse;
 import com.uniwork.dto.response.ApiResponse;
+import com.uniwork.dto.response.AiReviewResponse;
 import com.uniwork.dto.response.JobCategoryResponse;
 import com.uniwork.dto.response.JobResponse;
 import com.uniwork.dto.response.ReviewResponse;
@@ -17,6 +19,8 @@ import com.uniwork.service.AdminService;
 import com.uniwork.service.JobService;
 import com.uniwork.service.ReviewService;
 import com.uniwork.service.WorkHistoryService;
+import com.uniwork.service.ai.AiReviewService;
+import com.uniwork.service.ai.AiStatusResponse;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -64,6 +68,7 @@ public class AdminController {
     private final JobService jobService;
     private final ReviewService reviewService;
     private final WorkHistoryService workHistoryService;
+    private final AiReviewService aiReviewService;
 
     @GetMapping("/dashboard")
     @Operation(summary = "Số liệu tổng quan hệ thống")
@@ -141,7 +146,7 @@ public class AdminController {
 
     @GetMapping("/jobs")
     @Operation(summary = "Danh sách tin tuyển dụng (mọi trạng thái)")
-    public ResponseEntity<ApiResponse<List<JobResponse>>> listJobs(
+    public ResponseEntity<ApiResponse<List<AdminJobResponse>>> listJobs(
             @RequestParam(required = false) String status) {
 
         return ResponseEntity.ok(ApiResponse.success(
@@ -160,6 +165,41 @@ public class AdminController {
                 ? "Đã duyệt tin tuyển dụng." : "Đã từ chối tin tuyển dụng.";
 
         return ResponseEntity.ok(ApiResponse.success(message, result));
+    }
+
+    // ------------------------------------------------------------------
+    // KIỂM DUYỆT AI
+    // ------------------------------------------------------------------
+
+    /**
+     * Kiểm tra thủ công một tin tuyển dụng bằng AI.
+     *
+     * <p>AI chỉ là lớp góp ý: endpoint này <b>không</b> đổi trạng thái tin tuyển dụng.
+     * Mỗi lần gọi là một lượt AI — nên gọi có chủ đích.
+     */
+    @PostMapping("/jobs/{id}/ai-review")
+    @Operation(summary = "Kiểm tra nội dung tin tuyển dụng bằng AI (quản trị)")
+    public ResponseEntity<ApiResponse<AiReviewResponse>> aiReviewJob(
+            @PathVariable("id") String id,
+            @CurrentUser User admin) {
+
+        AiReviewResponse result = aiReviewService.reviewJob(id, admin.getId());
+
+        return ResponseEntity.ok(ApiResponse.success(
+                "Đã kiểm tra nội dung tin tuyển dụng bằng AI.", result));
+    }
+
+    /**
+     * Trạng thái tính năng kiểm duyệt AI.
+     *
+     * <p>Frontend dùng để ẩn nút "Kiểm tra bằng AI" khi tính năng đang tắt
+     * (thiếu khoá API) — thay vì để quản trị viên bấm vào rồi mới nhận lỗi.
+     */
+    @GetMapping("/ai/status")
+    @Operation(summary = "Tính năng kiểm duyệt AI có đang bật không")
+    public ResponseEntity<ApiResponse<AiStatusResponse>> aiStatus() {
+        return ResponseEntity.ok(ApiResponse.success(
+                "Lấy trạng thái tính năng AI thành công", aiReviewService.status()));
     }
 
     // ------------------------------------------------------------------
