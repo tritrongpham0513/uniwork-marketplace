@@ -73,6 +73,14 @@ app:
   cors:
     allowed-origins: ${CORS_ALLOWED_ORIGINS:http://localhost:5173}
 
+  # Kiểm duyệt nội dung tin tuyển dụng bằng AI — tắt mặc định ở production.
+  # Bật bằng cách đặt AI_ENABLED=true + GEMINI_API_KEY trong biến môi trường.
+  ai:
+    enabled: ${AI_ENABLED:false}
+    provider: ${AI_PROVIDER:gemini}
+    model: ${AI_MODEL:gemini-3.5-flash-lite}
+    gemini-api-key: ${GEMINI_API_KEY:}
+
   storage:
     r2:
       endpoint: ${R2_ENDPOINT}
