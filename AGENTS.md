@@ -53,7 +53,7 @@ student-job-marketplace/
 │   ├── adr/                 # Architecture decisions (đọc nếu tò mò tại sao)
 │   ├── agents/
 │   │   └── domain.md        # Pointer tới GLOSSARY + ADR
-│   └── feature-map.md       # Tính năng theo vai trò + route
+│   └── feature-map.md       # Sơ đồ trang: tính năng + route + component
 └── vercel.json              # Deploy frontend
 
 ```
@@ -75,7 +75,13 @@ Nếu ngạc nhiên vì quyết định nào (ví dụ "tại sao phải duyệt
 
 - `docs/adr/0003-job-requires-admin-review-before-going-live.md`
 
-### 3. Kiểm tra CODING_STANDARDS.md khi review
+### 3. Đọc docs/feature-map.md nếu cần biết route
+
+`docs/feature-map.md` là **sơ đồ trang** của app: tính năng + route + component thật, theo vai trò. Dùng nó để trả lời "tính năng X nằm ở đâu?" mà không cần đoán.
+
+Nguồn sự thật: route lấy từ `app/src/config/paths.ts`, ánh xạ page lấy từ `app/src/app/router.tsx`. **Thêm route mới → cập nhật cả hai.** Đừng tin vào trí nhớ về route; nó đã từng lệch (ví dụ `/saved` chứ không phải `/saved-jobs`).
+
+### 4. Kiểm tra CODING_STANDARDS.md khi review
 
 ---
 
@@ -146,7 +152,7 @@ cd backend/
 **Luật**: `pages/` → `features/` (một chiều), không đảo chiều.
 
 ```
-pages/jobs.tsx
+pages/jobs/index.tsx
   ↓ (import được từ)
 features/jobs/hooks/useJobs.ts
 features/jobs/services/jobs.service.ts
@@ -154,9 +160,9 @@ features/jobs/types/index.ts
 
 features/jobs/hooks/useJobs.ts
   ↓ (import được từ)
-features/shared/types/   (chỉ cấp này)
+features/shared/types/       (chỉ cấp này)
 features/shared/query-keys.ts
-lib/                      (utilities)
+lib/                          (utilities)
 ```
 
 **Cấm**:
