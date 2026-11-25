@@ -248,6 +248,44 @@ public Executor aiTaskExecutor() { /* corePoolSize=1, maxPoolSize=2, queueCapaci
 
 ---
 
+## 5A. Quyet dinh chot tu ticket 01 (bat buoc ton tai o backend)
+
+Nguon: `.scratch/ai-moderation/notes/01-ket-qua-thu.md`. Backend **phai** tuan theo.
+
+1. **Prompt lay nguyen van** tu `PROMPT.md` muc 5 (ban ASCII). Placeholder la `{0}`,
+   **khong** phai `${}`. Neu dung `String.format` thi escape `%`.
+2. **Chi dan ASCII, noi dung tin giu tieng Viet co dau.**
+3. **`temperature: 0`** trong generationConfig -> ket qua lap lai duoc.
+4. **Chuan hoa khi so khop bang chung** (dung chung cho script va backend):
+   NFC -> gop khoang trang thua -> khong phan biet hoa/thuong. **KHONG** dung so
+   khop mo (fuzzy/Levenshtein) — muc tieu la phat hien AI **bia** cau trich.
+5. **Quy tac `verdict == "OK"` -> `reasons` rong**: neu model tra `OK` kem ly do,
+   backend **tu choi ghi** vao DB (chi log) — cung nguyen tac voi muc 5.5.
+6. **Quy doi luong**: dung bang quy doi co san cua he thong (8/40/160 gio cho
+   DAILY/WEEKLY/MONTHLY). `PER_TASK` va `NEGOTIABLE` **khong quy doi duoc** -> AI
+   **khong duoc** suy luan `SALARY_ANOMALY` tu do.
+7. **Cau chu da chot** ( dung nguyen van):
+   - Badge quan tri vien: `AI: can xem` / `AI: nghi ngo` / `AI: on` / `Chua kiem tra`.
+   - Dong thong bao cho nha tuyen dung: "Noi dung tin se duoc kiem tra tu dong bang AI truoc khi hien thi cong khai."
+   - Ghi chu trong dialog: "Day la gop y cua AI, quyet dinh duyet van la cua quan tri vien."
+   - Nut: "Kiem tra bang AI". Chú thích: "Moi lan kiem tra se dung 1 luot AI."
+
+### 5A.1 Hạn mức AI — điều đã xác minh (ticket 01)
+
+- Google **da go** bang han muc free tier theo model khoi tai lieu; con quy tac chung:
+  RPM / TPM / RPD, tinh **theo project**, reset 00:00 gio Thai Binh Duong, vuot han
+  muc -> loi `429 RESOURCE_EXHAUSTED`.
+  Nguon: <https://ai.google.dev/gemini-api/docs/rate-limits>
+- Con so `15 RPM / 250.000 TPM / 500 RPD` cho `gemini-3.5-flash-lite` la **quan sat tu 3
+  nguon doc lap**, KHONG phai do Google cong bo. Han muc that cua project chi doc
+  duoc o trang Rate Limits cua AI Studio (can dang nhap Google).
+- Gia: free tier mien phi; tra phi $0,30 / 1M token dau vao, $2,50 / 1M token dau ra.
+  Nguon: <https://ai.google.dev/gemini-api/docs/pricing>
+- **Rui ro duoc chap nhan:** free tier dung du lieu de cao thi san. Noi dung tin tuyen
+  dung la du lieu do nha tuyen dung nhap, khong phai du lieu ca nhan cua sinh vien.
+
+---
+
 ## 6. Ranh gioi phan quyen (backend)
 
 **Hinh dang tach biet — bat buoc:**

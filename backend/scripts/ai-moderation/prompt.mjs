@@ -58,7 +58,7 @@ diem, hoac mo ta qua ngan KHONG phai vi pham noi dung — chi danh gia OK.
 QUY TAC BAT BUOC VE BANG CHUNG:
 - Moi ly do ban neu ra PHAI kem "evidence" la cau nguyen van CO TRONG TIN.
 - Neu khong trich duoc cau nguyen van cho mot ma, KHONG duoc dua ma do vao ket qua.
-- Khong duoc trich, tom tat, hay dieu chih cau van ban trong tin.
+- Khong duoc trich, tom tat, hay dieu chinh cau van ban trong tin.
 - "evidence" phai la mot cau hoac mot doan ngan lay nguyen van tu tin.
 
 QUY TAC VE VERDICT:
