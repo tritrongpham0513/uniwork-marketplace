@@ -8,16 +8,16 @@ Khi AI không chạy được, tin tuyển dụng vẫn hiển thị bình thư�
 
 **Blocked by:** 02 — Quản trị viên kiểm tra thủ công một tin tuyển dụng bằng AI.
 
-**Status:** ready-for-agent
+**Status:** done
 
-- [ ] Đăng tin tuyển dụng mới → hệ thống tự động kiểm tra bằng AI ở nền, sau khi response HTTP đã trả về cho nhà tuyển dụng.
-- [ ] Sửa một tin tuyển dụng đã được duyệt (tin quay lại hàng đợi chờ duyệt) → hệ thống kiểm tra lại bằng AI.
-- [ ] Sửa một tin tuyển dụng vốn đang chờ duyệt → **không** gọi lại AI.
-- [ ] Xoá hoặc huỷ tin tuyển dụng → không gọi AI.
-- [ ] Có executor riêng cho tác vụ AI, tách khỏi executor gửi email đang có.
-- [ ] AI lỗi (lỗi mạng, hết hạn mức, chưa cấu hình khóa) thì luồng đăng tin không hỏng: tin vẫn đăng bình thường, kết quả kiểm duyệt giữ nguyên rỗng (chưa kiểm tra), không có lỗi 500 cho nhà tuyển dụng.
-- [ ] Tin tuyển dụng không bao giờ bị AI tự chuyển trạng thái.
-- [ ] Có bộ test trên lớp nghiệp vụ tin tuyển dụng: đăng tin mới thì có phát sinh lệnh kiểm tra; sửa tin đã duyệt thì có phát sinh; sửa tin vẫn đang chờ duyệt thì không phát sinh.
-- [ ] Có thể theo dõi số lượt AI đã gọi qua log ứng dụng (chưa cần bảng đếm riêng).
+- [x] Đăng tin tuyển dụng mới → hệ thống tự động kiểm tra bằng AI ở nền, sau khi response HTTP đã trả về cho nhà tuyển dụng.
+- [x] Sửa một tin tuyển dụng đã được duyệt (tin quay lại hàng đợi chờ duyệt) → hệ thống kiểm tra lại bằng AI.
+- [x] Sửa một tin tuyển dụng vốn đang chờ duyệt → **không** gọi lại AI.
+- [x] Xoá hoặc huỷ tin tuyển dụng → không gọi AI.
+- [x] Có executor riêng cho tác vụ AI, tách khỏi executor gửi email đang có.
+- [x] AI lỗi (lỗi mạng, hết hạn mức, chưa cấu hình khóa) thì luồng đăng tin không hỏng: tin vẫn đăng bình thường, kết quả kiểm duyệt giữ nguyên rỗng (chưa kiểm tra), không có lỗi 500 cho nhà tuyển dụng.
+- [x] Tin tuyển dụng không bao giờ bị AI tự chuyển trạng thái.
+- [x] Có bộ test trên lớp nghiệp vụ tin tuyển dụng: đăng tin mới thì có phát sinh lệnh kiểm tra; sửa tin đã duyệt thì có phát sinh; sửa tin vẫn đang chờ duyệt thì không phát sinh.
+- [x] Có thể theo dõi số lượt AI đã gọi qua log ứng dụng (chưa cần bảng đếm riêng).
 
 ## Comments

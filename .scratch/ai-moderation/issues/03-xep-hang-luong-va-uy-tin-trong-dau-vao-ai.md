@@ -6,13 +6,13 @@ Hệ quả quan sát được: mã vi phạm `SALARY_ANOMALY` trở nên phát h
 
 **Blocked by:** 02 — Quản trị viên kiểm tra thủ công một tin tuyển dụng bằng AI.
 
-**Status:** ready-for-agent
+**Status:** done
 
-- [ ] Đầu vào cho AI có mức lương đã quy đổi về đồng/giờ theo bảng quy đổi sẵn có của hệ thống, kèm đơn vị trả lương gốc mà nhà tuyển dụng khai báo.
-- [ ] Đầu vào cho AI có bốn số của bảng xếp hạng lương theo nhóm việc × Tỉnh / Thành phố: mức trung bình, thấp nhất, cao nhất, và cỡ mẫu.
-- [ ] Đầu vào cho AI có trạng thái đã xác minh của nhà tuyển dụng, điểm uy tín trung bình, và số lượt đánh giá.
-- [ ] Không gửi bất kỳ dữ liệu cá nhân của sinh viên nào — không có CV, không có hồ sơ sinh viên, không có đơn ứng tuyển.
-- [ ] Tin tuyển dụng không có bảng xếp hạng lương tương ứng thì vẫn kiểm tra được, chỉ là thiếu căn cứ so sánh lương.
-- [ ] Có bộ test chứng minh một tin lương bất thường so với bảng xếp hạng lương của nhóm việc × Tỉnh / Thành phố bị gắn cờ `SALARY_ANOMALY`.
+- [x] Đầu vào cho AI có mức lương đã quy đổi về đồng/giờ theo bảng quy đổi sẵn có của hệ thống, kèm đơn vị trả lương gốc mà nhà tuyển dụng khai báo.
+- [x] Đầu vào cho AI có bốn số của bảng xếp hạng lương theo nhóm việc × Tỉnh / Thành phố: mức trung bình, thấp nhất, cao nhất, và cỡ mẫu.
+- [x] Đầu vào cho AI có trạng thái đã xác minh của nhà tuyển dụng, điểm uy tín trung bình, và số lượt đánh giá.
+- [x] Không gửi bất kỳ dữ liệu cá nhân nào — chỉ đọc từ `JobPost`, bảng xếp hạng lương và hồ sơ nhà tuyển dụng.
+- [x] Tin tuyển dụng không có bảng xếp hạng lương tương ứng thì vẫn kiểm tra được, chỉ là thiếu căn cứ so sánh lương.
+- [x] Có bộ test chứng minh một tin lương bất thường so với bảng xếp hạng lương của nhóm việc × Tỉnh / Thành phố bị gắn cờ `SALARY_ANOMALY`.
 
 ## Comments
