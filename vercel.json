@@ -12,7 +12,7 @@
   "rewrites": [
     {
       "source": "/api/:path*",
-      "destination": "https://viejob-api.onrender.com/api/:path*"
+      "destination": "https://api-job.viejoy.io.vn/api/:path*"
     },
     {
       "source": "/(.*)",
