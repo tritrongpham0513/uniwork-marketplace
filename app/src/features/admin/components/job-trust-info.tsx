@@ -8,8 +8,14 @@ import type {
 interface JobTrustInfoProps {
   /** Kết quả so sánh lương với bảng xếp hạng — null khi không có căn cứ. */
   comparison: SalaryComparison | null;
-  /** Điểm uy tín + trạng thái xác minh của nhà tuyển dụng. */
-  trust: EmployerProfile | undefined;
+  /**
+   * Điểm uy tín + trạng thái xác minh của nhà tuyển dụng.
+   *
+   * <p>Tuỳ chọn: thẻ tin trong danh sách không có dữ liệu này (tải hồ sơ cho
+   * từng tin sẽ tốn N request) — chỉ dialog xem nội dung mới tải. Khi thiếu,
+   * giao diện chỉ hiện trạng thái xác minh.
+   */
+  trust?: EmployerProfile;
   /** Nhà tuyển dụng đã xác minh (lấy từ tóm tắt trên tin tuyển dụng). */
   verified: boolean;
 }

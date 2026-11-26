@@ -339,7 +339,6 @@ export default function AdminJobsPage() {
 
                         <JobTrustInfo
                           comparison={comparisons.get(job.id) ?? null}
-                          trust={undefined}
                           verified={job.employer.verified}
                         />
 
