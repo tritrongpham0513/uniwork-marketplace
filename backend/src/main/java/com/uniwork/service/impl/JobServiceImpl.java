@@ -314,10 +314,10 @@ public class JobServiceImpl implements JobService {
 
         applyLocation(job, request);
 
-        // Sửa tin đã được duyệt → tin quay lại hàng đợi duyệt của quản trị viên
+        // Sửa tin đã được duyệt hoặc bị từ chối → tin quay lại hàng đợi duyệt của quản trị viên
         // (khớp với hành vi của mock layer). `publishedAt` giữ nguyên để không
         // mất mốc thời gian đăng tin ban đầu.
-        boolean backToReview = "OPEN".equals(job.getStatus());
+        boolean backToReview = "OPEN".equals(job.getStatus()) || "REJECTED".equals(job.getStatus());
         if (backToReview) {
             job.setStatus("PENDING_REVIEW");
         }
@@ -571,6 +571,7 @@ public class JobServiceImpl implements JobService {
 
     private void replaceSchedules(JobPost job, JobUpsertRequest request) {
         scheduleRepository.deleteByJobPostId(job.getId());
+        scheduleRepository.flush();
         if (request.getSchedules() == null) {
             return;
         }
@@ -596,6 +597,7 @@ public class JobServiceImpl implements JobService {
 
     private void replaceSkills(JobPost job, JobUpsertRequest request) {
         jobSkillRepository.deleteByJobPostId(job.getId());
+        jobSkillRepository.flush();
         if (request.getSkills() == null) {
             return;
         }
