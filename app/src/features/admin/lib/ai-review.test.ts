@@ -5,16 +5,17 @@ import {
   getAiSeverityGroup,
   sortJobsByAiSeverity,
 } from "./ai-review";
-import type { AiVerdict, Job } from "@/features/shared/types";
+import type { AdminJob, AiVerdict } from "@/features/shared/types";
 
 /** Dựng 1 tin tuyển dụng tối thiểu — chỉ cần id + verdict để test sắp xếp. */
-const makeJob = (id: string, aiVerdict: AiVerdict | null): Job =>
+const makeJob = (id: string, aiVerdict: AiVerdict | null): AdminJob =>
   ({
     id,
     aiVerdict,
     aiReasons: null,
+    aiSummary: null,
     aiCheckedAt: null,
-  }) as Job;
+  }) as AdminJob;
 
 describe("ai-review utilities", () => {
   describe("getAiSeverityGroup", () => {
@@ -159,13 +160,17 @@ describe("ai-review utilities", () => {
       const technicalWords = ["lỗi", "error", "500", "503", "exception"];
       for (const message of Object.values(AI_PANEL_MESSAGES)) {
         for (const word of technicalWords) {
-          expect(message.toLowerCase()).not.toContain(word);
+          expect(message?.toLowerCase()).not.toContain(word);
         }
       }
     });
 
     it("should tell the admin the job was not checked when the check failed", () => {
       expect(AI_PANEL_MESSAGES.FAILED).toContain("chưa được kiểm tra");
+    });
+
+    it("should not define a message for REVIEW — that state renders the real result", () => {
+      expect(AI_PANEL_MESSAGES.REVIEW).toBeUndefined();
     });
   });
 });

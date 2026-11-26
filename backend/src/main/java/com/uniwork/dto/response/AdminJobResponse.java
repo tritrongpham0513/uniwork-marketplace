@@ -30,6 +30,14 @@ public class AdminJobResponse extends JobResponse {
     /** Danh sách lý do vi phạm kèm bằng chứng nguyên văn. */
     private List<AiReasonResponse> aiReasons;
 
+    /**
+     * Câu tóm tắt tiếng Việt của AI.
+     *
+     * <p>Khác {@code null} với {@code ""}: chuỗi rỗng nghĩa là AI đã kiểm tra
+     * nhưng không tóm tắt; {@code null} nghĩa là chưa kiểm tra.
+     */
+    private String aiSummary;
+
     /** Thời điểm AI kiểm tra tin (ISO-8601). */
     private String aiCheckedAt;
 }

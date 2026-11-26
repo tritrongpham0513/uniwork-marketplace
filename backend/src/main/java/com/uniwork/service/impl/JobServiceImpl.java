@@ -67,22 +67,13 @@ import java.util.stream.Collectors;
 /**
  * Triển khai nghiệp vụ tin tuyển dụng.
  *
- * <p>Quy ước quy đổi lương (giống {@code app/src/features/jobs/types} của frontend):
- * giờ = 1, ngày = 8, tuần = 40, tháng = 160.
+ * <p>Quy ước quy đổi lương nằm ở {@link com.uniwork.util.SalaryUnits} —
+ * nguồn sự thật duy nhất, dùng chung với lớp kiểm duyệt AI.
  */
 @Service
 @RequiredArgsConstructor
 @Slf4j
 public class JobServiceImpl implements JobService {
-
-    /** Số giờ quy ước cho từng kiểu trả lương — khớp frontend. */
-    private static final Map<String, Integer> HOURS_PER_UNIT = Map.of(
-            "HOURLY", 1,
-            "DAILY", 8,
-            "WEEKLY", 40,
-            "MONTHLY", 160,
-            "PER_TASK", 3,
-            "NEGOTIABLE", 0);
 
     private final JobPostRepository jobPostRepository;
     private final JobPostScheduleRepository scheduleRepository;
@@ -674,6 +665,7 @@ public class JobServiceImpl implements JobService {
         fillBase(job, builder);
 
         builder.aiVerdict(job.getAiVerdict());
+        builder.aiSummary(job.getAiSummary());
         builder.aiReasons(job.getAiReasons() == null ? null : job.getAiReasons().stream()
                 .map(reason -> AiReasonResponse.builder()
                         .code(reason.getCode())
@@ -772,15 +764,6 @@ public class JobServiceImpl implements JobService {
                 .isUrgent(job.getIsUrgent())
                 .viewCount(job.getViewCount() != null ? job.getViewCount() : 0)
                 .employerId(employer.getSlug());
-    }
-
-    /** Quy đổi mức lương về đồng/giờ — dùng để so sánh với benchmark. */
-    public static int toHourly(String salaryType, BigDecimal amount) {
-        if (amount == null || "NEGOTIABLE".equals(salaryType)) {
-            return 0;
-        }
-        int hours = HOURS_PER_UNIT.getOrDefault(salaryType, 1);
-        return amount.divide(BigDecimal.valueOf(hours), 0, java.math.RoundingMode.HALF_UP).intValue();
     }
 
     /** Tra cứu nhanh category theo public id (dùng cho các service khác). */

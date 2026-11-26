@@ -6,11 +6,13 @@ import com.uniwork.entity.JobPost;
 import com.uniwork.entity.Province;
 import com.uniwork.entity.SalaryBenchmark;
 import com.uniwork.repository.JobPostRepository;
+import com.uniwork.repository.JobPostSkillRepository;
 import com.uniwork.repository.ProvinceRepository;
 import com.uniwork.repository.SalaryBenchmarkRepository;
 import com.uniwork.service.ai.AiContextAssembler;
 import com.uniwork.service.ai.AiEmployerTrust;
 import com.uniwork.service.ai.AiProvider;
+import com.uniwork.service.ai.AiProviderRegistry;
 import com.uniwork.service.ai.AiReason;
 import com.uniwork.service.ai.AiReviewInput;
 import com.uniwork.service.ai.AiReviewResult;
@@ -60,6 +62,9 @@ class AiSalaryAnomalyTest {
     private JobPostRepository jobPostRepository;
 
     @Mock
+    private JobPostSkillRepository jobPostSkillRepository;
+
+    @Mock
     private SalaryBenchmarkRepository salaryBenchmarkRepository;
 
     @Mock
@@ -74,7 +79,11 @@ class AiSalaryAnomalyTest {
         contextAssembler = new AiContextAssembler(salaryBenchmarkRepository, provinceRepository);
         fakeProvider = new FakeAiProvider();
         aiReviewService = new AiReviewService(
-                jobPostRepository, contextAssembler, fakeProvider, true, "fake");
+                jobPostRepository,
+                jobPostSkillRepository,
+                contextAssembler,
+                new AiProviderRegistry(List.of(fakeProvider), "fake"),
+                true);
     }
 
     // ================================================================
@@ -288,9 +297,60 @@ class AiSalaryAnomalyTest {
         assertEquals(28_000, benchmark.getAvgHourly());
     }
 
+    @Test
+    @DisplayName("Lùi về tỉnh mặc định -> dòng xếp hạng phải nêu đúng tỉnh của dữ liệu, không gắn tên tỉnh của tin")
+    void review_LabelsBenchmarkWithItsOwnProvince_WhenFallingBack() {
+        JobPost job = jobWithSalary("HOURLY", 25_000, 30_000);
+        job.setProvince(Province.builder().id((short) 2).code("01").name("Thành phố Hà Nội").build());
+        when(jobPostRepository.findBySlugAndDeletedAtIsNull(JOB_SLUG)).thenReturn(Optional.of(job));
+        when(jobPostRepository.save(any(JobPost.class))).thenAnswer(inv -> inv.getArgument(0));
+        // Tỉnh "01" chưa có dòng -> lùi về dòng của tỉnh mặc định "79".
+        when(salaryBenchmarkRepository.findByCategoryCodeAndProvinceCode("CAT01", "01"))
+                .thenReturn(Optional.empty());
+        stubBenchmark(28_000, 22_000, 35_000, 42);
+        // Tên tỉnh của dữ liệu xếp hạng lấy từ danh sách tỉnh.
+        when(provinceRepository.findByCode(PROVINCE_CODE)).thenReturn(Optional.of(
+                Province.builder().id((short) 1).code(PROVINCE_CODE)
+                        .name("Thành phố Hồ Chí Minh").build()));
+
+        aiReviewService.reviewJob(JOB_SLUG, ADMIN_USER_ID);
+
+        String content = fakeProvider.lastInput.getJobContent();
+        // Dữ liệu xếp hạng là của Hồ Chí Minh -> phải nói Hồ Chí Minh.
+        // Nếu gắn nhãn "Hà Nội" thì AI đang so sánh lương Hà Nội với số liệu
+        // của Hồ Chí Minh — một khẳng định sai trong đầu vào AI.
+        assertTrue(content.contains("tai Thành phố Hồ Chí Minh"),
+                "Dòng xếp hạng phải nêu tỉnh của dữ liệu: " + content);
+        assertFalse(content.contains("tai Thành phố Hà Nội"),
+                "Không được gắn tên tỉnh của tin lên dữ liệu xếp hạng của tỉnh khác: " + content);
+    }
+
     // ================================================================
     // F. DỰNG BỐI CẢNH
     // ================================================================
+
+    @Test
+    @DisplayName("Đầu vào AI có địa điểm và kỹ năng yêu cầu (spec mục 6)")
+    void review_SendsLocationAndSkillsToProvider() {
+        JobPost job = jobWithSalary("HOURLY", 25_000, 30_000);
+        job.setAddressDetail("So 12 Nguyen Trai");
+        when(jobPostRepository.findBySlugAndDeletedAtIsNull(JOB_SLUG)).thenReturn(Optional.of(job));
+        when(jobPostRepository.save(any(JobPost.class))).thenAnswer(inv -> inv.getArgument(0));
+        when(jobPostSkillRepository.findByJobPostId(1L)).thenReturn(List.of(
+                com.uniwork.entity.JobPostSkill.builder()
+                        .jobPost(job)
+                        .skill(com.uniwork.entity.Skill.builder()
+                                .id(1).slug("phuc-vu").name("Phuc vu").build())
+                        .build()));
+
+        aiReviewService.reviewJob(JOB_SLUG, ADMIN_USER_ID);
+
+        String content = fakeProvider.lastInput.getJobContent();
+        assertTrue(content.contains("Dia diem: Thành phố Hồ Chí Minh"), content);
+        assertTrue(content.contains("Ky nang:"), content);
+        assertTrue(content.contains("Phuc vu"), content);
+        assertTrue(content.contains("Nhom viec: Nha hang"), content);
+    }
 
     /** Dựng tin tuyển dụng có mức lương và nhà tuyển dụng đã xác minh. */
     private JobPost jobWithSalary(String salaryType, Integer min, Integer max) {

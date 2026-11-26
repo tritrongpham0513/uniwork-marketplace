@@ -26,6 +26,9 @@ import java.util.List;
 
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.doThrow;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
@@ -124,6 +127,22 @@ class AdminAiReviewControllerTest {
     }
 
     @Test
+    @DisplayName("POST /api/v1/admin/jobs/{id}/ai-review khi tính năng bị tắt -> Trả về 503 AI_DISABLED, KHÔNG gọi AI")
+    void aiReview_Returns503_WhenFeatureDisabled() throws Exception {
+        // Cờ AI_ENABLED tắt -> endpoint phải chặn, không gọi nhà cung cấp.
+        doThrow(new AppException("Tính năng kiểm duyệt AI hiện không khả dụng.",
+                HttpStatus.SERVICE_UNAVAILABLE, "AI_DISABLED"))
+                .when(aiReviewService).requireEnabled();
+
+        mockMvc.perform(post(ApiEndpoints.V1_ADMIN + "/jobs/job-abc123/ai-review"))
+                .andExpect(status().isServiceUnavailable())
+                .andExpect(jsonPath("$.success").value(false))
+                .andExpect(jsonPath("$.code").value("AI_DISABLED"));
+
+        verify(aiReviewService, never()).reviewJob(any(), any());
+    }
+
+    @Test
     @DisplayName("POST /api/v1/admin/jobs/{id}/ai-review khi AI hết hạn mức -> Trả về 503 + thông điệp tiếng Việt (KHÔNG phải 500)")
     void aiReview_Returns503WithVietnameseMessage_WhenQuotaExceeded() throws Exception {
         when(aiReviewService.reviewJob(eq("job-abc123"), any()))
@@ -170,6 +189,7 @@ class AdminAiReviewControllerTest {
                 .id("job-abc123")
                 .title("Phuc vu ca dem")
                 .aiVerdict("WARN")
+                .aiSummary("Tin có dấu hiệu tuyển ngoài nền tảng.")
                 .aiReasons(List.of(AiReasonResponse.builder()
                         .code("OFF_PLATFORM")
                         .evidence("Ung vien lien he Zalo")
@@ -183,6 +203,7 @@ class AdminAiReviewControllerTest {
         mockMvc.perform(get(ApiEndpoints.V1_ADMIN + "/jobs"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data[0].aiVerdict").value("WARN"))
+                .andExpect(jsonPath("$.data[0].aiSummary").value("Tin có dấu hiệu tuyển ngoài nền tảng."))
                 .andExpect(jsonPath("$.data[0].aiReasons[0].code").value("OFF_PLATFORM"))
                 .andExpect(jsonPath("$.data[0].aiCheckedAt").value("2026-11-25T10:00:00Z"));
     }

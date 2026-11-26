@@ -21,12 +21,7 @@ import {
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import {
-  Card,
-  CardContent,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -35,8 +30,12 @@ import { EmployerAvatar } from "@/components/shared/employer-avatar";
 import { ErrorState } from "@/components/shared/empty-state";
 import { JobCard } from "@/features/jobs/components/job-card";
 import { SaveJobButton } from "@/components/shared/save-job-button";
-import { useJob, useRelatedJobs, useSalaryBenchmarks } from "@/features/jobs/hooks/useJobs";
-import { compareSalary, findBenchmarkFor } from "@/features/jobs/lib/salary";
+import {
+  useJob,
+  useRelatedJobs,
+  useSalaryBenchmarks,
+} from "@/features/jobs/hooks/useJobs";
+import { compareSalary, findBenchmarkFor } from "@/features/shared/lib/salary";
 import { usePublicEmployerProfile } from "@/features/profile/hooks";
 import { RatingStars } from "@/components/shared/rating-stars";
 import {
@@ -79,7 +78,9 @@ export function JobDetailPage() {
   const { data: job, isLoading, isError, refetch } = useJob(id);
   const { data: benchmarks = [] } = useSalaryBenchmarks();
   const { data: related = [] } = useRelatedJobs(job?.category.id ?? "", id);
-  const { data: employerProfile } = usePublicEmployerProfile(job?.employerId ?? "");
+  const { data: employerProfile } = usePublicEmployerProfile(
+    job?.employerId ?? ""
+  );
   const { data: notifyPreferences = [] } = useJobNotifyPreferences();
   const toggleJobNotify = useToggleJobNotify();
 
@@ -445,8 +446,7 @@ export function JobDetailPage() {
                     </p>
                   )}
                   <p className="text-sm text-muted-foreground">
-                    {job.location.address ||
-                      locationFull(job.location)}
+                    {job.location.address || locationFull(job.location)}
                   </p>
                   {!job.location.branchName && (
                     <p className="mt-0.5 text-xs text-muted-foreground">
@@ -464,7 +464,11 @@ export function JobDetailPage() {
                   nativeButton={false}
                   render={
                     <a
-                      href={buildMapUrl(job.location.address, locationName(job.location), job.location.province)}
+                      href={buildMapUrl(
+                        job.location.address,
+                        locationName(job.location),
+                        job.location.province
+                      )}
                       target="_blank"
                       rel="noopener noreferrer"
                     />
@@ -527,7 +531,9 @@ export function JobDetailPage() {
                     className="h-11 w-full cursor-pointer font-semibold"
                     nativeButton={false}
                     render={
-                      <Link to={PATHS.STUDENT.APPLICATION_DETAIL(myApplication!.id)} />
+                      <Link
+                        to={PATHS.STUDENT.APPLICATION_DETAIL(myApplication!.id)}
+                      />
                     }
                   >
                     Đã ứng tuyển — xem hồ sơ
@@ -584,7 +590,11 @@ export function JobDetailPage() {
               <CardTitle className="text-sm">Thông tin chung</CardTitle>
             </CardHeader>
             <CardContent className="space-y-3 text-sm">
-              <InfoRow icon={Coins} label="Mức lương" value={formatSalary(job)} />
+              <InfoRow
+                icon={Coins}
+                label="Mức lương"
+                value={formatSalary(job)}
+              />
               <InfoRow
                 icon={Building2}
                 label="Loại hình"
@@ -611,7 +621,9 @@ export function JobDetailPage() {
           {/* NHÀ TUYỂN DỤNG */}
           <Card>
             <CardHeader className="pb-3">
-              <CardTitle className="text-sm">Thông tin nhà tuyển dụng</CardTitle>
+              <CardTitle className="text-sm">
+                Thông tin nhà tuyển dụng
+              </CardTitle>
             </CardHeader>
             <CardContent className="space-y-3">
               <div className="flex items-center gap-3">

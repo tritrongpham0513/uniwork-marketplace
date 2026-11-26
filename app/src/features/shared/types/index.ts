@@ -240,16 +240,26 @@ export interface Job {
   viewCount: number;
   /** Người đăng — dùng cho phân quyền NTD */
   employerId: string;
+}
+
+/**
+ * Tin tuyển dụng — dành riêng cho quản trị viên.
+ *
+ * <p>Mở rộng {@link Job} bằng kết quả kiểm duyệt AI. Backend tách hẳn hai
+ * DTO (`JobResponse` vs `AdminJobResponse`) nên API công khai và API dành cho
+ * nhà tuyển dụng **không bao giờ** có các trường `ai*` — kiểu `Job` ở đây
+ * cũng phải phản ánh đúng điều đó (ADR 0005 mục 2: tách biết ở tầng kiểu).
+ */
+export interface AdminJob extends Job {
   /**
    * Kết quả kiểm duyệt AI — `null` nghĩa là **CHƯA KIỂM TRA** (chưa chạy
    * hoặc chạy lỗi). Phải phân biệt được với `OK`.
-   *
-   * <p>Chỉ trả về cho quản trị viên — nhà tuyển dụng và API công khai
-   * không bao giờ có 3 trường `ai*` này.
    */
   aiVerdict: AiVerdict | null;
   /** Danh sách lý do vi phạm kèm bằng chứng nguyên văn. */
   aiReasons: AiReason[] | null;
+  /** Câu tóm tắt tiếng Việt của AI — `null` nghĩa là chưa kiểm tra. */
+  aiSummary: string | null;
   /** Thời điểm AI kiểm tra tin (ISO-8601). */
   aiCheckedAt: string | null;
 }

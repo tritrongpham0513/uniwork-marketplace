@@ -41,14 +41,11 @@ import { AiReviewBadge } from "@/features/admin/components/ai-review-badge";
 import { AiReviewPanel } from "@/features/admin/components/ai-review-panel";
 import { JobTrustInfo } from "@/features/admin/components/job-trust-info";
 import { sortJobsByAiSeverity } from "@/features/admin/lib/ai-review";
-import {
-  compareSalary,
-  findBenchmarkFor,
-} from "@/features/admin/lib/salary-benchmark";
+import { compareSalary, findBenchmarkFor } from "@/features/shared/lib/salary";
 import {
   JOB_STATUS_LABELS,
+  type AdminJob,
   type AiReview,
-  type Job,
   type JobStatus,
   type SalaryComparison,
 } from "@/features/shared/types";
@@ -67,8 +64,8 @@ const STATUS_FILTERS: Array<{ value: JobStatus | "ALL"; label: string }> = [
 export default function AdminJobsPage() {
   const [status, setStatus] = useState<JobStatus | "ALL">("PENDING_REVIEW");
   const [keyword, setKeyword] = useState("");
-  const [preview, setPreview] = useState<Job | null>(null);
-  const [rejectTarget, setRejectTarget] = useState<Job | null>(null);
+  const [preview, setPreview] = useState<AdminJob | null>(null);
+  const [rejectTarget, setRejectTarget] = useState<AdminJob | null>(null);
   const [rejectReason, setRejectReason] = useState("");
   /**
    * Kết quả kiểm tra AI trả về ngay trong phiên xem nội dung.
@@ -132,7 +129,7 @@ export default function AdminJobsPage() {
 
     return {
       verdict: preview.aiVerdict,
-      summary: "",
+      summary: preview.aiSummary ?? "",
       reasons: preview.aiReasons ?? [],
       aiCheckedAt: preview.aiCheckedAt ?? "",
     };
@@ -158,7 +155,7 @@ export default function AdminJobsPage() {
     (job) => job.status === "PENDING_REVIEW"
   ).length;
 
-  const handleApprove = async (job: Job) => {
+  const handleApprove = async (job: AdminJob) => {
     try {
       await reviewJob.mutateAsync({ id: job.id, action: "APPROVE" });
       toast.success("Đã duyệt tin tuyển dụng.", {
@@ -170,7 +167,7 @@ export default function AdminJobsPage() {
   };
 
   /** Mở dialog xem nội dung — reset kết quả kiểm tra AI của tin trước đó. */
-  const handleOpenPreview = (job: Job) => {
+  const handleOpenPreview = (job: AdminJob) => {
     setPreview(job);
     setManualReview(null);
     setHasManualCheck(false);
@@ -183,7 +180,7 @@ export default function AdminJobsPage() {
    * <p>Dùng được cho cả tin chưa kiểm tra lẫn tin đã có kết quả (kiểm tra
    * lại) — mỗi lần bấm là một lượt AI.
    */
-  const handleAiCheck = async (job: Job) => {
+  const handleAiCheck = async (job: AdminJob) => {
     try {
       const review = await aiReviewJob.mutateAsync(job.id);
       setManualReview(review);

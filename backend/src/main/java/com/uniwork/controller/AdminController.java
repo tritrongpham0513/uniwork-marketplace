@@ -176,12 +176,17 @@ public class AdminController {
      *
      * <p>AI chỉ là lớp góp ý: endpoint này <b>không</b> đổi trạng thái tin tuyển dụng.
      * Mỗi lần gọi là một lượt AI — nên gọi có chủ đích.
+     *
+     * <p>Tính năng đang tắt thì endpoint trả 503 {@code AI_DISABLED} — cờ tắt
+     * phải chặn được cả lời gọi, không chỉ ẩn nút (spec.md mục 15).
      */
     @PostMapping("/jobs/{id}/ai-review")
     @Operation(summary = "Kiểm tra nội dung tin tuyển dụng bằng AI (quản trị)")
     public ResponseEntity<ApiResponse<AiReviewResponse>> aiReviewJob(
             @PathVariable("id") String id,
             @CurrentUser User admin) {
+
+        aiReviewService.requireEnabled();
 
         AiReviewResponse result = aiReviewService.reviewJob(id, admin.getId());
 

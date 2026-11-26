@@ -1,6 +1,5 @@
 package com.uniwork.service.ai;
 
-import com.uniwork.dto.response.AiReviewResponse;
 import com.uniwork.exception.AppException;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -55,14 +54,14 @@ public class JobAiReviewScheduler {
 
         try {
             // adminUserId = null: chạy nền thì không có quản trị viên nào thao tác.
-            AiReviewResponse result = aiReviewService.reviewJob(jobSlug, null);
-
-            // Log ở mức INFO để theo dõi được số lượt AI đã gọi (không cần bảng đếm riêng).
-            log.info("AI review cho tin {}: verdict={}", jobSlug, result.getVerdict());
-        } catch (AiProviderException ex) {
-            log.warn("AI review o nen that bai cho tin {}: reason={}", jobSlug, ex.getReason());
+            //
+            // Không log ở đây: `AiReviewService` đã log "AI review cho tin {}:
+            // verdict={}" ngay khi ghi kết quả — log thêm ở đây sẽ ghi trùng
+            // mỗi lượt kiểm tra nền (CONTRACT.md mục 9).
+            aiReviewService.reviewJob(jobSlug, null);
         } catch (AppException ex) {
-            // 503 AI_UNAVAILABLE / 404 NOT_FOUND — không làm hỏng luồng đăng tin.
+            // 503 AI_UNAVAILABLE / 404 NOT_FOUND / 503 AI_DISABLED — không làm
+            // hỏng luồng đăng tin.
             log.warn("AI review o nen that bai cho tin {}: code={}, message={}",
                     jobSlug, ex.getCode(), ex.getMessage());
         } catch (Exception ex) {

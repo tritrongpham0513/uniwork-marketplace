@@ -44,13 +44,19 @@ const DEFAULT_MODEL = "gemini-3.5-flash-lite";
 const GEMINI_API_BASE = "https://generativelanguage.googleapis.com/v1beta";
 const REQUEST_TIMEOUT_MS = 30000;
 
-/** Đơn vị trả lương -> số giờ quy đổi, dùng để chuẩn hoá mức lương về đồng/giờ. */
+/**
+ * Đơn vị trả lương -> số giờ quy đổi, dùng để chuẩn hoá mức lương về đồng/giờ.
+ *
+ * Cố ý KHÔNG có `PER_TASK` và `NEGOTIABLE`: hai đơn vị này không quy đổi được,
+ * nên AI không được suy luận `SALARY_ANOMALY` từ chúng (CONTRACT.md mục 5A.6).
+ * Cùng bảng với `backend/.../util/SalaryUnits.java` và
+ * `app/src/features/shared/lib/salary.ts`.
+ */
 const HOURS_PER_SALARY_UNIT = Object.freeze({
   HOURLY: 1,
   DAILY: 8,
   WEEKLY: 40,
   MONTHLY: 160,
-  PER_TASK: 1,
 });
 
 /**

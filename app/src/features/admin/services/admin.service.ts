@@ -1,4 +1,5 @@
 import type {
+  AdminJob,
   AdminUser,
   AiFeatureStatus,
   AiReview,
@@ -76,9 +77,12 @@ export const adminService = {
 
   /**
    * GET /api/v1/admin/jobs — danh sách tin theo trạng thái.
+   *
+   * <p>Trả về {@link AdminJob} — **có** kèm kết quả kiểm duyệt AI. Endpoint
+   * này dành riêng cho quản trị viên.
    */
-  listJobs(status?: string): Promise<ApiResponse<Job[]>> {
-    return http.get<ApiResponse<Job[]>>("/api/v1/admin/jobs", {
+  listJobs(status?: string): Promise<ApiResponse<AdminJob[]>> {
+    return http.get<ApiResponse<AdminJob[]>>("/api/v1/admin/jobs", {
       params: status && status !== "ALL" ? { status } : undefined,
     });
   },

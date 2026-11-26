@@ -176,6 +176,16 @@ public class JobPost {
     @Column(name = "ai_reasons", columnDefinition = "json")
     private List<AiReason> aiReasons;
 
+    /**
+     * Câu tóm tắt tiếng Việt của AI.
+     *
+     * <p>Lưu riêng (không dựng lại từ reasons) để kết quả kiểm tra nền và kết
+     * quả kiểm tra thủ công có cùng hình dạng — quản trị viên xem được tóm tắt
+     * trong cả hai trường hợp (spec.md mục 13, mục 18).
+     */
+    @Column(name = "ai_summary", length = 500)
+    private String aiSummary;
+
     /** Thời điểm AI kiểm tra tin tuyển dụng. */
     @Column(name = "ai_checked_at")
     private LocalDateTime aiCheckedAt;

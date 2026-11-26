@@ -1,4 +1,4 @@
-import type { AiVerdict, Job } from "@/features/shared/types";
+import type { AiVerdict, AdminJob } from "@/features/shared/types";
 
 /**
  * Nhóm ưu tiên theo mức độ vi phạm của AI.
@@ -9,25 +9,55 @@ import type { AiVerdict, Job } from "@/features/shared/types";
 export type AiSeverityGroup = 0 | 1 | 2 | 3;
 
 /**
+ * Mô tả đầy đủ cho mỗi verdict của AI.
+ *
+ * <p>Gộp nhãn, thứ tự ưu tiên và màu hiển thị vào **một** chỗ, thay vì
+ * tra cứu rải rác ở nhiều bảng song song — tránh tình trạng thêm verdict mới
+ * mà quên cập nhật một trong các bảng đó.
+ */
+export interface AiVerdictMeta {
+  /** Nhãn hiển thị — khoá vựng theo `notes/01-ket-qua-thu.md` mục 4.1. */
+  label: string;
+  /** Nhóm ưu tiên khi sắp xếp — số nhỏ được đưa lên đầu. */
+  severity: AiSeverityGroup;
+  /** Lớp CSS cho badge. */
+  badgeClassName: string;
+}
+
+/**
+ * Bảng tra cứu verdict → mô tả. Nhãn chính thức của từng verdict nằm ở đây.
+ */
+export const AI_VERDICT_META: Record<AiVerdict, AiVerdictMeta> = {
+  SUSPECT: {
+    label: "AI: cần xem",
+    severity: 0,
+    badgeClassName: "bg-destructive/10 text-destructive",
+  },
+  WARN: {
+    label: "AI: nghi ngờ",
+    severity: 1,
+    badgeClassName: "bg-amber-500/10 text-amber-700 dark:text-amber-400",
+  },
+  OK: {
+    label: "AI: ổn",
+    severity: 2,
+    badgeClassName: "bg-primary/10 text-primary",
+  },
+};
+
+/** Nhãn khi tin chưa được kiểm tra bằng AI. */
+export const AI_NOT_CHECKED_LABEL = "Chưa kiểm tra";
+
+/**
  * Xếp nhóm mức độ của 1 tin tuyển dụng.
  *
  * <p>`null` (chưa kiểm tra) nằm cuối cùng vì tin đó chưa có kết quả nào để
  * quản trị viên cần soi — nhưng tuyệt đối không bị loại khỏi hàng đợi.
  */
 export const getAiSeverityGroup = (
-  job: Pick<Job, "aiVerdict">
-): AiSeverityGroup => {
-  switch (job.aiVerdict) {
-    case "SUSPECT":
-      return 0;
-    case "WARN":
-      return 1;
-    case "OK":
-      return 2;
-    default:
-      return 3;
-  }
-};
+  job: Pick<AdminJob, "aiVerdict">
+): AiSeverityGroup =>
+  job.aiVerdict ? AI_VERDICT_META[job.aiVerdict].severity : 3;
 
 /**
  * Sắp xếp danh sách tin tuyển dụng theo mức độ vi phạm của AI.
@@ -38,7 +68,7 @@ export const getAiSeverityGroup = (
  *
  * <p>Hàm thuần: không mutate mảng đầu vào, trả về mảng mới.
  */
-export const sortJobsByAiSeverity = (jobs: Job[]): Job[] => {
+export const sortJobsByAiSeverity = (jobs: AdminJob[]): AdminJob[] => {
   // `map` + `sort` trên chỉ số: giữ được tính ổn định mà không cần so sánh
   // phụ tùy theo mảng gốc (giả định sort ổn định không được đảm bảo ở mọi
   // runtime cũ).
@@ -52,15 +82,12 @@ export const sortJobsByAiSeverity = (jobs: Job[]): Job[] => {
     .map((entry) => entry.job);
 };
 
-/** Nhãn hiển thị của mức độ — khoá vựng theo `notes/01-ket-qua-thu.md` mục 4.1. */
-export const AI_VERDICT_LABELS: Record<AiVerdict | "NOT_CHECKED", string> = {
-  SUSPECT: "AI: cần xem",
-  WARN: "AI: nghi ngờ",
-  OK: "AI: ổn",
-  NOT_CHECKED: "Chưa kiểm tra",
-};
-
-/** Trạng thái hiển thị của khối "Đánh giá của AI". */
+/**
+ * Trạng thái hiển thị của khối "Đánh giá của AI".
+ *
+ * <p>`REVIEW` là trạng thái **có nội dung** — khối hiển thị tóm tắt + danh
+ * sách lý do thật, không dùng thông điệp nào.
+ */
 export type AiPanelState =
   "CHECKING" | "REVIEW" | "FAILED" | "CHECKED_NO_RESULT" | "NOT_CHECKED";
 
@@ -93,15 +120,11 @@ export const getAiPanelState = (input: {
 /**
  * Thông điệp của khối "Đánh giá của AI" theo trạng thái.
  *
- * <p>Không trạng thái nào hiện lỗi kỹ thuật cho quản trị viên — họ chỉ cần
- * biết tin *chưa* có góp ý AI nào để tự soi (ticket 07).
+ * <p>Chỉ các trạng thái **không có nội dung** mới cần thông điệp. Trạng thái
+ * `REVIEW` không có mục này — panel render nội dung đánh giá thật.
  */
-export const AI_PANEL_MESSAGES: Record<AiPanelState, string> = {
+export const AI_PANEL_MESSAGES: Partial<Record<AiPanelState, string>> = {
   CHECKING: "Đang kiểm tra bằng AI...",
-  // `REVIEW` không dùng thông điệp này — khi có kết quả, panel render nội dung
-  // đánh giá thật (tóm tắt + danh sách lý do). Giữ chuỗi rỗng để bảng tra
-  // cứu đầy đủ, tránh phải kiểm tra `undefined` ở nơi gọi.
-  REVIEW: "",
   FAILED:
     "Tin này chưa được kiểm tra bằng AI. Bạn vẫn có thể tự đối chiếu nội dung bên trên.",
   CHECKED_NO_RESULT: "Chưa có kết quả kiểm tra AI cho tin này.",

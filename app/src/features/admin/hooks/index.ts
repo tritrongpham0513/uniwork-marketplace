@@ -1,10 +1,10 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import type {
+  AdminJob,
   AdminUser,
   AiFeatureStatus,
   AiReview,
   EmployerProfile,
-  Job,
   JobCategory,
   SalaryBenchmark,
 } from "@/features/shared/types";
@@ -58,7 +58,12 @@ export const useUpdateUser = () => {
   });
 };
 
-/** Danh sách tin tuyển dụng theo trạng thái */
+/**
+ * Danh sách tin tuyển dụng theo trạng thái.
+ *
+ * <p>Kiểu {@link AdminJob} — có kèm kết quả kiểm duyệt AI (chỉ endpoint
+ * dành riêng cho quản trị viên mới có).
+ */
 export const useAdminJobs = (status?: string) =>
   useQuery({
     queryKey: ADMIN_KEYS.jobs(status),
@@ -225,9 +230,9 @@ export const useDeleteCategory = () => {
 
 export type {
   AdminDashboardStats,
+  AdminJob,
   AdminUser,
   AiFeatureStatus,
   AiReview,
-  Job,
   JobCategory,
 };

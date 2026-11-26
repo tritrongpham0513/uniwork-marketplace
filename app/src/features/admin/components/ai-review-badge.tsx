@@ -1,19 +1,18 @@
 import { Badge } from "@/components/ui/badge";
 import { cn } from "cn";
-import { AI_VERDICT_LABELS } from "@/features/admin/lib/ai-review";
+import {
+  AI_NOT_CHECKED_LABEL,
+  AI_VERDICT_META,
+} from "@/features/admin/lib/ai-review";
 import type { AiVerdict } from "@/features/shared/types";
 
 /**
- * Class màu theo mức độ — khoá vựng theo `notes/01-ket-qua-thu.md` mục 4.1.
+ * Class màu cho tin chưa được kiểm tra.
  *
- * <p>Dùng token Tailwind của app để tự đổi theo theme sáng/tối.
+ * <p>Các verdict đã có sẵn class trong {@link AI_VERDICT_META} — không lặp
+ * lại ở đây.
  */
-const VERDICT_CLASS: Record<AiVerdict | "NOT_CHECKED", string> = {
-  SUSPECT: "bg-destructive/10 text-destructive",
-  WARN: "bg-amber-500/10 text-amber-700 dark:text-amber-400",
-  OK: "bg-primary/10 text-primary",
-  NOT_CHECKED: "bg-muted text-muted-foreground",
-};
+const NOT_CHECKED_CLASS = "bg-muted text-muted-foreground";
 
 interface AiReviewBadgeProps {
   /** `null` = tin chưa được AI kiểm tra. */
@@ -28,12 +27,18 @@ interface AiReviewBadgeProps {
  * không phải kết luận của hệ thống.
  */
 export function AiReviewBadge({ verdict, className }: AiReviewBadgeProps) {
-  const key = verdict ?? "NOT_CHECKED";
+  if (!verdict) {
+    return (
+      <Badge className={cn(NOT_CHECKED_CLASS, className)}>
+        {AI_NOT_CHECKED_LABEL}
+      </Badge>
+    );
+  }
+
+  const meta = AI_VERDICT_META[verdict];
 
   return (
-    <Badge className={cn(VERDICT_CLASS[key], className)}>
-      {AI_VERDICT_LABELS[key]}
-    </Badge>
+    <Badge className={cn(meta.badgeClassName, className)}>{meta.label}</Badge>
   );
 }
 

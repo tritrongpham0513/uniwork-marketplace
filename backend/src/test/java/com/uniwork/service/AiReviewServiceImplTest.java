@@ -4,11 +4,13 @@ import com.uniwork.entity.JobCategory;
 import com.uniwork.entity.JobPost;
 import com.uniwork.exception.AppException;
 import com.uniwork.repository.JobPostRepository;
+import com.uniwork.repository.JobPostSkillRepository;
 import com.uniwork.repository.ProvinceRepository;
 import com.uniwork.repository.SalaryBenchmarkRepository;
 import com.uniwork.service.ai.AiContextAssembler;
 import com.uniwork.service.ai.AiProvider;
 import com.uniwork.service.ai.AiProviderException;
+import com.uniwork.service.ai.AiProviderRegistry;
 import com.uniwork.service.ai.AiReason;
 import com.uniwork.service.ai.AiReviewInput;
 import com.uniwork.service.ai.AiReviewResult;
@@ -46,6 +48,9 @@ class AiReviewServiceImplTest {
 
     @Mock
     private JobPostRepository jobPostRepository;
+
+    @Mock
+    private JobPostSkillRepository jobPostSkillRepository;
 
     @Mock
     private SalaryBenchmarkRepository salaryBenchmarkRepository;
@@ -95,6 +100,26 @@ class AiReviewServiceImplTest {
         assertEquals("SUSPECT", response.getVerdict());
         assertNotNull(response.getAiCheckedAt());
         assertEquals(1, response.getReasons().size());
+    }
+
+    @Test
+    @DisplayName("Kết quả hợp lệ -> lưu câu tóm tắt tiếng Việt vào bản ghi tin")
+    void review_PersistsSummary_WhenResultValid() {
+        JobPost job = pendingJob();
+        when(jobPostRepository.findBySlugAndDeletedAtIsNull(JOB_SLUG)).thenReturn(Optional.of(job));
+        when(jobPostRepository.save(any(JobPost.class))).thenAnswer(inv -> inv.getArgument(0));
+
+        fakeProvider.result = new AiReviewResult(
+                "SUSPECT",
+                "Tin có dấu hiệu yêu cầu tiền trước.",
+                List.of(new AiReason("FEE_ADVANCE", "Yeu cau dat coc 500.000d", "Yeu cau dat coc")));
+
+        var response = aiReviewService.reviewJob(JOB_SLUG, ADMIN_USER_ID);
+
+        // Tóm tắt phải được LƯU LẠI, không chỉ trả về — để kết quả kiểm tra
+        // nền và kiểm tra thủ công có cùng hình dạng (spec.md mục 13, mục 18).
+        assertEquals("Tin có dấu hiệu yêu cầu tiền trước.", job.getAiSummary());
+        assertEquals("Tin có dấu hiệu yêu cầu tiền trước.", response.getSummary());
     }
 
     @Test
@@ -270,9 +295,69 @@ class AiReviewServiceImplTest {
     }
 
     // ================================================================
-    // E. NHẬP LIỆU GỬI CHO AI
+    // F. CỜ TẮT TÍNH NĂNG -> KHÔNG GỌI AI
     // ================================================================
 
+    @Test
+    @DisplayName("Cờ AI_ENABLED tắt -> requireEnabled() ném 503 AI_DISABLED")
+    void requireEnabled_Throws_WhenFeatureDisabled() {
+        aiReviewService = new AiReviewService(
+                jobPostRepository,
+                jobPostSkillRepository,
+                contextAssembler,
+                new AiProviderRegistry(List.of(fakeProvider), "fake"),
+                false);
+
+        AppException ex = assertThrows(AppException.class, () -> aiReviewService.requireEnabled());
+
+        assertEquals(HttpStatus.SERVICE_UNAVAILABLE, ex.getStatus());
+        assertEquals("AI_DISABLED", ex.getCode());
+    }
+
+    @Test
+    @DisplayName("Cờ AI_ENABLED tắt -> KHÔNG gọi nhà cung cấp AI")
+    void review_DoesNotCallProvider_WhenFeatureDisabled() {
+        aiReviewService = new AiReviewService(
+                jobPostRepository,
+                jobPostSkillRepository,
+                contextAssembler,
+                new AiProviderRegistry(List.of(fakeProvider), "fake"),
+                false);
+
+        assertThrows(AppException.class, () -> aiReviewService.requireEnabled());
+
+        assertEquals(0, fakeProvider.callCount);
+    }
+
+    @Test
+    @DisplayName("Cờ AI_ENABLED tắt -> isEnabled() trả false (tính năng ẩn, không phải lỗi)")
+    void isEnabled_ReturnsFalse_WhenFeatureDisabled() {
+        aiReviewService = new AiReviewService(
+                jobPostRepository,
+                jobPostSkillRepository,
+                contextAssembler,
+                new AiProviderRegistry(List.of(fakeProvider), "fake"),
+                false);
+
+        assertFalse(aiReviewService.isEnabled());
+    }
+
+    @Test
+    @DisplayName("Cấu hình trỏ tới nhà cung cấp không tồn tại -> tính năng ẩn, không lỗi 500")
+    void isEnabled_ReturnsFalse_WhenProviderNotFound() {
+        aiReviewService = new AiReviewService(
+                jobPostRepository,
+                jobPostSkillRepository,
+                contextAssembler,
+                new AiProviderRegistry(List.of(fakeProvider), "khong-ton-tai"),
+                true);
+
+        assertFalse(aiReviewService.isEnabled());
+    }
+
+    // ================================================================
+    // E. NHẬP LIỆU GỬI CHO AI
+    // ================================================================
     @Test
     @DisplayName("Input gửi cho AI chứa nội dung tin tuyển dụng")
     void review_SendsJobContentToProvider() {
@@ -339,6 +424,11 @@ class AiReviewServiceImplTest {
 
     /** Dựng lại service với nhà cung cấp AI giả. */
     private void useProvider(AiProvider provider) {
-        aiReviewService = new AiReviewService(jobPostRepository, contextAssembler, provider, true, "fake");
+        aiReviewService = new AiReviewService(
+                jobPostRepository,
+                jobPostSkillRepository,
+                contextAssembler,
+                new AiProviderRegistry(List.of(provider), provider.name()),
+                true);
     }
 }

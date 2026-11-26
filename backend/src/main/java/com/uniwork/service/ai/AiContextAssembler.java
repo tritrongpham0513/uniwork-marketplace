@@ -7,12 +7,11 @@ import com.uniwork.entity.Province;
 import com.uniwork.entity.SalaryBenchmark;
 import com.uniwork.repository.ProvinceRepository;
 import com.uniwork.repository.SalaryBenchmarkRepository;
+import com.uniwork.util.SalaryUnits;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
 
 import java.math.BigDecimal;
-import java.math.RoundingMode;
-import java.util.Map;
 import java.util.Optional;
 
 /**
@@ -31,23 +30,9 @@ import java.util.Optional;
 public class AiContextAssembler {
 
     /**
-     * Bảng quy đổi giờ cho từng đơn vị trả lương — giống
-     * {@code JobServiceImpl.HOURS_PER_UNIT} và bảng ở frontend.
-     *
-     * <p>Chỉ gồm các đơn vị quy đổi được. {@code PER_TASK} và {@code NEGOTIABLE}
-     * vắng mặt có chủ đích — AI không được suy luận {@code SALARY_ANOMALY} từ chúng
-     * (CONTRACT.md mục 5A.6).
-     */
-    private static final Map<String, Integer> HOURS_PER_UNIT = Map.of(
-            "HOURLY", 1,
-            "DAILY", 8,
-            "WEEKLY", 40,
-            "MONTHLY", 160);
-
-    /**
      * Mã tỉnh dùng làm mốc lùi khi tỉnh của tin chưa có dòng xếp hạng.
      *
-     * <p>Trùng với quy tắc ở {@code app/src/features/admin/lib/salary-benchmark.ts}
+     * <p>Trùng với quy tắc ở {@code app/src/features/shared/lib/salary.ts}
      * (fallback về "79" — Thành phố Hồ Chí Minh) để giao diện quản trị viên và AI
      * nhìn cùng một con số.
      */
@@ -64,11 +49,13 @@ public class AiContextAssembler {
 
         Integer hourlyMin = null;
         Integer hourlyMax = null;
-        if (isConvertible(salaryType)) {
+        if (SalaryUnits.isConvertible(salaryType)) {
             // Cột sinh thành `salary_min_hourly` / `salary_max_hourly` của MySQL đã
             // quy đổi sẵn -> ưu tiên dùng; thiếu thì tự quy đổi theo bảng quy ước.
-            hourlyMin = firstPositive(toInt(job.getSalaryMinHourly()), convert(originalMin, salaryType));
-            hourlyMax = firstPositive(toInt(job.getSalaryMaxHourly()), convert(originalMax, salaryType));
+            hourlyMin = firstPositive(toInt(job.getSalaryMinHourly()),
+                    SalaryUnits.toHourly(salaryType, job.getSalaryMin()));
+            hourlyMax = firstPositive(toInt(job.getSalaryMaxHourly()),
+                    SalaryUnits.toHourly(salaryType, job.getSalaryMax()));
         }
 
         return AiSalaryInfo.builder()
@@ -161,26 +148,6 @@ public class AiContextAssembler {
         return provinceRepository.findByCode(province.getCode())
                 .map(Province::getName)
                 .orElse(null);
-    }
-
-    /**
-     * Đơn vị trả lương nào quy đổi được sang đồng/giờ.
-     *
-     * <p>{@code PER_TASK} và {@code NEGOTIABLE} không quy đổi được — AI không được
-     * suy luận {@code SALARY_ANOMALY} từ chúng (CONTRACT.md mục 5A.6).
-     */
-    private boolean isConvertible(String salaryType) {
-        return HOURS_PER_UNIT.containsKey(salaryType);
-    }
-
-    private Integer convert(Integer amount, String salaryType) {
-        if (amount == null) {
-            return null;
-        }
-        int hours = HOURS_PER_UNIT.get(salaryType);
-        return BigDecimal.valueOf(amount)
-                .divide(BigDecimal.valueOf(hours), 0, RoundingMode.HALF_UP)
-                .intValue();
     }
 
     /** Lấy giá trị dương đầu tiên — dùng để ưu tiên cột sinh thành sẵn có. */

@@ -4,8 +4,10 @@ import com.uniwork.dto.response.AiReasonResponse;
 import com.uniwork.dto.response.AiReviewResponse;
 import com.uniwork.dto.response.AdminJobResponse;
 import com.uniwork.entity.JobPost;
+import com.uniwork.entity.Skill;
 import com.uniwork.exception.AppException;
 import com.uniwork.repository.JobPostRepository;
+import com.uniwork.repository.JobPostSkillRepository;
 import com.uniwork.util.DateTimeUtils;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
@@ -37,23 +39,23 @@ public class AiReviewService {
     private static final String MSG_TIMEOUT = "AI không phản hồi trong thời gian cho phép. Vui lòng thử lại sau.";
 
     private final JobPostRepository jobPostRepository;
+    private final JobPostSkillRepository jobPostSkillRepository;
     private final AiContextAssembler contextAssembler;
-    private final AiProvider provider;
+    private final AiProviderRegistry providerRegistry;
     private final boolean enabled;
-    private final String providerName;
 
     public AiReviewService(
             JobPostRepository jobPostRepository,
+            JobPostSkillRepository jobPostSkillRepository,
             AiContextAssembler contextAssembler,
-            AiProvider provider,
-            @Value("${app.ai.enabled:false}") boolean enabled,
-            @Value("${app.ai.provider:gemini}") String providerName) {
+            AiProviderRegistry providerRegistry,
+            @Value("${app.ai.enabled:false}") boolean enabled) {
 
         this.jobPostRepository = jobPostRepository;
+        this.jobPostSkillRepository = jobPostSkillRepository;
         this.contextAssembler = contextAssembler;
-        this.provider = provider;
+        this.providerRegistry = providerRegistry;
         this.enabled = enabled;
-        this.providerName = providerName;
     }
 
     /**
@@ -70,6 +72,15 @@ public class AiReviewService {
                         HttpStatus.NOT_FOUND, "NOT_FOUND"));
 
         AiReviewInput input = buildInput(job);
+
+        AiProvider provider;
+        try {
+            provider = providerRegistry.resolve();
+        } catch (AiProviderException ex) {
+            log.warn("Bo kiem duyet AI khong chay cho tin {} (admin {}): reason={}",
+                    jobId, adminUserId, ex.getReason());
+            throw toAppException(ex);
+        }
 
         AiReviewResult raw;
         try {
@@ -88,6 +99,7 @@ public class AiReviewService {
 
         LocalDateTime checkedAt = LocalDateTime.now();
         job.setAiVerdict(validated.getVerdict());
+        job.setAiSummary(validated.getSummary());
         job.setAiReasons(validated.getReasons());
         job.setAiCheckedAt(checkedAt);
         jobPostRepository.save(job);
@@ -100,12 +112,38 @@ public class AiReviewService {
 
     /** Trạng thái tính năng — frontend dùng để ẩn/hiện nút "Kiểm tra bằng AI". */
     public AiStatusResponse status() {
-        return new AiStatusResponse(isEnabled(), providerName);
+        return new AiStatusResponse(isEnabled(), providerRegistry.configuredName());
     }
 
-    /** Tính năng chỉ chạy khi vừa bật cờ vừa có khoá API. */
+    /**
+     * Tính năng chỉ chạy khi vừa bật cờ vừa có khoá API.
+     *
+     * <p>Endpoint kiểm tra thủ công cũng phải qua cổng này: cờ tắt thì
+     * <b>không gọi AI</b> — nếu không, cờ chỉ ẩn nút ở giao diện mà vẫn tiêu
+     * hạn mức (spec.md mục 15, CONTRACT.md mục 8).
+     */
     public boolean isEnabled() {
-        return enabled && provider.isConfigured();
+        if (!enabled) {
+            return false;
+        }
+        try {
+            return providerRegistry.resolve().isConfigured();
+        } catch (AiProviderException ex) {
+            // Cấu hình trỏ tới nhà cung cấp không tồn tại -> tính năng ẩn.
+            return false;
+        }
+    }
+
+    /**
+     * Chặn cổng khi tính năng đang tắt.
+     *
+     * @throws AppException 503 {@code AI_DISABLED} khi tính năng không bật
+     */
+    public void requireEnabled() {
+        if (!isEnabled()) {
+            throw new AppException("Tính năng kiểm duyệt AI hiện không khả dụng.",
+                    HttpStatus.SERVICE_UNAVAILABLE, "AI_DISABLED");
+        }
     }
 
     /**
@@ -189,11 +227,27 @@ public class AiReviewService {
         AiEmployerTrust trust = contextAssembler.employerTrust(job);
 
         return AiReviewInput.builder()
-                .jobContent(JobContentAssembler.assemble(job, salaryInfo, benchmark, trust))
+                .jobContent(JobContentAssembler.assemble(
+                        job, salaryInfo, benchmark, trust, skillNames(job)))
                 .salaryInfo(salaryInfo)
                 .salaryBenchmark(benchmark)
                 .employerTrust(trust)
                 .build();
+    }
+
+    /**
+     * Tên các kỹ năng yêu cầu của tin — spec.md mục 6 yêu cầu gửi kỹ năng yêu
+     * cầu cho AI (giúp đối chiếu tin với nhóm việc × tỉnh trong bảng xếp hạng).
+     */
+    private List<String> skillNames(JobPost job) {
+        if (job.getId() == null) {
+            return List.of();
+        }
+        return jobPostSkillRepository.findByJobPostId(job.getId()).stream()
+                .map(link -> link.getSkill())
+                .filter(skill -> skill != null && skill.getName() != null)
+                .map(Skill::getName)
+                .toList();
     }
 
     /** Chuyển kết quả đã kiểm chứng sang DTO trả về. */

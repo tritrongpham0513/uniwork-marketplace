@@ -30,7 +30,7 @@ import {
   useProvinces,
   useSalaryBenchmarks,
 } from "@/features/jobs/hooks/useJobs";
-import { compareSalary, findBenchmarkFor } from "@/features/jobs/lib/salary";
+import { compareSalary, findBenchmarkFor } from "@/features/shared/lib/salary";
 import {
   EMPLOYMENT_TYPE_LABELS,
   WORK_MODE_LABELS,

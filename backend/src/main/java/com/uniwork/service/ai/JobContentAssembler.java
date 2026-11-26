@@ -22,7 +22,7 @@ public final class JobContentAssembler {
 
     /** Dựng nội dung tin tuyển dụng dạng văn bản (chỉ phần nội dung tin). */
     public static String assemble(JobPost job) {
-        return assemble(job, null, null, null);
+        return assemble(job, null, null, null, List.of());
     }
 
     /**
@@ -32,17 +32,22 @@ public final class JobContentAssembler {
      * mức lương đã quy đổi về đồng/giờ, bảng xếp hạng lương của nhóm việc ×
      * tỉnh, và uy tín nhà tuyển dụng. Thiếu khối nào thì bỏ trống khối đó —
      * tin vẫn kiểm tra được.
+     *
+     * @param skills tên kỹ năng yêu cầu của tin (spec.md mục 6)
      */
     public static String assemble(JobPost job,
                                   AiSalaryInfo salaryInfo,
                                   AiSalaryBenchmark salaryBenchmark,
-                                  AiEmployerTrust employerTrust) {
+                                  AiEmployerTrust employerTrust,
+                                  List<String> skills) {
         StringBuilder sb = new StringBuilder();
 
         appendLine(sb, "Tieu de", job.getTitle());
         appendLine(sb, "Mo ta", job.getDescription());
         appendList(sb, "Yeu cau", job.getRequirements());
         appendList(sb, "Quyen loi", job.getBenefits());
+        appendLine(sb, "Dia diem", location(job));
+        appendLine(sb, "Nhom viec", job.getCategory() == null ? null : job.getCategory().getName());
         appendLine(sb, "Hinh thuc lam viec", job.getWorkMode());
         appendLine(sb, "Loai hinh lam viec", job.getEmploymentType());
         appendLine(sb, "So suat", job.getPositionsCount() == null
@@ -50,8 +55,44 @@ public final class JobContentAssembler {
         appendSalary(sb, salaryInfo);
         appendBenchmark(sb, salaryBenchmark);
         appendTrust(sb, employerTrust);
+        appendList(sb, "Ky nang", skills);
 
         return sb.toString().strip();
+    }
+
+    /**
+     * Địa điểm làm việc — tỉnh + xã/phường + chi nhánh (nếu có).
+     *
+     * <p>Cần cho AI vì tin tuyển ngoài nền tảng thường nêu địa điểm rõ ràng;
+     * thiếu nó thì AI không đối chiếu được tin với nhóm việc × tỉnh trong bảng
+     * xếp hạng lương.
+     */
+    private static String location(JobPost job) {
+        StringBuilder sb = new StringBuilder();
+
+        if (job.getProvince() != null && job.getProvince().getName() != null) {
+            sb.append(job.getProvince().getName());
+        }
+        if (job.getWard() != null && job.getWard().getName() != null) {
+            if (sb.length() > 0) {
+                sb.append(", ");
+            }
+            sb.append(job.getWard().getName());
+        }
+        if (job.getAddressDetail() != null && !job.getAddressDetail().isBlank()) {
+            if (sb.length() > 0) {
+                sb.append(", ");
+            }
+            sb.append(job.getAddressDetail().strip());
+        }
+        if (job.getBranchName() != null && !job.getBranchName().isBlank()) {
+            if (sb.length() > 0) {
+                sb.append(", ");
+            }
+            sb.append(job.getBranchName().strip());
+        }
+
+        return sb.length() == 0 ? null : sb.toString();
     }
 
     /**
