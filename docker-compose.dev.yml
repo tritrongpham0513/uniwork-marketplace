@@ -83,6 +83,8 @@ services:
       R2_PUBLIC_BASE_URL: ${R2_PUBLIC_BASE_URL:-}
       R2_PRESIGN_PUT_TTL_MINUTES: ${R2_PRESIGN_PUT_TTL_MINUTES:-10}
       R2_PRESIGN_GET_TTL_MINUTES: ${R2_PRESIGN_GET_TTL_MINUTES:-5}
+      # Kiểm duyệt nội dung tin tuyển dụng bằng AI (Gemini)
+      GEMINI_API_KEY: ${GEMINI_API_KEY:-}
       TZ: UTC
     volumes:
       # Bind-mount source + pom để sửa trên host là thấy ngay trong container
