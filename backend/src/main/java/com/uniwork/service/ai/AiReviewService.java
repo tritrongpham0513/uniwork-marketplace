@@ -37,17 +37,20 @@ public class AiReviewService {
     private static final String MSG_TIMEOUT = "AI không phản hồi trong thời gian cho phép. Vui lòng thử lại sau.";
 
     private final JobPostRepository jobPostRepository;
+    private final AiContextAssembler contextAssembler;
     private final AiProvider provider;
     private final boolean enabled;
     private final String providerName;
 
     public AiReviewService(
             JobPostRepository jobPostRepository,
+            AiContextAssembler contextAssembler,
             AiProvider provider,
             @Value("${app.ai.enabled:false}") boolean enabled,
             @Value("${app.ai.provider:gemini}") String providerName) {
 
         this.jobPostRepository = jobPostRepository;
+        this.contextAssembler = contextAssembler;
         this.provider = provider;
         this.enabled = enabled;
         this.providerName = providerName;
@@ -172,10 +175,24 @@ public class AiReviewService {
         return new AppException(message, HttpStatus.SERVICE_UNAVAILABLE, "AI_UNAVAILABLE");
     }
 
-    /** Dựng đầu vào cho AI từ bản ghi tin tuyển dụng. */
+    /**
+     * Dựng đầu vào cho AI từ bản ghi tin tuyển dụng.
+     *
+     * <p>Kèm ngữ cảnh thị trường (mức lương quy đổi, bảng xếp hạng lương, uy tín
+     * nhà tuyển dụng) để AI đối chiếu được mức lương với thị trường — nhờ đó mã
+     * {@code SALARY_ANOMALY} phát hiện được. Thiếu bảng xếp hạng thì tin vẫn
+     * kiểm tra được, chỉ thiếu căn cứ so sánh.
+     */
     private AiReviewInput buildInput(JobPost job) {
+        AiSalaryInfo salaryInfo = contextAssembler.salaryInfo(job);
+        AiSalaryBenchmark benchmark = contextAssembler.benchmark(job);
+        AiEmployerTrust trust = contextAssembler.employerTrust(job);
+
         return AiReviewInput.builder()
-                .jobContent(JobContentAssembler.assemble(job))
+                .jobContent(JobContentAssembler.assemble(job, salaryInfo, benchmark, trust))
+                .salaryInfo(salaryInfo)
+                .salaryBenchmark(benchmark)
+                .employerTrust(trust)
                 .build();
     }
 
