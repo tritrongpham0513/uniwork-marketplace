@@ -6,28 +6,41 @@ Kết quả của ticket này là một bản ghi lại đã chốt: nội dung 
 
 **Blocked by:** None (can start immediately).
 
-**Status:** done (partial — xem `## Comments`)
+**Status:** done
 
 - [x] Có một công cụ độc lập chạy được ngoài ứng dụng, dựng prompt theo cấu trúc: phần chỉ dẫn tách riêng, phần dữ liệu tin tuyển dụng nằm trong khối riêng kèm câu nhắc coi nội dung đó là dữ liệu và bỏ qua mọi chỉ dẫn nằm trong đó.
 - [x] Cấu hình khóa API lấy từ biến môi trường, không nằm trong mã nguồn và không được ghi log.
 - [x] Chạy được trên bộ 7 mẫu tin tuyển dụng thật, mỗi mẫu là một tin có nội dung vi phạm rõ ràng hoặc một tin bình thường, theo danh sách mẫu trong đặt tả.
 - [x] Kết quả trả về có hình dạng cố định: verdict (`OK` | `WARN` | `SUSPECT`), một câu tóm tắt tiếng Việt, và danh sách lý do gồm mã vi phạm, câu trích nguyên văn, giải thích ngắn.
 - [x] Chỉ dùng đúng sáu mã vi phạm đã định nghĩa sẵn: `FEE_ADVANCE`, `UNREGISTERED_WORK`, `OFF_PLATFORM`, `SALARY_ANOMALY`, `DISCRIMINATION`, `ILLEGAL_WORK`. Không có mã cho tin thiếu thông tin.
-- [~] Quy tắc bắt buộc đã được kiểm chứng bằng thử nghiệm: mỗi lý do nêu ra đều kèm được một câu nguyên văn có thật trong tin; lý do không trích được câu nguyên văn thì không được đưa vào kết quả.
+- [x] Quy tắc bắt buộc đã được kiểm chứng bằng thử nghiệm: mỗi lý do nêu ra đều kèm được một câu nguyên văn có thật trong tin; lý do không trích được câu nguyên văn thì không được đưa vào kết quả.
 - [x] Chốt được câu chữ thông báo cho nhà tuyển dụng ở form đăng tin, và câu chữ nhãn hiển thị cho quản trị viên (nhãn badge, câu ghi rõ đây là góp ý của AI).
-- [ ] Ghi lại kết quả thử: verdict thực tế của từng mẫu, và nhận xét về độ tin cậy của từng mã vi phạm.
-- [~] Xác minh được hạn mức thật của dự án tại trang giới hạn của AI Studio, không dựa vào con số từ nguồn thứ ba.
+- [x] Ghi lại kết quả thử: verdict thực tế của từng mẫu, và nhận xét về độ tin cậy của từng mã vi phạm.
+- [x] Xác minh được hạn mức thật của dự án tại trang giới hạn của AI Studio, không dựa vào con số từ nguồn thứ ba.
 
 ## Comments
+
 Kết quả đầy đủ: [`../notes/01-ket-qua-thu.md`](../notes/01-ket-qua-thu.md).
 Công cụ: `backend/scripts/ai-moderation/` (`prompt.mjs`, `samples.mjs`, `run.mjs`, `README.md`).
+
+### Cập nhật 26/11/2026 — đã có `GEMINI_API_KEY`, đã chạy thật
+
+Lượt chạy thật với `gemini-3.5-flash-lite`: **7/7 mẫu có verdict khớp kỳ vọng**,
+**0 lý do bị loại** (mọi `evidence` đều là câu nguyên văn có thật trong tin),
+verdict `OK` thì `reasons` rỗng.
+
+Bảng kết quả + nhận xét độ tin cậy từng mã: mục 9 của file ghi chú.
+Báo cáo thô: [`../notes/01-bao-cao-thu.json`](../notes/01-bao-cao-thu.json).
+
+Các phần dưới đây là **ghi chú lúc môi trường chưa có khoá** — giữ lại làm thiết kế
+ý định và giải thích cơ chế; không bị bác bỏ bởi lượt chạy thật.
 
 ### Mục KHÔNG hoàn thành — không có `GEMINI_API_KEY`
 
 Môi trường này **không có `GEMINI_API_KEY`** và người dùng đã quyết định chủ động làm
 tiếp mà không cần khóa. Vì vậy **không có lượt chạy thật nào với Gemini**, và tôi
 **không ghi bất kỳ verdict nào được bịa** — mọi kết quả trong file ghi chú đều được ghi
-rõ là *kỳ vọng thiết kế*, không phải *quan sát được*.
+rõ là _kỳ vọng thiết kế_, không phải _quan sát được_.
 
 ### `[~]` Mục "Quy tắc bắt buộc đã được kiểm chứng bằng thử nghiệm" — MỘT NỬA
 
@@ -50,7 +63,7 @@ trả lời được sau khi có kết quả thật. Có thể chạy ngay khi c
 **Phát hiện quan trọng:** Google **đã gỡ bảng hạn mức free tier theo từng model** khỏi
 trang tài liệu. Trang đó giờ chỉ còn hạn mức theo mức sử dụng (spend-based), điều kiện
 nâng tier, hạn mức Batch API — rồi trỏ người đọc tới **trang Rate Limits trong AI
-Studio** và ghi rõ *"Specified rate limits are not guaranteed and actual capacity may vary."*
+Studio** và ghi rõ _"Specified rate limits are not guaranteed and actual capacity may vary."_
 
 Nên "hạn mức thật của dự án" **không còn tồn tại trong tài liệu** — nó chỉ nằm ở trang
 Rate Limits của chính project đó, và cần đăng nhập Google để xem. **Tôi không đăng nhập
