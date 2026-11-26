@@ -37,15 +37,20 @@ import com.uniwork.repository.specification.JobPostSpecification;
 import com.uniwork.service.JobNotifyService;
 import com.uniwork.service.JobService;
 import com.uniwork.service.NotificationService;
+import com.uniwork.service.ai.JobAiReviewScheduler;
 import com.uniwork.util.ApiErrors;
 import com.uniwork.util.DateTimeUtils;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionSynchronization;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
@@ -67,6 +72,7 @@ import java.util.stream.Collectors;
  */
 @Service
 @RequiredArgsConstructor
+@Slf4j
 public class JobServiceImpl implements JobService {
 
     /** Số giờ quy ước cho từng kiểu trả lương — khớp frontend. */
@@ -91,6 +97,16 @@ public class JobServiceImpl implements JobService {
     private final UserRepository userRepository;
     private final NotificationService notificationService;
     private final JobNotifyService jobNotifyService;
+
+    /**
+     * Lớp cửa chạy kiểm duyệt AI ở nền.
+     *
+     * <p>Tiêm theo kiểu tuỳ chọn ({@code required = false}) vì kiểm duyệt AI là
+     * <b>tính năng phụ</b>: thiếu lớp cửa thì luồng đăng tin vẫn phải chạy bình
+     * thường, không được phép hỏng.
+     */
+    @Autowired(required = false)
+    private JobAiReviewScheduler jobAiReviewScheduler;
 
     // ------------------------------------------------------------------
     // ĐỌC
@@ -241,6 +257,9 @@ public class JobServiceImpl implements JobService {
         // Tin mới luôn chờ duyệt → báo cho các quản trị viên xử lý
         notifyAdminsAboutPendingJob(job, employer);
 
+        // Kiểm duyệt AI chạy nền, sau khi response HTTP đã trả về cho nhà tuyển dụng.
+        scheduleAiReview(job.getSlug());
+
         return toResponse(job);
     }
 
@@ -323,6 +342,10 @@ public class JobServiceImpl implements JobService {
 
         if (backToReview) {
             notifyAdminsAboutPendingJob(job, job.getEmployer());
+
+            // Nội dung vừa sửa cần được kiểm duyệt lại — chạy nền.
+            // Tin vốn đang ở PENDING_REVIEW thì không gọi lại AI (giữ hạn mức).
+            scheduleAiReview(job.getSlug());
         }
 
         return toResponse(job);
@@ -450,6 +473,49 @@ public class JobServiceImpl implements JobService {
     // ------------------------------------------------------------------
     // HELPERS
     // ------------------------------------------------------------------
+
+    /**
+     * Yêu cầu kiểm duyệt AI ở nền cho một tin tuyển dụng.
+     *
+     * <p>Việc kiểm duyệt được hoãn lại đến <b>sau khi giao dịch hiện tại commit</b>:
+     * luồng nền tải lại tin trong giao dịch riêng của nó, nên phải chắc chắn dữ
+     * liệu đã được ghi xuống cơ sở dữ liệu. Nếu gọi ngay trong giao dịch, luồng
+     * nền có thể không tìm thấy tin và báo 404.
+     *
+     * <p>Nếu không có giao dịch nào đang chạy (ví dụ gọi trực tiếp ngoài Spring
+     * transaction), gọi thẳng luồng nền.
+     *
+     * <p>Mọi lỗi ở đây bị nuốt: lỗi AI <b>không được</b> làm hỏng luồng đăng
+     * tin — tin vẫn đăng bình thường, kết quả kiểm duyệt giữ nguyên rỗng
+     * (chưa kiểm tra), nhà tuyển dụng không thấy lỗi 500.
+     */
+    private void scheduleAiReview(String jobSlug) {
+        if (jobSlug == null || jobSlug.isBlank() || jobAiReviewScheduler == null) {
+            return;
+        }
+
+        if (TransactionSynchronizationManager.isSynchronizationActive()) {
+            TransactionSynchronizationManager.registerSynchronization(
+                    new TransactionSynchronization() {
+                        @Override
+                        public void afterCommit() {
+                            dispatchAiReview(jobSlug);
+                        }
+                    });
+            return;
+        }
+
+        dispatchAiReview(jobSlug);
+    }
+
+    /** Bắn lệnh kiểm duyệt AI, nuốt mọi lỗi phát sinh. */
+    private void dispatchAiReview(String jobSlug) {
+        try {
+            jobAiReviewScheduler.scheduleReview(jobSlug);
+        } catch (Exception ex) {
+            log.warn("Khong phat sinh duoc lenh kiem duyet AI cho tin {}: {}", jobSlug, ex.getMessage());
+        }
+    }
 
     private void validate(JobUpsertRequest request) {
         if (request.getTitle() == null || request.getTitle().isBlank()) {
