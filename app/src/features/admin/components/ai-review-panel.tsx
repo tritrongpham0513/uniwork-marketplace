@@ -1,6 +1,10 @@
 import { Badge } from "@/components/ui/badge";
 import { Sparkles } from "lucide-react";
 import { AiReviewBadge } from "@/features/admin/components/ai-review-badge";
+import {
+  AI_PANEL_MESSAGES,
+  getAiPanelState,
+} from "@/features/admin/lib/ai-review";
 import type {
   AiReason,
   AiReview,
@@ -32,6 +36,15 @@ interface AiReviewPanelProps {
   isChecking?: boolean;
   /** Đã bấm "Kiểm tra bằng AI" ít nhất một lần trong phiên xem nội dung. */
   hasChecked?: boolean;
+  /**
+   * Lần kiểm tra vừa rồi thất bại (AI hết hạn mức / lỗi dịch vụ).
+   *
+   * <p>Khi đúng, khối này hiện "chưa kiểm tra" — **không** hiện lỗi kỹ thuật.
+   * Lý do: quản trị viên không cần biết AI đang lỗi; họ cần biết tin này
+   * *chưa* có góp ý nào để tự soi. Lỗi kỹ thuật là vấn đề của hệ thống, không
+   * phải của người dùng.
+   */
+  hasFailed?: boolean;
 }
 
 /** Định dạng thời điểm kiểm tra theo kiểu Việt Nam — có giờ để biết còn giá trị không. */
@@ -84,9 +97,17 @@ export function AiReviewPanel({
   checkedAt,
   isChecking = false,
   hasChecked = false,
+  hasFailed = false,
 }: AiReviewPanelProps) {
   const verdict: AiVerdict | null = review?.verdict ?? null;
   const reasons = review?.reasons ?? [];
+
+  const state = getAiPanelState({
+    hasReview: review !== null,
+    isChecking,
+    hasChecked,
+    hasFailed,
+  });
 
   return (
     <section className="rounded-lg border border-border/60 p-3">
@@ -96,13 +117,9 @@ export function AiReviewPanel({
         <AiReviewBadge verdict={verdict} />
       </div>
 
-      {isChecking ? (
-        <p className="text-xs text-muted-foreground">
-          Đang kiểm tra bằng AI...
-        </p>
-      ) : review ? (
+      {state === "REVIEW" ? (
         <div className="space-y-3">
-          {review.summary && (
+          {review?.summary && (
             <p className="text-sm leading-relaxed text-muted-foreground">
               {review.summary}
             </p>
@@ -122,13 +139,11 @@ export function AiReviewPanel({
             </p>
           )}
         </div>
-      ) : hasChecked ? (
-        <p className="text-xs text-muted-foreground">
-          Chưa có kết quả kiểm tra AI cho tin này.
-        </p>
       ) : (
+        // Mọi trạng thái còn lại đều hiện "chưa kiểm tra" — KHÔNG hiện lỗi
+        // kỹ thuật cho quản trị viên (ticket 07).
         <p className="text-xs text-muted-foreground">
-          Tin này chưa được kiểm tra bằng AI.
+          {AI_PANEL_MESSAGES[state]}
         </p>
       )}
 

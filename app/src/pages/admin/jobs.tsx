@@ -79,6 +79,14 @@ export default function AdminJobsPage() {
   const [manualReview, setManualReview] = useState<AiReview | null>(null);
   /** Đã bấm "Kiểm tra bằng AI" trong phiên xem nội dung hiện tại. */
   const [hasManualCheck, setHasManualCheck] = useState(false);
+  /**
+   * Lần kiểm tra AI vừa rồi thất bại.
+   *
+   * <p>Khi đúng, khối "Đánh giá của AI" hiện "chưa kiểm tra" thay vì lỗi kỹ
+   * thuật (ticket 07). Lỗi AI là vấn đề của hệ thống — không phải thông báo
+   * lỗi cho người dùng.
+   */
+  const [hasAiFailed, setHasAiFailed] = useState(false);
 
   const { data: jobs = [], isPending, isError, refetch } = useAdminJobs();
   const reviewJob = useReviewJob();
@@ -166,6 +174,7 @@ export default function AdminJobsPage() {
     setPreview(job);
     setManualReview(null);
     setHasManualCheck(false);
+    setHasAiFailed(false);
   };
 
   /**
@@ -179,10 +188,13 @@ export default function AdminJobsPage() {
       const review = await aiReviewJob.mutateAsync(job.id);
       setManualReview(review);
       setHasManualCheck(true);
+      setHasAiFailed(false);
       toast.success("Đã kiểm tra tin tuyển dụng bằng AI.");
-    } catch (error) {
-      // Backend trả thông điệp tiếng Việt (hết hạn mức / lỗi dịch vụ...).
-      showApiError(error);
+    } catch {
+      // KHÔNG hiện lỗi kỹ thuật cho quản trị viên. Khối "Đánh giá của AI"
+      // sẽ hiện "chưa kiểm tra" — tin vẫn được duyệt / từ chối bình thường.
+      setHasManualCheck(true);
+      setHasAiFailed(true);
     }
   };
 
@@ -569,6 +581,7 @@ export default function AdminJobsPage() {
                 }
                 isChecking={aiReviewJob.isPending}
                 hasChecked={hasManualCheck}
+                hasFailed={hasAiFailed}
               />
             </div>
           )}

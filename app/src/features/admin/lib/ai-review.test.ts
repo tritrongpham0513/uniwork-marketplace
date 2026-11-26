@@ -1,5 +1,10 @@
 import { describe, it, expect } from "vitest";
-import { getAiSeverityGroup, sortJobsByAiSeverity } from "./ai-review";
+import {
+  AI_PANEL_MESSAGES,
+  getAiPanelState,
+  getAiSeverityGroup,
+  sortJobsByAiSeverity,
+} from "./ai-review";
 import type { AiVerdict, Job } from "@/features/shared/types";
 
 /** Dựng 1 tin tuyển dụng tối thiểu — chỉ cần id + verdict để test sắp xếp. */
@@ -89,6 +94,78 @@ describe("ai-review utilities", () => {
       ];
 
       expect(sortJobsByAiSeverity(jobs)).toHaveLength(jobs.length);
+    });
+  });
+
+  describe("getAiPanelState", () => {
+    it("should show CHECKING while the request is in flight", () => {
+      expect(
+        getAiPanelState({
+          hasReview: false,
+          isChecking: true,
+          hasChecked: false,
+          hasFailed: false,
+        })
+      ).toBe("CHECKING");
+    });
+
+    it("should show REVIEW when there is a result", () => {
+      expect(
+        getAiPanelState({
+          hasReview: true,
+          isChecking: false,
+          hasChecked: true,
+          hasFailed: false,
+        })
+      ).toBe("REVIEW");
+    });
+
+    it("should show FAILED (not a technical error) when the check failed", () => {
+      expect(
+        getAiPanelState({
+          hasReview: false,
+          isChecking: false,
+          hasChecked: true,
+          hasFailed: true,
+        })
+      ).toBe("FAILED");
+    });
+
+    it("should show CHECKED_NO_RESULT when the check returned nothing", () => {
+      expect(
+        getAiPanelState({
+          hasReview: false,
+          isChecking: false,
+          hasChecked: true,
+          hasFailed: false,
+        })
+      ).toBe("CHECKED_NO_RESULT");
+    });
+
+    it("should show NOT_CHECKED before any check", () => {
+      expect(
+        getAiPanelState({
+          hasReview: false,
+          isChecking: false,
+          hasChecked: false,
+          hasFailed: false,
+        })
+      ).toBe("NOT_CHECKED");
+    });
+  });
+
+  describe("AI_PANEL_MESSAGES", () => {
+    it("should never expose a technical error message to the admin", () => {
+      const technicalWords = ["lỗi", "error", "500", "503", "exception"];
+      for (const message of Object.values(AI_PANEL_MESSAGES)) {
+        for (const word of technicalWords) {
+          expect(message.toLowerCase()).not.toContain(word);
+        }
+      }
+    });
+
+    it("should tell the admin the job was not checked when the check failed", () => {
+      expect(AI_PANEL_MESSAGES.FAILED).toContain("chưa được kiểm tra");
     });
   });
 });

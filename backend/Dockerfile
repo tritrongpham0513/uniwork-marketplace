@@ -12,6 +12,9 @@ FROM maven:3.9-eclipse-temurin-17 AS builder
 
 WORKDIR /build
 
+# Dùng Google Maven Central mirror để tránh 429 Too Many Requests trên IP build chung của Render
+RUN mkdir -p /root/.m2 && printf '<settings><mirrors><mirror><id>google-maven-central</id><name>GCS Maven Central mirror</name><url>https://maven-central.storage-download.googleapis.com/maven2/</url><mirrorOf>central</mirrorOf></mirror></mirrors></settings>\n' > /root/.m2/settings.xml
+
 # Cache dependency trước (copy pom trước, source sau)
 COPY pom.xml ./
 RUN mvn -B -q dependency:go-offline
