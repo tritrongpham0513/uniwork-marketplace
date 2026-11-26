@@ -1,6 +1,7 @@
 package com.uniwork.service;
 
 import com.uniwork.dto.request.JobUpsertRequest;
+import com.uniwork.dto.response.AdminJobResponse;
 import com.uniwork.dto.response.JobListResponse;
 import com.uniwork.dto.response.JobResponse;
 
@@ -53,7 +54,7 @@ public interface JobService {
     List<JobResponse> listByEmployer(Long employerUserId, String status);
 
     /** Danh sách tin cho quản trị viên (mọi trạng thái hoặc lọc theo status). */
-    List<JobResponse> listForAdmin(String status);
+    List<AdminJobResponse> listForAdmin(String status);
 
     /** Duyệt / từ chối tin tuyển dụng (quản trị). */
     JobResponse review(String jobId, String action, String reason, Long adminUserId);

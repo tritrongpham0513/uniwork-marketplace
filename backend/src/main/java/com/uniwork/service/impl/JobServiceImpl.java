@@ -1,6 +1,8 @@
 package com.uniwork.service.impl;
 
 import com.uniwork.dto.request.JobUpsertRequest;
+import com.uniwork.dto.response.AdminJobResponse;
+import com.uniwork.dto.response.AiReasonResponse;
 import com.uniwork.dto.response.EmployerSummaryResponse;
 import com.uniwork.dto.response.JobCategoryResponse;
 import com.uniwork.dto.response.JobListResponse;
@@ -35,15 +37,20 @@ import com.uniwork.repository.specification.JobPostSpecification;
 import com.uniwork.service.JobNotifyService;
 import com.uniwork.service.JobService;
 import com.uniwork.service.NotificationService;
+import com.uniwork.service.ai.JobAiReviewScheduler;
 import com.uniwork.util.ApiErrors;
 import com.uniwork.util.DateTimeUtils;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionSynchronization;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
@@ -60,21 +67,13 @@ import java.util.stream.Collectors;
 /**
  * Triển khai nghiệp vụ tin tuyển dụng.
  *
- * <p>Quy ước quy đổi lương (giống {@code app/src/features/jobs/types} của frontend):
- * giờ = 1, ngày = 8, tuần = 40, tháng = 160.
+ * <p>Quy ước quy đổi lương nằm ở {@link com.uniwork.util.SalaryUnits} —
+ * nguồn sự thật duy nhất, dùng chung với lớp kiểm duyệt AI.
  */
 @Service
 @RequiredArgsConstructor
+@Slf4j
 public class JobServiceImpl implements JobService {
-
-    /** Số giờ quy ước cho từng kiểu trả lương — khớp frontend. */
-    private static final Map<String, Integer> HOURS_PER_UNIT = Map.of(
-            "HOURLY", 1,
-            "DAILY", 8,
-            "WEEKLY", 40,
-            "MONTHLY", 160,
-            "PER_TASK", 3,
-            "NEGOTIABLE", 0);
 
     private final JobPostRepository jobPostRepository;
     private final JobPostScheduleRepository scheduleRepository;
@@ -89,6 +88,16 @@ public class JobServiceImpl implements JobService {
     private final UserRepository userRepository;
     private final NotificationService notificationService;
     private final JobNotifyService jobNotifyService;
+
+    /**
+     * Lớp cửa chạy kiểm duyệt AI ở nền.
+     *
+     * <p>Tiêm theo kiểu tuỳ chọn ({@code required = false}) vì kiểm duyệt AI là
+     * <b>tính năng phụ</b>: thiếu lớp cửa thì luồng đăng tin vẫn phải chạy bình
+     * thường, không được phép hỏng.
+     */
+    @Autowired(required = false)
+    private JobAiReviewScheduler jobAiReviewScheduler;
 
     // ------------------------------------------------------------------
     // ĐỌC
@@ -239,6 +248,9 @@ public class JobServiceImpl implements JobService {
         // Tin mới luôn chờ duyệt → báo cho các quản trị viên xử lý
         notifyAdminsAboutPendingJob(job, employer);
 
+        // Kiểm duyệt AI chạy nền, sau khi response HTTP đã trả về cho nhà tuyển dụng.
+        scheduleAiReview(job.getSlug());
+
         return toResponse(job);
     }
 
@@ -321,6 +333,10 @@ public class JobServiceImpl implements JobService {
 
         if (backToReview) {
             notifyAdminsAboutPendingJob(job, job.getEmployer());
+
+            // Nội dung vừa sửa cần được kiểm duyệt lại — chạy nền.
+            // Tin vốn đang ở PENDING_REVIEW thì không gọi lại AI (giữ hạn mức).
+            scheduleAiReview(job.getSlug());
         }
 
         return toResponse(job);
@@ -354,12 +370,12 @@ public class JobServiceImpl implements JobService {
 
     @Override
     @Transactional(readOnly = true)
-    public List<JobResponse> listForAdmin(String status) {
+    public List<AdminJobResponse> listForAdmin(String status) {
         List<JobPost> jobs = (status == null || status.isBlank() || "ALL".equalsIgnoreCase(status))
                 ? jobPostRepository.findAllByDeletedAtIsNullOrderByCreatedAtDesc()
                 : jobPostRepository.findByStatusAndDeletedAtIsNullOrderByCreatedAtDesc(status);
 
-        return jobs.stream().map(this::toResponse).toList();
+        return jobs.stream().map(this::toAdminResponse).toList();
     }
 
     @Override
@@ -448,6 +464,49 @@ public class JobServiceImpl implements JobService {
     // ------------------------------------------------------------------
     // HELPERS
     // ------------------------------------------------------------------
+
+    /**
+     * Yêu cầu kiểm duyệt AI ở nền cho một tin tuyển dụng.
+     *
+     * <p>Việc kiểm duyệt được hoãn lại đến <b>sau khi giao dịch hiện tại commit</b>:
+     * luồng nền tải lại tin trong giao dịch riêng của nó, nên phải chắc chắn dữ
+     * liệu đã được ghi xuống cơ sở dữ liệu. Nếu gọi ngay trong giao dịch, luồng
+     * nền có thể không tìm thấy tin và báo 404.
+     *
+     * <p>Nếu không có giao dịch nào đang chạy (ví dụ gọi trực tiếp ngoài Spring
+     * transaction), gọi thẳng luồng nền.
+     *
+     * <p>Mọi lỗi ở đây bị nuốt: lỗi AI <b>không được</b> làm hỏng luồng đăng
+     * tin — tin vẫn đăng bình thường, kết quả kiểm duyệt giữ nguyên rỗng
+     * (chưa kiểm tra), nhà tuyển dụng không thấy lỗi 500.
+     */
+    private void scheduleAiReview(String jobSlug) {
+        if (jobSlug == null || jobSlug.isBlank() || jobAiReviewScheduler == null) {
+            return;
+        }
+
+        if (TransactionSynchronizationManager.isSynchronizationActive()) {
+            TransactionSynchronizationManager.registerSynchronization(
+                    new TransactionSynchronization() {
+                        @Override
+                        public void afterCommit() {
+                            dispatchAiReview(jobSlug);
+                        }
+                    });
+            return;
+        }
+
+        dispatchAiReview(jobSlug);
+    }
+
+    /** Bắn lệnh kiểm duyệt AI, nuốt mọi lỗi phát sinh. */
+    private void dispatchAiReview(String jobSlug) {
+        try {
+            jobAiReviewScheduler.scheduleReview(jobSlug);
+        } catch (Exception ex) {
+            log.warn("Khong phat sinh duoc lenh kiem duyet AI cho tin {}: {}", jobSlug, ex.getMessage());
+        }
+    }
 
     private void validate(JobUpsertRequest request) {
         if (request.getTitle() == null || request.getTitle().isBlank()) {
@@ -590,6 +649,44 @@ public class JobServiceImpl implements JobService {
 
     @Transactional(readOnly = true)
     public JobResponse toResponse(JobPost job) {
+        return fillBase(job, JobResponse.builder()).build();
+    }
+
+    /**
+     * Ánh xạ tin tuyển dụng cho quản trị viên — kèm 3 trường kết quả kiểm duyệt AI.
+     *
+     * <p>Chỉ endpoint {@code GET /api/v1/admin/jobs} dùng hàm này. Mọi endpoint
+     * công khai và endpoint dành cho nhà tuyển dụng dùng {@link #toResponse(JobPost)}
+     * nên không thể lộ ra kết quả AI (CONTRACT.md mục 6).
+     */
+    @Transactional(readOnly = true)
+    public AdminJobResponse toAdminResponse(JobPost job) {
+        AdminJobResponse.AdminJobResponseBuilder<?, ?> builder = AdminJobResponse.builder();
+        fillBase(job, builder);
+
+        builder.aiVerdict(job.getAiVerdict());
+        builder.aiSummary(job.getAiSummary());
+        builder.aiReasons(job.getAiReasons() == null ? null : job.getAiReasons().stream()
+                .map(reason -> AiReasonResponse.builder()
+                        .code(reason.getCode())
+                        .evidence(reason.getEvidence())
+                        .detail(reason.getDetail())
+                        .build())
+                .toList());
+        builder.aiCheckedAt(DateTimeUtils.toIso(job.getAiCheckedAt()));
+
+        return builder.build();
+    }
+
+    /**
+     * Điền các trường chung của tin tuyển dụng vào builder.
+     *
+     * <p>Dùng chung giữa {@link #toResponse(JobPost)} và {@link #toAdminResponse(JobPost)}
+     * để hai hình dạng không lệch nhau theo thời gian.
+     */
+    private JobResponse.JobResponseBuilder<?, ?> fillBase(
+            JobPost job, JobResponse.JobResponseBuilder<?, ?> builder) {
+
         JobCategory category = job.getCategory();
         JobPosition position = job.getPosition();
         EmployerProfile employer = job.getEmployer();
@@ -620,7 +717,7 @@ public class JobServiceImpl implements JobService {
                 .branchName(job.getBranchName())
                 .build();
 
-        return JobResponse.builder()
+        return builder
                 .id(job.getSlug())
                 .title(job.getTitle())
                 .description(job.getDescription())
@@ -666,17 +763,7 @@ public class JobServiceImpl implements JobService {
                 .applicantCount(job.getApplicantCount() != null ? job.getApplicantCount() : 0)
                 .isUrgent(job.getIsUrgent())
                 .viewCount(job.getViewCount() != null ? job.getViewCount() : 0)
-                .employerId(employer.getSlug())
-                .build();
-    }
-
-    /** Quy đổi mức lương về đồng/giờ — dùng để so sánh với benchmark. */
-    public static int toHourly(String salaryType, BigDecimal amount) {
-        if (amount == null || "NEGOTIABLE".equals(salaryType)) {
-            return 0;
-        }
-        int hours = HOURS_PER_UNIT.getOrDefault(salaryType, 1);
-        return amount.divide(BigDecimal.valueOf(hours), 0, java.math.RoundingMode.HALF_UP).intValue();
+                .employerId(employer.getSlug());
     }
 
     /** Tra cứu nhanh category theo public id (dùng cho các service khác). */

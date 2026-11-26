@@ -25,5 +25,23 @@ public class AsyncConfig {
         executor.initialize();
         return executor;
     }
+
+    /**
+     * Executor riêng cho tác vụ kiểm duyệt AI.
+     *
+     * <p>Tách khỏi {@code mailTaskExecutor}: lệnh gọi AI có thời gian chờ tới
+     * 30 giây và bị giới hạn hạn mức — không nên tranh chấp hàng đợi với
+     * tác vụ gửi email.
+     */
+    @Bean(name = "aiTaskExecutor")
+    public Executor aiTaskExecutor() {
+        ThreadPoolTaskExecutor executor = new ThreadPoolTaskExecutor();
+        executor.setCorePoolSize(1);
+        executor.setMaxPoolSize(2);
+        executor.setQueueCapacity(20);
+        executor.setThreadNamePrefix("AiAsync-");
+        executor.initialize();
+        return executor;
+    }
 }
 

@@ -1,122 +1,159 @@
 # Bản đồ tính năng theo vai trò
 
-Tài liệu này liệt kê tính năng + route tương ứng theo từng vai trò người dùng. Dùng để hiểu đầy đủ app và dự phòng khi viết spec mới.
+Tài liệu này là **sơ đồ trang** của app: liệt kê tính năng + route + component thật sự tồn tại, theo từng vai trò người dùng.
+
+**Nguồn sự thật**: route lấy từ `app/src/config/paths.ts`, ánh xạ tới page lấy từ `app/src/app/router.tsx`. Khi thêm route mới, cập nhật cả hai file này — nếu bản đồ lệch với code, agent sẽ đi sai chỗ.
+
+**Thuật ngữ**: dùng đúng từ trong [`GLOSSARY.md`](../GLOSSARY.md) (ví dụ: "lưu việc" không phải "yêu thích", "tin tuyển dụng" không phải "tin việc làm", "đánh giá" không phải "review").
+
+---
+
+## Công khai (chưa đăng nhập)
+
+| Tính năng                      | Mô tả                                             | Route           | Page                                |
+| ------------------------------ | ------------------------------------------------- | --------------- | ----------------------------------- |
+| Trang chủ                      | Giới thiệu, tin tuyển dụng nổi bật                | `/`             | `pages/home/index.tsx`              |
+| Giới thiệu                     | Thông tin về nền tảng                             | `/about`        | `pages/about/index.tsx`             |
+| Danh sách tin tuyển dụng       | Tìm kiếm, lọc theo nhóm việc, địa điểm, mức lương | `/jobs`         | `pages/jobs/index.tsx`              |
+| Chi tiết tin tuyển dụng        | Mô tả, yêu cầu, xếp hạng lương                    | `/jobs/:id`     | `pages/job-detail/index.tsx`        |
+| Hồ sơ nhà tuyển dụng công khai | Xem được bởi mọi khách, kể cả chưa đăng nhập      | `/employer/:id` | `pages/employer/public-profile.tsx` |
+| Đăng nhập                      | Email + mật khẩu                                  | `/login`        | `pages/login/index.tsx`             |
+| Đăng ký                        | Chọn vai trò (sinh viên / nhà tuyển dụng), form   | `/register`     | `pages/signup/index.tsx`            |
+| Xác thực email                 | Nhập OTP hoặc link xác minh                       | `/verify-email` | `pages/verify-email/index.tsx`      |
+| Không có quyền truy cập        | Trang 403 khi role không khớp                     | `/403`          | `pages/forbidden/index.tsx`         |
+| Không tìm thấy                 | Trang 404                                         | `*`             | `pages/not-found/index.tsx`         |
 
 ---
 
 ## Sinh viên (STUDENT)
 
-| Tính năng | Mô tả | Route | Component |
-|---|---|---|---|
-| **Xem danh sách công việc** | Tìm kiếm, lọc theo ngành, địa điểm, mức lương | `/jobs` | `pages/jobs.tsx` |
-| Lưu tin yêu thích | Thêm/xoá tin vào danh sách "Lưu việc" | `/saved-jobs` | `pages/student/saved-jobs.tsx` |
-| Xem chi tiết tin | Mô tả, yêu cầu, so sánh lương với benchmark | `/jobs/:jobId` | `pages/job-detail.tsx` |
-| **Ứng tuyển** | Tạo đơn ứng tuyển (upload CV, cover letter) | `/jobs/:jobId/apply` (form) | Dialog hoặc nested route |
-| Xem danh sách đơn | Trạng thái (đã nộp, đã xem, phỏng vấn, chốt) | `/applications` | `pages/student/applications.tsx` |
-| Chi tiết đơn ứng tuyển | Đơn + bình luận hai chiều với NTD | `/applications/:appId` | `pages/applications/:appId.tsx` |
-| **Hồ sơ cá nhân** | Thông tin, danh sách CV, lịch sử công việc | `/profile` | `pages/profile/index.tsx` |
-| Quản lý CV | Tải lên, xem, xoá, đặt CV mặc định | `/profile/cvs` | `pages/profile/cvs.tsx` |
-| Lịch sử công việc | Nơi làm việc trước + rating + review | `/profile/work-history` | `pages/profile/work-history.tsx` |
-| **Thông báo** | Thay đổi trạng thái đơn, tin mới theo ngành yêu thích | `/notifications` | Sidebar icon + modal |
-| **Xem review** | Review từ NTD cũ | `/reviews` | `pages/student/reviews.tsx` |
-| Viết review | Đánh giá NTD (công ty) | Dialog | `components/shared/review-dialog.tsx` |
+Cung cấp bởi `WorkspaceLayout` + `RequireRole(["STUDENT"])`.
+
+| Tính năng                   | Mô tả                                                                     | Route                       | Page                                   |
+| --------------------------- | ------------------------------------------------------------------------- | --------------------------- | -------------------------------------- |
+| Tổng quan                   | Thống kê nhanh, đơn ứng tuyển gần đây                                     | `/student`                  | `pages/student/index.tsx`              |
+| **Hồ sơ sinh viên**         | Học vấn, kỹ năng, CV, kinh nghiệm, lịch sử làm việc                       | `/student/profile`          | `pages/student/profile.tsx`            |
+| **Danh sách đơn ứng tuyển** | Trạng thái: chờ, duyệt sơ bộ, nhận ứng viên, hoàn thành, từ chối, rút đơn | `/student/applications`     | `pages/student/applications.tsx`       |
+| Chi tiết đơn ứng tuyển      | Đơn + dòng thời gian + trao đổi hai chiều                                 | `/student/applications/:id` | `pages/student/application-detail.tsx` |
+| **Lưu việc**                | Danh sách tin tuyển dụng đã lưu để xem lại                                | `/saved`                    | `pages/saved-jobs/index.tsx`           |
+| **Đánh giá**                | Các đánh giá nhà tuyển dụng đã gửi cho mình                               | `/student/reviews`          | `pages/student/reviews.tsx`            |
+| **Trung tâm thông báo**     | Thay đổi trạng thái đơn, tin tuyển dụng mới theo nhóm việc đã theo dõi    | `/notifications`            | `pages/notifications/index.tsx`        |
+
+**Tính năng nằm trong trang, không có route riêng**:
+
+| Tính năng                        | Mô tả                                             | Nơi chứa                                        |
+| -------------------------------- | ------------------------------------------------- | ----------------------------------------------- |
+| Tải lên / xem / xoá CV           | CV là một mục trong hồ sơ sinh viên               | `pages/student/profile.tsx` (mục "CV")          |
+| Lịch sử làm việc                 | Bản ghi tự động sinh khi đơn ứng tuyển hoàn thành | `pages/student/profile.tsx` (mục "Kinh nghiệm") |
+| Ứng tuyển                        | Nộp CV + thư ứng tuyển + mức lương mong muốn      | `pages/job-apply/index.tsx` (`/jobs/:id/apply`) |
+| Viết đánh giá cho nhà tuyển dụng | Chấm điểm 1–5 + nhận xét                          | `components/shared/review-dialog.tsx`           |
 
 ---
 
 ## Nhà tuyển dụng (EMPLOYER)
 
-| Tính năng | Mô tả | Route | Component |
-|---|---|---|---|
-| **Đăng tin tuyển dụng** | Form tạo tin (chi tiết, yêu cầu, lương, hạn chót) | `/employer/jobs/create` | `pages/employer/create-job.tsx` |
-| Danh sách tin của NTD | Trạng thái (pending, open, closed, archived) | `/employer/jobs` | `pages/employer/jobs.tsx` |
-| Chi tiết tin (edit) | Chỉnh sửa, xem ứng tuyển | `/employer/jobs/:jobId` | `pages/employer/job-detail.tsx` |
-| Đóng/Mở tin | Toggle trạng thái | In-line action | Inline button |
-| **Xem ứng tuyển** | Danh sách SV ứng tuyển cho tin | `/employer/applications` | `pages/employer/applications.tsx` |
-| Chi tiết ứng tuyển | CV, cover letter, timeline, bình luận, rating | `/employer/applications/:appId` | `pages/applications/:appId.tsx` |
-| Thay đổi trạng thái | (Đã xem, phỏng vấn, chốt, từ chối) | In-line action + comment | Dialog |
-| **Thông báo** | Tin mới được duyệt, có ứng tuyển mới | `/notifications` | Sidebar icon + modal |
-| Hồ sơ công ty | Tên, logo, địa chỉ, lĩnh vực | `/employer/profile` | `pages/employer/profile/index.tsx` |
-| Xem review | Review từ SV | `/employer/reviews` | `pages/employer/reviews.tsx` |
+Cung cấp bởi `WorkspaceLayout` + `RequireRole(["EMPLOYER"])`.
+
+| Tính năng                    | Mô tả                                                 | Route                           | Page                                    |
+| ---------------------------- | ----------------------------------------------------- | ------------------------------- | --------------------------------------- |
+| Tổng quan                    | Thống kê tin, đơn ứng tuyển đến                       | `/employer`                     | `pages/employer/index.tsx`              |
+| **Danh sách tin tuyển dụng** | Trạng thái: chờ duyệt, đang mở, đã đóng               | `/employer/jobs`                | `pages/employer/jobs.tsx`               |
+| **Đăng tin tuyển dụng**      | Form tạo tin: mô tả, yêu cầu, lịch ca, mức lương      | `/employer/jobs/new`            | `pages/employer/job-form.tsx`           |
+| Sửa tin tuyển dụng           | Cùng form, nạp sẵn dữ liệu cũ                         | `/employer/jobs/:id/edit`       | `pages/employer/job-form.tsx`           |
+| **Danh sách đơn ứng tuyển**  | Các đơn ứng tuyển về tin của nhà tuyển dụng           | `/employer/applications`        | `pages/employer/applications.tsx`       |
+| Chi tiết đơn ứng tuyển       | Đơn + CV + dòng thời gian + trao đổi                  | `/employer/applications/:id`    | `pages/employer/application-detail.tsx` |
+| Xem CV                       | Route riêng vì CV là tài liệu dài cần không gian rộng | `/employer/applications/:id/cv` | `pages/employer/application-cv.tsx`     |
+| **Hồ sơ nhà tuyển dụng**     | Tên hiển thị, logo, mô tả, địa chỉ, website           | `/employer/organization`        | `pages/employer/organization.tsx`       |
+| **Đánh giá**                 | Các đánh giá sinh viên đã gửi cho nhà tuyển dụng      | `/employer/reviews`             | `pages/employer/reviews.tsx`            |
+| **Trung tâm thông báo**      | Tin được duyệt, có đơn ứng tuyển mới                  | `/notifications`                | `pages/notifications/index.tsx`         |
+
+**Tính năng nằm trong trang, không có route riêng**:
+
+| Tính năng                       | Mô tả                                         | Nơi chứa                                |
+| ------------------------------- | --------------------------------------------- | --------------------------------------- |
+| Đóng / mở tin tuyển dụng        | Đổi trạng thái tin                            | `pages/employer/jobs.tsx`               |
+| Chuyển trạng thái đơn ứng tuyển | Duyệt sơ bộ, nhận ứng viên, từ chối + ghi chú | `pages/employer/application-detail.tsx` |
+| Viết đánh giá cho sinh viên     | Chấm điểm 1–5 + nhận xét                      | `components/shared/review-dialog.tsx`   |
 
 ---
 
-## Admin
+## Quản trị viên (ADMIN)
 
-| Tính năng | Mô tả | Route | Component |
-|---|---|---|---|
-| **Duyệt tin tuyển dụng** | Danh sách pending, approve/reject + note | `/admin/jobs` | `pages/admin/jobs.tsx` |
-| **Quản lý user** | Danh sách SV + NTD, khoá tài khoản, xem chi tiết | `/admin/users` | `pages/admin/users.tsx` |
-| **Quản lý category** | CRUD ngành nghề (IT, Bán hàng, v.v.) | `/admin/categories` | `pages/admin/categories.tsx` |
-| **Thống kê review** | Danh sách, filter theo rating | `/admin/reviews` | `pages/admin/reviews.tsx` |
+Cung cấp bởi `WorkspaceLayout` + `RequireRole(["ADMIN"])`.
 
----
+| Tính năng                | Mô tả                                                | Route               | Page                         |
+| ------------------------ | ---------------------------------------------------- | ------------------- | ---------------------------- |
+| Tổng quan                | Số liệu toàn hệ thống                                | `/admin`            | `pages/admin/index.tsx`      |
+| **Duyệt tin tuyển dụng** | Danh sách chờ duyệt, duyệt / từ chối kèm lý do       | `/admin/jobs`       | `pages/admin/jobs.tsx`       |
+| **Quản lý nhóm việc**    | CRUD nhóm việc và vị trí công việc                   | `/admin/categories` | `pages/admin/categories.tsx` |
+| **Quản lý tài khoản**    | Danh sách sinh viên / nhà tuyển dụng, khoá tài khoản | `/admin/users`      | `pages/admin/users.tsx`      |
+| **Thống kê đánh giá**    | Danh sách đánh giá, lọc theo điểm                    | `/admin/reviews`    | `pages/admin/reviews.tsx`    |
 
-## Public (không đăng nhập)
+**Tính năng nằm trong trang, không có route riêng**:
 
-| Tính năng | Mô tả | Route | Component |
-|---|---|---|---|
-| Trang chủ | Giới thiệu, danh sách tin nổi bật | `/` | `pages/index.tsx` |
-| **Đăng nhập** | Email + mật khẩu (hoặc Google OAuth) | `/login` | `pages/login.tsx` |
-| **Đăng ký** | Chọn vai trò (SV/NTD), form | `/signup` | `pages/signup.tsx` |
-| Xác thực email | Nhập OTP hoặc link verify | `/verify-email` | `pages/verify-email.tsx` |
-| Danh sách công việc (read-only) | Dùng để demo, không ứng tuyển | `/jobs` (hạn chế) | `pages/jobs.tsx` |
+| Tính năng                       | Mô tả                                                                                         | Nơi chứa                                                  |
+| ------------------------------- | --------------------------------------------------------------------------------------------- | --------------------------------------------------------- |
+| **Kiểm duyệt nội dung bằng AI** | Góp ý AI cho quản trị viên: badge mức độ trên thẻ tin, panel kết quả, nút "Kiểm tra bằng AI" | `pages/admin/jobs.tsx` (dialog xem nội dung tin)          |
+| Sắp xếp tin theo mức độ AI     | Tin `SUSPECT` → `WARN` → `OK` → chưa kiểm tra, nổi lên đầu danh sách                        | `features/admin/lib/ai-review.ts` (`sortJobsByAiSeverity`) |
 
----
+> AI **chỉ góp ý, không quyết định**: tin bị gắn cờ vẫn vào hàng đợi duyệt, quản trị viên bấm Duyệt / Từ chối như trước. Kết quả AI **chỉ quản trị viên thấy** — nhà tuyển dụng và danh sách tin công khai không có trường AI. Xem `docs/adr/0005-ai-review-layer-for-job-posts.md`.
 
-## Tổng đường dẫn chính
+**Endpoint riêng cho quản trị viên**:
 
-```
-/                                    (trang chủ)
-├── /auth
-│   ├── /login                       (đăng nhập)
-│   ├── /signup                      (đăng ký)
-│   └── /verify-email                (xác thực email)
-├── /jobs                            (danh sách công việc)
-│   ├── /:jobId                      (chi tiết tin)
-│   └── /:jobId/apply                (form ứng tuyển)
-├── /student
-│   ├── /saved-jobs                  (tin yêu thích)
-│   ├── /applications                (danh sách đơn)
-│   │   └── /:appId                  (chi tiết đơn)
-│   ├── /reviews                     (xem review)
-│   └── /profile                     (hồ sơ cá nhân)
-│       ├── /cvs                     (quản lý CV)
-│       └── /work-history            (lịch sử công việc)
-├── /employer
-│   ├── /jobs                        (danh sách tin)
-│   │   ├── /create                  (tạo tin mới)
-│   │   └── /:jobId                  (chi tiết + edit)
-│   ├── /applications                (danh sách ứng tuyển)
-│   │   └── /:appId                  (chi tiết + comment)
-│   ├── /reviews                     (xem review)
-│   └── /profile                     (hồ sơ công ty)
-├── /admin
-│   ├── /jobs                        (duyệt tin)
-│   ├── /users                       (quản lý user)
-│   ├── /categories                  (quản lý ngành)
-│   └── /reviews                     (thống kê review)
-├── /notifications                   (thông báo chung)
-└── /dashboard                       (trang tổng quan - nếu có)
-```
+| Endpoint                                 | Mô tả                                                    |
+| ---------------------------------------- | -------------------------------------------------------- |
+| `POST /api/v1/admin/jobs/{id}/ai-review` | Kiểm tra thủ công một tin tuyển dụng bằng AI (1 lượt AI) |
+| `GET /api/v1/admin/ai/status`            | Tính năng AI có đang bật không (thiếu khoá API thì ẩn nút) |
 
 ---
 
 ## Quyền truy cập
 
-- **Không đăng nhập**: xem `/jobs` (read-only), `/`, `/login`, `/signup`
-- **STUDENT**: mọi route `/student`, `/jobs` (đầy đủ), không vào `/employer`, `/admin`
-- **EMPLOYER**: mọi route `/employer`, `/jobs` (read-only), không vào `/student`, `/admin`
-- **ADMIN**: mọi route `/admin`, không vào `/student`, `/employer` (ngoài xem review)
+- **Chưa đăng nhập**: `/`, `/about`, `/jobs`, `/jobs/:id`, `/employer/:id`, `/login`, `/register`, `/verify-email`
+- **STUDENT**: toàn bộ `/student/*`, `/saved`, `/notifications`, `/jobs/*` (đầy đủ, gồm ứng tuyển)
+- **EMPLOYER**: toàn bộ `/employer/*` (trừ hồ sơ công khai), `/notifications`, `/jobs` (chỉ xem)
+- **ADMIN**: toàn bộ `/admin/*`, `/notifications`, và các endpoint kiểm duyệt AI (`/api/v1/admin/jobs/{id}/ai-review`, `/api/v1/admin/ai/status`)
+- **Mọi vai trò đã đăng nhập**: `/notifications`
+
+Cơ chế chặn nằm ở `app/src/components/guards/require-auth.tsx`.
 
 ---
 
-## Thông báo (Notifications)
+## Trung tâm thông báo
 
-- **Real-time socket**: WebSocket `/api/v1/ws/notifications` (kết nối sau khi đăng nhập)
-- **Event types**:
-  - `JOB_APPROVED` → NTD: tin được duyệt
-  - `JOB_REJECTED` → NTD: tin bị từ chối
-  - `APPLICATION_CREATED` → NTD: có ứng tuyển mới
-  - `APPLICATION_STATUS_CHANGED` → SV: trạng thái đơn thay đổi
-  - `REVIEW_CREATED` → Người bị review: có review mới
-  - `NEW_JOB_IN_INTEREST` → SV: công việc mới theo ngành yêu thích
+- **Real-time**: WebSocket `/api/v1/ws/notifications` (kết nối sau khi đăng nhập)
+- **Loại thông báo** (khớp `NotificationType` tại `app/src/features/shared/types/index.ts`):
+
+| Loại                 | Khi nào phát sinh                                                                  | Đối tượng nhận                |
+| -------------------- | ---------------------------------------------------------------------------------- | ----------------------------- |
+| `APPLICATION`        | Có đơn ứng tuyển mới, hoặc tin tuyển dụng cần duyệt                                | Nhà tuyển dụng, quản trị viên |
+| `APPLICATION_STATUS` | Trạng thái đơn ứng tuyển thay đổi                                                  | Sinh viên, nhà tuyển dụng     |
+| `JOB`                | Tin tuyển dụng được duyệt / bị từ chối, hoặc có tin mới khớp nhóm việc đã theo dõi | Nhà tuyển dụng, sinh viên     |
+| `REVIEW`             | Có đánh giá mới                                                                    | Bên bị đánh giá               |
+| `SYSTEM`             | Thông báo hệ thống                                                                 | Mọi vai trò                   |
+
+Nhãn hiển thị: `NOTIFICATION_TYPE_LABELS` tại `app/src/features/shared/types/index.ts`.
+
+---
+
+## Vòng đời trạng thái
+
+### Tin tuyển dụng
+
+```
+DRAFT → PENDING_REVIEW → OPEN → FILLED → IN_PROGRESS → COMPLETED
+                      ↘ REJECTED
+         OPEN → CLOSED / CANCELLED
+```
+
+Chỉ tin ở `OPEN` mới hiện trên tìm kiếm công khai. Xem `docs/adr/0003-job-requires-admin-review-before-going-live.md`.
+
+### Đơn ứng tuyển
+
+```
+PENDING → SHORTLISTED → ACCEPTED → COMPLETED
+   ↘ REJECTED (bởi nhà tuyển dụng)
+   ↘ WITHDRAWN (bởi sinh viên)
+```
+
+Khi đơn chuyển sang `COMPLETED` lần đầu, hệ thống tự ghi một bản ghi **lịch sử làm việc**.

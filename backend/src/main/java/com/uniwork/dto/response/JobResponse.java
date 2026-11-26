@@ -3,7 +3,9 @@ package com.uniwork.dto.response;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
+import lombok.EqualsAndHashCode;
 import lombok.NoArgsConstructor;
+import lombok.experimental.SuperBuilder;
 
 import java.util.List;
 
@@ -12,9 +14,12 @@ import java.util.List;
  *
  * Mọi id đều là string (public id) để frontend so khớp trực tiếp với
  * dữ liệu đã lưu.
+ *
+ * <p>Chỉ quản trị viên thấy thêm 3 trường kết quả kiểm duyệt AI — xem
+ * {@link AdminJobResponse}. Lớp gốc này cố tình <b>không</b> có trường AI.
  */
 @Data
-@Builder
+@SuperBuilder
 @NoArgsConstructor
 @AllArgsConstructor
 public class JobResponse {

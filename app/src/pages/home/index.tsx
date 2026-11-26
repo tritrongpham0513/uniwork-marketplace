@@ -23,10 +23,18 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { InputGroup, InputGroupAddon, InputGroupInput } from "@/components/ui/input-group";
+import {
+  InputGroup,
+  InputGroupAddon,
+  InputGroupInput,
+} from "@/components/ui/input-group";
 import { JobCard } from "@/features/jobs/components/job-card";
 import { JobCardSkeleton } from "@/features/jobs/components/job-card-skeleton";
-import { CategoryGrid, ProvinceGrid, SeeAllLink } from "@/features/jobs/components/category-grid";
+import {
+  CategoryGrid,
+  ProvinceGrid,
+  SeeAllLink,
+} from "@/features/jobs/components/category-grid";
 import { JobLinkGrid } from "@/features/jobs/components/job-link-grid";
 import type { Job } from "@/features/jobs/types";
 import {
@@ -36,7 +44,7 @@ import {
   useSalaryBenchmarks,
 } from "@/features/jobs/hooks/useJobs";
 import { DEFAULT_FILTERS } from "@/features/jobs/hooks/useJobFilters";
-import { compareSalary, findBenchmarkFor } from "@/features/jobs/lib/salary";
+import { compareSalary, findBenchmarkFor } from "@/features/shared/lib/salary";
 import { PATHS } from "@/config/paths";
 import { useAuth } from "@/features/auth/hooks";
 
@@ -79,8 +87,7 @@ const HOW_IT_WORKS = [
   {
     step: "01",
     title: "Tạo hồ sơ sinh viên",
-    description:
-      "Điền thông tin học vấn, kỹ năng và tải CV lên trong 3 phút.",
+    description: "Điền thông tin học vấn, kỹ năng và tải CV lên trong 3 phút.",
   },
   {
     step: "02",
@@ -197,10 +204,7 @@ export function HomePage() {
     {}
   );
 
-  const renderJobList = (
-    jobs: Job[] | undefined,
-    isPending = false
-  ) => {
+  const renderJobList = (jobs: Job[] | undefined, isPending = false) => {
     if (isPending) {
       return (
         <div className="grid gap-4 md:grid-cols-2">
@@ -252,8 +256,8 @@ export function HomePage() {
 
               <h1 className="font-heading text-3xl leading-tight font-bold tracking-tight text-foreground sm:text-4xl lg:text-5xl">
                 Việc làm thêm{" "}
-                <span className="text-primary">phù hợp lịch học</span> cho
-                sinh viên
+                <span className="text-primary">phù hợp lịch học</span> cho sinh
+                viên
               </h1>
 
               <p className="mt-4 text-base leading-relaxed text-muted-foreground">
@@ -356,7 +360,9 @@ export function HomePage() {
             <div className="relative hidden lg:block">
               <Card className="overflow-hidden shadow-lg">
                 <CardHeader className="border-b border-border/60 bg-muted/40 pb-3">
-                  <CardTitle className="text-sm">Việc làm nổi bật hôm nay</CardTitle>
+                  <CardTitle className="text-sm">
+                    Việc làm nổi bật hôm nay
+                  </CardTitle>
                   <CardDescription className="text-xs">
                     Cập nhật theo thời gian thực
                   </CardDescription>
@@ -609,8 +615,7 @@ export function HomePage() {
               Vì sao chọn VieJob?
             </h2>
             <p className="mt-1.5 text-sm text-muted-foreground">
-              Chúng tôi giải quyết đúng những gì sinh viên và nhà tuyển dụng
-              cần
+              Chúng tôi giải quyết đúng những gì sinh viên và nhà tuyển dụng cần
             </p>
           </div>
 

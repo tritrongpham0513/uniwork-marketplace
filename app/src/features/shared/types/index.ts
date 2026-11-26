@@ -135,6 +135,52 @@ export interface Skill {
 }
 
 // ============================================
+// AI KIỂM DUYỆT NỘI DUNG TIN TUYỂN DỤNG
+// Nguồn sự thật: `.scratch/ai-moderation/CONTRACT.md` mục 2.2
+// ============================================
+
+/** Kết luận của AI về nội dung tin tuyển dụng. */
+export type AiVerdict = "OK" | "WARN" | "SUSPECT";
+
+/**
+ * 6 mã vi phạm — cố định, không thêm không bớt.
+ * Xem `CONTRACT.md` mục 1 để biết ý nghĩa từng mã.
+ */
+export type AiViolationCode =
+  | "FEE_ADVANCE"
+  | "UNREGISTERED_WORK"
+  | "OFF_PLATFORM"
+  | "SALARY_ANOMALY"
+  | "DISCRIMINATION"
+  | "ILLEGAL_WORK";
+
+/** Một lý do AI nêu ra, kèm câu trích nguyên văn làm bằng chứng. */
+export interface AiReason {
+  code: AiViolationCode;
+  /** Câu nguyên văn có trong tin tuyển dụng. */
+  evidence: string;
+  /** Giải thích ngắn, tiếng Việt. */
+  detail: string;
+}
+
+/** Kết quả kiểm duyệt AI của một tin tuyển dụng. */
+export interface AiReview {
+  verdict: AiVerdict;
+  /** 1 câu tóm tắt tiếng Việt. */
+  summary: string;
+  reasons: AiReason[];
+  /** Thời điểm AI kiểm tra tin (ISO-8601). */
+  aiCheckedAt: string;
+}
+
+/** Trạng thái tính năng kiểm duyệt AI — backend tự ẩn khi thiếu khoá API. */
+export interface AiFeatureStatus {
+  enabled: boolean;
+  /** Tên nhà cung cấp AI (vd: "gemini"). */
+  provider: string;
+}
+
+// ============================================
 // ENTITY — JOB
 // ============================================
 
@@ -194,6 +240,28 @@ export interface Job {
   viewCount: number;
   /** Người đăng — dùng cho phân quyền NTD */
   employerId: string;
+}
+
+/**
+ * Tin tuyển dụng — dành riêng cho quản trị viên.
+ *
+ * <p>Mở rộng {@link Job} bằng kết quả kiểm duyệt AI. Backend tách hẳn hai
+ * DTO (`JobResponse` vs `AdminJobResponse`) nên API công khai và API dành cho
+ * nhà tuyển dụng **không bao giờ** có các trường `ai*` — kiểu `Job` ở đây
+ * cũng phải phản ánh đúng điều đó (ADR 0005 mục 2: tách biết ở tầng kiểu).
+ */
+export interface AdminJob extends Job {
+  /**
+   * Kết quả kiểm duyệt AI — `null` nghĩa là **CHƯA KIỂM TRA** (chưa chạy
+   * hoặc chạy lỗi). Phải phân biệt được với `OK`.
+   */
+  aiVerdict: AiVerdict | null;
+  /** Danh sách lý do vi phạm kèm bằng chứng nguyên văn. */
+  aiReasons: AiReason[] | null;
+  /** Câu tóm tắt tiếng Việt của AI — `null` nghĩa là chưa kiểm tra. */
+  aiSummary: string | null;
+  /** Thời điểm AI kiểm tra tin (ISO-8601). */
+  aiCheckedAt: string | null;
 }
 
 // ============================================

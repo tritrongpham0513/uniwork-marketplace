@@ -1,0 +1,159 @@
+{
+  "generatedAt": "2026-11-26T06:33:55.084Z",
+  "model": "gemini-3.5-flash-lite",
+  "sampleCount": 7,
+  "results": [
+    {
+      "sampleId": "mau-01-dat-coc",
+      "title": "Nhân viên phục vụ quán cà phê ban tối",
+      "expected": "SUSPECT + FEE_ADVANCE (bằng chứng chứa cụm \"đặt cọc\")",
+      "verdict": "SUSPECT",
+      "summary": "Tin tuyen dung vi pham khi yeu cau ung vien dat cọc tien truoc de giu cho lam.",
+      "reasons": [
+        {
+          "code": "FEE_ADVANCE",
+          "evidence": "- Đặt cọc 500.000đ để giữ chỗ làm, hoàn lại khi làm xong.",
+          "detail": "Nha tuyen dung yeu cau nguoi lao dong dat coc tien truoc khi bat dau lam viec."
+        }
+      ],
+      "droppedReasons": [],
+      "shapeErrors": [],
+      "evidenceAllVerbatim": true,
+      "okHasNoReasons": true,
+      "verdictMatches": true
+    },
+    {
+      "sampleId": "mau-02-khong-can-cccd",
+      "title": "Cần người phụ việc kho gấp trong tuần",
+      "expected": "SUSPECT + UNREGISTERED_WORK",
+      "verdict": "SUSPECT",
+      "summary": "Tin tuyen dung vi pham quy dinh ve lao dong phi chinh quyen khi tuyen dung khong can CCCD va khong ky hop dong.",
+      "reasons": [
+        {
+          "code": "UNREGISTERED_WORK",
+          "evidence": "Không cần CCCD, không ký hợp đồng, làm thì công.",
+          "detail": "Tin tuyen dung yeu cau lao dong phi chinh quyen, khong su dung giay to tuy than va khong ky hop dong lao dong."
+        }
+      ],
+      "droppedReasons": [],
+      "shapeErrors": [],
+      "evidenceAllVerbatim": true,
+      "okHasNoReasons": true,
+      "verdictMatches": true
+    },
+    {
+      "sampleId": "mau-03-tuyen-qua-zalo",
+      "title": "Tuyển nhân viên lễ tân sự kiện",
+      "expected": "SUSPECT + OFF_PLATFORM",
+      "verdict": "SUSPECT",
+      "summary": "Tin tuyen dung vi pham quy dinh yeu cau lien he ngoai nen tang.",
+      "reasons": [
+        {
+          "code": "OFF_PLATFORM",
+          "evidence": "Ứng viên liên hệ Zalo 0903 456 789, gửi CV qua email nangcong123@gmail.com, không cần lên nền tảng.",
+          "detail": "Tin tuyen dung yeu cau ung vien lien he qua Zalo, email va khong dung nen tang."
+        }
+      ],
+      "droppedReasons": [],
+      "shapeErrors": [],
+      "evidenceAllVerbatim": true,
+      "okHasNoReasons": true,
+      "verdictMatches": true
+    },
+    {
+      "sampleId": "mau-04-chi-nam-duoi-20-tui",
+      "title": "Tuyển nhân viên bán hàng nam tại showroom",
+      "expected": "SUSPECT + DISCRIMINATION",
+      "verdict": "SUSPECT",
+      "summary": "Tin tuyen dung co nhieu vi pham ve phan biet doi xu trong yeu cau tuyen dung.",
+      "reasons": [
+        {
+          "code": "DISCRIMINATION",
+          "evidence": "Chỉ tuyển nam.",
+          "detail": "Yeu cau gioi tinh cu the trong tuyen dung."
+        },
+        {
+          "code": "DISCRIMINATION",
+          "evidence": "Không ở trọ, phải tự tìm chỗ ở.",
+          "detail": "Phan biet doi xu ve noi o."
+        },
+        {
+          "code": "DISCRIMINATION",
+          "evidence": "Dưới 20 tuổi không xét.",
+          "detail": "Phan biet doi xu ve do tuoi."
+        },
+        {
+          "code": "DISCRIMINATION",
+          "evidence": "Ưu tiên người có hộ chiếu Hồng Kông.",
+          "detail": "Phan biet doi xu ve quoc tich."
+        }
+      ],
+      "droppedReasons": [],
+      "shapeErrors": [],
+      "evidenceAllVerbatim": true,
+      "okHasNoReasons": true,
+      "verdictMatches": true
+    },
+    {
+      "sampleId": "mau-05-lien-quan-mai-dam",
+      "title": "Tuyển host tiệc quay bar đêm khu vực Phú Nhuận",
+      "expected": "SUSPECT + ILLEGAL_WORK",
+      "verdict": "SUSPECT",
+      "summary": "Tin tuyen dung vi pham nghiem trong quy dinh ve cong viec phi phap, phi chinh quy va yeu cau lien he ngoai nen tang.",
+      "reasons": [
+        {
+          "code": "ILLEGAL_WORK",
+          "evidence": "Công việc liên quan mại dâm, đánh giá và đưa khách đi giải trí.",
+          "detail": "Cong viec co noi dung lien quan den mai dam, la hanh vi vi pham phap luat."
+        },
+        {
+          "code": "UNREGISTERED_WORK",
+          "evidence": "Không cần CCCD.",
+          "detail": "Tuyen lao dong khong yeu cau giay to tuy than, vi pham quy dinh lao dong phi chinh quy."
+        },
+        {
+          "code": "OFF_PLATFORM",
+          "evidence": "Gọi điện trao đổi trực tiếp.",
+          "detail": "Yeu cau lien he thong qua dien thoai ngoai nen tang."
+        }
+      ],
+      "droppedReasons": [],
+      "shapeErrors": [],
+      "evidenceAllVerbatim": true,
+      "okHasNoReasons": true,
+      "verdictMatches": true
+    },
+    {
+      "sampleId": "mau-06-luong-anh",
+      "title": "Phục vụ nhà hàng lương cao, tuyển nhiều người",
+      "expected": "WARN hoặc SUSPECT + SALARY_ANOMALY",
+      "verdict": "SUSPECT",
+      "summary": "Tin tuyển dụng có mức lương bất thường so với mặt bằng chung của ngành phục vụ nhà hàng.",
+      "reasons": [
+        {
+          "code": "SALARY_ANOMALY",
+          "evidence": "Muc luong: HOURLY, tu 500000 den 500000 VND/gio (quy doi 500000 - 500000 VND/gio)",
+          "detail": "Muc luong 500,000 VND/gio cao bat thuong so voi muc trung binh 28,000 VND/gio cua nhom viec nha hang dich vu an uong tai Quan 1."
+        }
+      ],
+      "droppedReasons": [],
+      "shapeErrors": [],
+      "evidenceAllVerbatim": true,
+      "okHasNoReasons": true,
+      "verdictMatches": true
+    },
+    {
+      "sampleId": "mau-07-tin-binh-thuong",
+      "title": "Nhân viên phục vụ bán trà sữa part-time",
+      "expected": "OK, reasons rỗng",
+      "verdict": "OK",
+      "summary": "Tin tuyen dung nhan vien phuc vu tra sua khong phat hien vi pham quy dinh noi dung.",
+      "reasons": [],
+      "droppedReasons": [],
+      "shapeErrors": [],
+      "evidenceAllVerbatim": true,
+      "okHasNoReasons": true,
+      "verdictMatches": true
+    }
+  ]
+}

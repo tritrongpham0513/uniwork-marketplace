@@ -72,6 +72,13 @@ app:
   google:
     client-id: ${GOOGLE_CLIENT_ID:your-google-client-id.apps.googleusercontent.com}
   base-url: ${APP_BASE_URL:http://localhost:8080}
+  # Tính năng kiểm duyệt nội dung tin tuyển dụng bằng AI.
+  # Thiếu GEMINI_API_KEY -> tính năng ẨN (không phải lỗi).
+  ai:
+    enabled: ${AI_ENABLED:false}
+    provider: ${AI_PROVIDER:gemini}
+    model: ${AI_MODEL:gemini-3.5-flash-lite}
+    gemini-api-key: ${GEMINI_API_KEY:}
   # URL công khai dùng để tạo link tải file (ảnh, CV) — frontend nhúng thẳng
   public-base-url: ${APP_PUBLIC_BASE_URL:http://localhost:8080}
   storage:

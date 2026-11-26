@@ -13,11 +13,13 @@ import {
   Plus,
   Save,
   Send,
+  Sparkles,
   Trash2,
   Wallet,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 import {
   Card,
   CardContent,
@@ -146,7 +148,9 @@ const totalWeeklyHours = (schedules: JobSchedule[]): number =>
     const [startHour = 0, startMinute = 0] = schedule.startTime
       .split(":")
       .map(Number);
-    const [endHour = 0, endMinute = 0] = schedule.endTime.split(":").map(Number);
+    const [endHour = 0, endMinute = 0] = schedule.endTime
+      .split(":")
+      .map(Number);
     let hours = endHour + endMinute / 60 - (startHour + startMinute / 60);
     if (hours < 0) hours += 24;
     return total + hours;
@@ -171,9 +175,11 @@ export default function EmployerJobFormPage() {
   // Lưu ý: useEmployerJob bị `enabled: false` khi tạo tin mới → trạng thái
   // vẫn là "pending" (isPending = true vô điều kiện vì không có data).
   // Phải dùng isLoading (= isPending && isFetching) để không disable nút gửi.
-  const { data: existingJob, isLoading: loadingJob, isError } = useEmployerJob(
-    id ?? ""
-  );
+  const {
+    data: existingJob,
+    isLoading: loadingJob,
+    isError,
+  } = useEmployerJob(id ?? "");
   const createJob = useCreateJob();
   const updateJob = useUpdateJob();
 
@@ -210,7 +216,8 @@ export default function EmployerJobFormPage() {
     setForm((prev) => ({ ...prev, ...partial }));
 
   const visiblePositions = useMemo(
-    () => positions.filter((position) => position.categoryId === form.categoryId),
+    () =>
+      positions.filter((position) => position.categoryId === form.categoryId),
     [positions, form.categoryId]
   );
 
@@ -322,9 +329,7 @@ export default function EmployerJobFormPage() {
 
   if (isEdit && isError) {
     return (
-      <DashboardLayout
-        title="Sửa tin tuyển dụng"
-      >
+      <DashboardLayout title="Sửa tin tuyển dụng">
         <ErrorState
           title="Không tìm thấy tin tuyển dụng"
           description="Tin có thể đã bị xoá hoặc bạn không có quyền sửa."
@@ -419,7 +424,8 @@ export default function EmployerJobFormPage() {
                           value={form.categoryId || "none"}
                           onValueChange={(value) =>
                             patch({
-                              categoryId: value && value !== "none" ? value : "",
+                              categoryId:
+                                value && value !== "none" ? value : "",
                               positionId: "",
                             })
                           }
@@ -437,10 +443,7 @@ export default function EmployerJobFormPage() {
                           <SelectContent>
                             <SelectItem value="none">Chọn nhóm việc</SelectItem>
                             {categories.map((category) => (
-                              <SelectItem
-                                key={category.id}
-                                value={category.id}
-                              >
+                              <SelectItem key={category.id} value={category.id}>
                                 {category.name}
                               </SelectItem>
                             ))}
@@ -455,7 +458,10 @@ export default function EmployerJobFormPage() {
                         <Select
                           value={form.positionId || "none"}
                           onValueChange={(value) =>
-                            patch({ positionId: value && value !== "none" ? value : "" })
+                            patch({
+                              positionId:
+                                value && value !== "none" ? value : "",
+                            })
                           }
                           disabled={!form.categoryId}
                           items={[
@@ -589,7 +595,10 @@ export default function EmployerJobFormPage() {
                               event.preventDefault();
                               if (benefitInput.trim()) {
                                 patch({
-                                  benefits: [...form.benefits, benefitInput.trim()],
+                                  benefits: [
+                                    ...form.benefits,
+                                    benefitInput.trim(),
+                                  ],
                                 });
                                 setBenefitInput("");
                               }
@@ -641,8 +650,8 @@ export default function EmployerJobFormPage() {
                     <Field>
                       <FieldLegend variant="label">Kỹ năng</FieldLegend>
                       <FieldDescription>
-                        Chọn các kỹ năng cần cho vị trí này — giúp ứng viên
-                        phù hợp nhận được tin tuyển dụng.
+                        Chọn các kỹ năng cần cho vị trí này — giúp ứng viên phù
+                        hợp nhận được tin tuyển dụng.
                       </FieldDescription>
 
                       {form.skillIds.length > 0 && (
@@ -675,7 +684,10 @@ export default function EmployerJobFormPage() {
                               className="cursor-pointer hover:bg-muted"
                               onClick={() => toggleSkill(skill.id)}
                               onKeyDown={(event) => {
-                                if (event.key === "Enter" || event.key === " ") {
+                                if (
+                                  event.key === "Enter" ||
+                                  event.key === " "
+                                ) {
                                   event.preventDefault();
                                   toggleSkill(skill.id);
                                 }
@@ -723,10 +735,7 @@ export default function EmployerJobFormPage() {
                             label: EMPLOYMENT_TYPE_LABELS[value],
                           }))}
                         >
-                          <SelectTrigger
-                            id="employmentType"
-                            className="w-full"
-                          >
+                          <SelectTrigger id="employmentType" className="w-full">
                             <SelectValue />
                           </SelectTrigger>
                           <SelectContent>
@@ -768,7 +777,9 @@ export default function EmployerJobFormPage() {
                     </div>
 
                     <Field>
-                      <FieldLabel htmlFor="salaryType">Kiểu trả lương *</FieldLabel>
+                      <FieldLabel htmlFor="salaryType">
+                        Kiểu trả lương *
+                      </FieldLabel>
                       <Select
                         value={form.salaryType}
                         onValueChange={(value) =>
@@ -896,7 +907,8 @@ export default function EmployerJobFormPage() {
                           value={form.provinceId || "none"}
                           onValueChange={(value) =>
                             patch({
-                              provinceId: value && value !== "none" ? value : "",
+                              provinceId:
+                                value && value !== "none" ? value : "",
                               wardId: "",
                             })
                           }
@@ -916,10 +928,7 @@ export default function EmployerJobFormPage() {
                               Chọn tỉnh/thành
                             </SelectItem>
                             {provinces.map((province) => (
-                              <SelectItem
-                                key={province.id}
-                                value={province.id}
-                              >
+                              <SelectItem key={province.id} value={province.id}>
                                 {province.name}
                               </SelectItem>
                             ))}
@@ -928,9 +937,7 @@ export default function EmployerJobFormPage() {
                       </Field>
 
                       <Field>
-                        <FieldLabel htmlFor="ward">
-                          Xã / Phường *
-                        </FieldLabel>
+                        <FieldLabel htmlFor="ward">Xã / Phường *</FieldLabel>
                         <Select
                           value={form.wardId || "none"}
                           onValueChange={(value) =>
@@ -951,14 +958,9 @@ export default function EmployerJobFormPage() {
                             <SelectValue />
                           </SelectTrigger>
                           <SelectContent>
-                            <SelectItem value="none">
-                              Chọn xã/phường
-                            </SelectItem>
+                            <SelectItem value="none">Chọn xã/phường</SelectItem>
                             {wards.map((ward) => (
-                              <SelectItem
-                                key={ward.id}
-                                value={ward.id}
-                              >
+                              <SelectItem key={ward.id} value={ward.id}>
                                 {ward.name}
                               </SelectItem>
                             ))}
@@ -968,7 +970,9 @@ export default function EmployerJobFormPage() {
                     </div>
 
                     <Field>
-                      <FieldLabel htmlFor="address">Địa chỉ chi tiết *</FieldLabel>
+                      <FieldLabel htmlFor="address">
+                        Địa chỉ chi tiết *
+                      </FieldLabel>
                       <Input
                         id="address"
                         value={form.address}
@@ -1035,10 +1039,7 @@ export default function EmployerJobFormPage() {
                               </SelectTrigger>
                               <SelectContent>
                                 {DAY_VALUES.map((value) => (
-                                  <SelectItem
-                                    key={value}
-                                    value={String(value)}
-                                  >
+                                  <SelectItem key={value} value={String(value)}>
                                     {DAY_OF_WEEK_LABELS[value]}
                                   </SelectItem>
                                 ))}
@@ -1057,7 +1058,10 @@ export default function EmployerJobFormPage() {
                                   patch({
                                     schedules: form.schedules.map((item, i) =>
                                       i === index
-                                        ? { ...item, startTime: event.target.value }
+                                        ? {
+                                            ...item,
+                                            startTime: event.target.value,
+                                          }
                                         : item
                                     ),
                                   })
@@ -1077,7 +1081,10 @@ export default function EmployerJobFormPage() {
                                   patch({
                                     schedules: form.schedules.map((item, i) =>
                                       i === index
-                                        ? { ...item, endTime: event.target.value }
+                                        ? {
+                                            ...item,
+                                            endTime: event.target.value,
+                                          }
                                         : item
                                     ),
                                   })
@@ -1133,9 +1140,7 @@ export default function EmployerJobFormPage() {
                       <DatePicker
                         id="deadline"
                         value={form.deadline}
-                        onChange={(value) =>
-                          patch({ deadline: value ?? "" })
-                        }
+                        onChange={(value) => patch({ deadline: value ?? "" })}
                         min={todayIso()}
                         placeholder="Chọn hạn nộp"
                       />
@@ -1405,12 +1410,24 @@ export default function EmployerJobFormPage() {
                     Tin sẽ ở trạng thái "Chờ duyệt"
                   </p>
                   <p className="mt-1 text-xs text-muted-foreground">
-                    Quản trị viên duyệt trước khi tin hiển thị công khai. Bạn
-                    sẽ nhận được thông báo khi có kết quả.
+                    Quản trị viên duyệt trước khi tin hiển thị công khai. Bạn sẽ
+                    nhận được thông báo khi có kết quả.
                   </p>
                 </div>
               </CardContent>
             </Card>
+
+            {/* Thông báo cho NTD: tin sẽ được kiểm tra tự động bằng AI.
+                Đây là thông tin DUY NHẤT NTD được biết về lớp kiểm duyệt AI —
+                không có verdict / mức độ / mã vi phạm nào hiển thị cho họ
+                (CONTRACT.md mục 6 & 7.4). */}
+            <Alert className="border-border/60 bg-muted/40">
+              <Sparkles className="size-4 shrink-0 text-muted-foreground" />
+              <AlertDescription className="text-xs text-muted-foreground">
+                Nội dung tin sẽ được kiểm tra tự động bằng AI trước khi hiển thị
+                công khai.
+              </AlertDescription>
+            </Alert>
 
             {isEdit && (
               <Button

@@ -4,6 +4,7 @@ import jakarta.persistence.*;
 import lombok.*;
 import org.hibernate.annotations.JdbcTypeCode;
 import org.hibernate.type.SqlTypes;
+import com.uniwork.service.ai.AiReason;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
@@ -160,6 +161,34 @@ public class JobPost {
 
     @Column(name = "reject_reason", length = 500)
     private String rejectReason;
+
+    /**
+     * Kết quả kiểm duyệt AI — "OK" | "WARN" | "SUSPECT".
+     *
+     * <p>NULL nghĩa là <b>CHƯA KIỂM TRA</b> (chưa chạy hoặc chạy lỗi) — phải
+     * phân biệt được với kết quả {@code OK}.
+     */
+    @Column(name = "ai_verdict", length = 10)
+    private String aiVerdict;
+
+    /** Danh sách lý do vi phạm kèm bằng chứng nguyên văn — lưu dạng JSON array. */
+    @JdbcTypeCode(SqlTypes.JSON)
+    @Column(name = "ai_reasons", columnDefinition = "json")
+    private List<AiReason> aiReasons;
+
+    /**
+     * Câu tóm tắt tiếng Việt của AI.
+     *
+     * <p>Lưu riêng (không dựng lại từ reasons) để kết quả kiểm tra nền và kết
+     * quả kiểm tra thủ công có cùng hình dạng — quản trị viên xem được tóm tắt
+     * trong cả hai trường hợp (spec.md mục 13, mục 18).
+     */
+    @Column(name = "ai_summary", length = 500)
+    private String aiSummary;
+
+    /** Thời điểm AI kiểm tra tin tuyển dụng. */
+    @Column(name = "ai_checked_at")
+    private LocalDateTime aiCheckedAt;
 
     @Column(name = "view_count", nullable = false)
     @Builder.Default
