@@ -109,22 +109,7 @@ public class AuthServiceImpl implements AuthService {
         user = userRepository.save(user);
 
         // 1.6 Tạo dòng hồ sơ tương ứng trong CÙNG transaction
-        if ("STUDENT".equals(role.getCode())) {
-            StudentProfile sp = StudentProfile.builder()
-                    .user(user)
-                    .fullName(req.getFullName().trim())
-                    .build();
-            studentProfileRepository.save(sp);
-        } else if ("EMPLOYER".equals(role.getCode())) {
-            String empType = (req.getEmployerType() != null && !req.getEmployerType().isBlank())
-                    ? req.getEmployerType() : "COMPANY";
-            EmployerProfile ep = EmployerProfile.builder()
-                    .user(user)
-                    .displayName(req.getFullName().trim())
-                    .employerType(empType)
-                    .build();
-            employerProfileRepository.save(ep);
-        }
+        createProfileForUser(user, req.getFullName().trim(), req.getEmployerType());
 
         // 1.7 Tạo token ngẫu nhiên an toàn (>= 32 bytes base64url)
         byte[] tokenBytes = new byte[32];
@@ -370,11 +355,7 @@ public class AuthServiceImpl implements AuthService {
 
             // Tạo hồ sơ tương ứng
             String displayName = (name != null && !name.isBlank()) ? name : "Người dùng Google";
-            if ("STUDENT".equals(role.getCode())) {
-                studentProfileRepository.save(StudentProfile.builder().user(newUser).fullName(displayName).build());
-            } else if ("EMPLOYER".equals(role.getCode())) {
-                employerProfileRepository.save(EmployerProfile.builder().user(newUser).displayName(displayName).employerType("INDIVIDUAL").build());
-            }
+            createProfileForUser(newUser, displayName, "INDIVIDUAL");
 
             String token = jwtService.generateToken(newUser.getId(), newUser.getEmail(), newUser.getRole().getCode());
 
@@ -454,6 +435,28 @@ public class AuthServiceImpl implements AuthService {
     // ----------------------------------------------------------------
     // Helpers
     // ----------------------------------------------------------------
+
+    private void createProfileForUser(User user, String displayName, String employerType) {
+        String roleCode = user.getRole().getCode();
+        if ("STUDENT".equals(roleCode)) {
+            StudentProfile sp = StudentProfile.builder()
+                    .user(user)
+                    .slug("stu-" + UUID.randomUUID().toString().substring(0, 12))
+                    .fullName(displayName)
+                    .build();
+            studentProfileRepository.save(sp);
+        } else if ("EMPLOYER".equals(roleCode)) {
+            String resolvedType = (employerType != null && !employerType.isBlank())
+                    ? employerType : "COMPANY";
+            EmployerProfile ep = EmployerProfile.builder()
+                    .user(user)
+                    .slug("emp-" + UUID.randomUUID().toString().substring(0, 12))
+                    .displayName(displayName)
+                    .employerType(resolvedType)
+                    .build();
+            employerProfileRepository.save(ep);
+        }
+    }
 
     /** Cấp & lưu refresh token mới (hạn 30 ngày), trả về giá trị plain để trả về client. */
     private String issueRefreshToken(User user) {

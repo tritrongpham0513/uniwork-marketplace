@@ -13,6 +13,7 @@ import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.UUID;
 
 /**
  * Entity ánh xạ bảng `student_profiles`.
@@ -113,6 +114,9 @@ public class StudentProfile {
 
     @PrePersist
     protected void onCreate() {
+        if (slug == null || slug.isBlank()) {
+            slug = "stu-" + UUID.randomUUID().toString().substring(0, 12);
+        }
         createdAt = LocalDateTime.now();
         updatedAt = LocalDateTime.now();
     }

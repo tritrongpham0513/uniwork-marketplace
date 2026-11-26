@@ -125,7 +125,7 @@ class AuthServiceTest {
         authService.register(req);
 
         verify(userRepository).save(argThat(user -> "PENDING_VERIFY".equals(user.getStatus()) && "LOCAL".equals(user.getAuthProvider())));
-        verify(studentProfileRepository).save(any(StudentProfile.class));
+        verify(studentProfileRepository).save(argThat(sp -> sp.getSlug() != null && sp.getSlug().startsWith("stu-")));
         verify(userTokenRepository).save(argThat(token -> "EMAIL_VERIFY".equals(token.getTokenType()) && token.getTokenHash().length() == 64));
         verify(mailService).sendVerificationEmail(eq("student@uniwork.vn"), eq("Nguyễn Nam Khánh"), anyString());
     }
@@ -416,7 +416,7 @@ class AuthServiceTest {
         assertNotNull(res);
         assertFalse(res.getNeedsRole());
         assertEquals("new-user-jwt", res.getAccessToken());
-        verify(studentProfileRepository).save(any(StudentProfile.class));
+        verify(studentProfileRepository).save(argThat(sp -> sp.getSlug() != null && sp.getSlug().startsWith("stu-")));
     }
 
     @Test

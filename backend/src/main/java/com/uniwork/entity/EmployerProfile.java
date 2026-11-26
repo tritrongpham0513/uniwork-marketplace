@@ -9,6 +9,7 @@ import lombok.Builder;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
+import java.util.UUID;
 
 /**
  * Entity ánh xạ bảng `employer_profiles`.
@@ -111,6 +112,9 @@ public class EmployerProfile {
 
     @PrePersist
     protected void onCreate() {
+        if (slug == null || slug.isBlank()) {
+            slug = "emp-" + UUID.randomUUID().toString().substring(0, 12);
+        }
         createdAt = LocalDateTime.now();
         updatedAt = LocalDateTime.now();
     }
