@@ -104,7 +104,7 @@ class AiSalaryAnomalyTest {
                 "Muc luong bat thuong so voi bang xep hang luong.",
                 List.of(new AiReason(
                         "SALARY_ANOMALY",
-                        "Muc luong: HOURLY, tu 500000 den 500000 VND (quy doi 500000 - 500000 VND/gio)",
+                        "Muc luong: HOURLY, tu 500000 den 500000 VND",
                         "Luong cao gap 17 lan muc trung binh cua nhom viec.")));
 
         var response = aiReviewService.reviewJob(JOB_SLUG, ADMIN_USER_ID);

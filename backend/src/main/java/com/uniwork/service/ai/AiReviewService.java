@@ -91,7 +91,7 @@ public class AiReviewService {
             throw toAppException(ex);
         }
 
-        AiReviewResult validated = validate(raw, input.getJobContent());
+        AiReviewResult validated = validate(raw, input.getEmployerAuthoredContent());
         if (validated == null) {
             throw new AppException("Kết quả kiểm duyệt AI không hợp lệ. Vui lòng thử lại sau.",
                     HttpStatus.SERVICE_UNAVAILABLE, "AI_INVALID_RESULT");
@@ -149,9 +149,12 @@ public class AiReviewService {
     /**
      * Kiểm chứng kết quả thô trước khi ghi.
      *
+     * @param raw                    kết quả thô từ nhà cung cấp AI
+     * @param employerAuthoredContent phần nội dung <b>do nhà tuyển dụng viết</b> —
+     *                              nguồn duy nhất được phép làm bằng chứng nguyên văn
      * @return kết quả đã lọc, hoặc {@code null} nếu sai cấu trúc (không ghi gì)
      */
-    private AiReviewResult validate(AiReviewResult raw, String jobContent) {
+    private AiReviewResult validate(AiReviewResult raw, String employerAuthoredContent) {
         if (raw == null) {
             log.warn("Bo kiem duyet AI tra ve ket qua rong - bo qua, khong ghi gi.");
             return null;
@@ -184,8 +187,9 @@ public class AiReviewService {
                         reason.getCode());
                 continue;
             }
-            if (!AiEvidenceMatcher.isVerbatim(reason.getEvidence(), jobContent)) {
-                log.warn("Bo kiem duyet AI tra ve bang chung khong nguyen van - bo ly do nay.");
+            if (!AiEvidenceMatcher.isVerbatim(reason.getEvidence(), employerAuthoredContent)) {
+                log.warn("Bo kiem duyet AI tra ve bang chung khong nguyen van trong noi dung "
+                        + "nha tuyen dung viet - bo ly do nay.");
                 continue;
             }
             validReasons.add(AiReason.builder()
@@ -229,6 +233,7 @@ public class AiReviewService {
         return AiReviewInput.builder()
                 .jobContent(JobContentAssembler.assemble(
                         job, salaryInfo, benchmark, trust, skillNames(job)))
+                .employerAuthoredContent(JobContentAssembler.employerAuthoredContent(job, salaryInfo))
                 .salaryInfo(salaryInfo)
                 .salaryBenchmark(benchmark)
                 .employerTrust(trust)

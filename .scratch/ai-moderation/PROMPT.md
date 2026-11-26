@@ -40,6 +40,10 @@ QUY TAC BAT BUOC VE BANG CHUNG:
 - Neu khong trich duoc cau nguyen van cho mot ma, KHONG duoc dua ma do vao ket qua.
 - Khong duoc trich, tom tat, hay dieu chinh cau van ban trong tin.
 - "evidence" phai la mot cau hoac mot doan ngan lay nguyen van tu tin.
+- "evidence" chi duoc trich tu noi dung DO NHA TUYEN DUNG VIET (tieu de, mo ta, yeu cau,
+  quyen loi, dia diem, muc luong nha tuyen dung khai bao). KHONG duoc trich tu cac dong
+  so lieu he thong (bang xep hang luong, uy tin nha tuyen dung) - nguoi doc se khong
+  tim thay cau do trong tin.
 
 QUY TAC VE VERDICT:
 - "OK": khong phat hien vi pham. "reasons" phai la mang rong.
@@ -179,6 +183,10 @@ QUY TAC BAT BUOC VE BANG CHUNG:
 - Neu khong trich duoc cau nguyen van cho mot ma, KHONG duoc dua ma do vao ket qua.
 - Khong duoc trich, tom tat, hay dieu chinh cau van ban trong tin.
 - "evidence" phai la mot cau hoac mot doan ngan lay nguyen van tu tin.
+- "evidence" chi duoc trich tu noi dung DO NHA TUYEN DUNG VIET (tieu de, mo ta, yeu cau,
+  quyen loi, dia diem, muc luong nha tuyen dung khai bao). KHONG duoc trich tu cac dong
+  so lieu he thong (bang xep hang luong, uy tin nha tuyen dung) - nguoi doc se khong
+  tim thay cau do trong tin.
 
 QUY TAC VE VERDICT:
 - "OK": khong phat hien vi pham. "reasons" phai la mang rong.

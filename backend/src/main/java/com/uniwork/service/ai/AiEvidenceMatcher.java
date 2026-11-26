@@ -15,6 +15,10 @@ import java.text.Normalizer;
  *
  * <p>Cố ý <b>không</b> dùng so khớp mờ (fuzzy/Levenshtein): mục tiêu là phát
  * hiện AI bịa câu trích, nên phải khớp tuyệt đối sau chuẩn hoá.
+ *
+ * <p><b>Phạm vi so khớp</b>: chỉ nội dung <b>do nhà tuyển dụng viết</b> — không
+ * phải ngữ cảnh thị trường do hệ thống dựng (mức lương quy đổi, bảng xếp hạng,
+ * uy tín). Xem {@link JobContentAssembler#employerAuthoredContent(JobPost)}.
  */
 public final class AiEvidenceMatcher {
 
@@ -23,7 +27,7 @@ public final class AiEvidenceMatcher {
 
     /**
      * @param evidence    câu AI cho là trích nguyên văn
-     * @param jobContent  toàn bộ nội dung tin tuyển dụng đã dựng thành văn bản
+     * @param jobContent  phần nội dung tin <b>do nhà tuyển dụng viết</b>
      * @return {@code true} nếu câu trích xuất hiện nguyên văn trong tin
      */
     public static boolean isVerbatim(String evidence, String jobContent) {

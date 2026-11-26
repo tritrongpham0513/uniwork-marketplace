@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-11-26T06:05:45.923Z",
+  "generatedAt": "2026-11-26T11:37:00.646Z",
   "baseUrl": "http://localhost:8080/api/v1",
   "notes": [
     "Dang lay danh sach nhom viec cong khai...",
@@ -21,17 +21,17 @@
       "sampleId": "mau-01-dat-coc",
       "title": "Nhân viên phục vụ quán cà phê ban tối",
       "expected": "SUSPECT + FEE_ADVANCE (bằng chứng chứa cụm \"đặt cọc\")",
-      "jobId": "job-35335c46-d2f",
+      "jobId": "job-0dc90e66-5b9",
       "verdict": "SUSPECT",
-      "summary": "Tin tuyen dung co dau hieu yeu cau dat coc tien truoc khi vao lam viec.",
+      "summary": "Tin tuyen dung co vi pham yeu cau tien dat coc truoc khi vao lam viec.",
       "reasons": [
         {
           "code": "FEE_ADVANCE",
           "evidence": "Đặt cọc 500.000đ để giữ chỗ làm, hoàn lại khi làm xong.",
-          "detail": "Nha tuyen dung yeu cau nguoi lao dong dat coc tien truoc khi bat dau lam viec, vi pham quy dinh ve phi va dat coc."
+          "detail": "Nha tuyen dung yeu cau nguoi lao dong dat coc tien truoc khi nhan viec."
         }
       ],
-      "aiCheckedAt": "2026-11-26T06:04:36.151363Z",
+      "aiCheckedAt": "2026-11-26T11:36:28.973450Z",
       "statusAfterReview": "PENDING_REVIEW",
       "employerSeesAiFields": true,
       "verdictMatches": true,
@@ -47,17 +47,17 @@
       "sampleId": "mau-02-khong-can-cccd",
       "title": "Cần người phụ việc kho gấp trong tuần",
       "expected": "SUSPECT + UNREGISTERED_WORK",
-      "jobId": "job-33ba87f7-1f3",
+      "jobId": "job-bd2200ff-7fc",
       "verdict": "SUSPECT",
-      "summary": "Tin tuyen dung vi pham quy dinh ve lao dong phi chinh quy khi tuyen dung khong can CCCD va khong ky hop dong.",
+      "summary": "Tin tuyen dung vi pham quy dinh ve lao dong phi chinh quy khi tuyen nguoi khong can giay to va khong ky hop dong.",
       "reasons": [
         {
           "code": "UNREGISTERED_WORK",
           "evidence": "- Không cần CCCD, không ký hợp đồng, làm thì công.",
-          "detail": "Tin tuyen dung yeu cau khong can CCCD va khong ky hop đồng, vi pham quy dinh ve lao dong phi chinh quy."
+          "detail": "Tin tuyen dung yeu cau khong can CCCD va khong ky hop đồng, vi pham quy dinh ve tuyen dung lao dong phi chinh quy."
         }
       ],
-      "aiCheckedAt": "2026-11-26T06:04:40.190011Z",
+      "aiCheckedAt": "2026-11-26T11:36:37.614820Z",
       "statusAfterReview": "PENDING_REVIEW",
       "employerSeesAiFields": true,
       "verdictMatches": true,
@@ -73,17 +73,17 @@
       "sampleId": "mau-03-tuyen-qua-zalo",
       "title": "Tuyển nhân viên lễ tân sự kiện",
       "expected": "SUSPECT + OFF_PLATFORM",
-      "jobId": "job-2ca45ca6-3d6",
+      "jobId": "job-d8dfc9e7-9da",
       "verdict": "SUSPECT",
-      "summary": "Tin tuyen dung vi pham quy dinh yeu cau lien he ngoai nen tang.",
+      "summary": "Tin tuyển dụng có chứa thông tin yêu cầu ứng viên liên hệ qua kênh ngoài nền tảng.",
       "reasons": [
         {
           "code": "OFF_PLATFORM",
           "evidence": "Ứng viên liên hệ Zalo 0903 456 789, gửi CV qua email nangcong123@gmail.com, không cần lên nền tảng.",
-          "detail": "Tin tuyen dung yeu cau ung vien lien he qua Zalo va email ngoai nen tang."
+          "detail": "Nhà tuyển dụng yêu cầu ứng viên liên hệ trực tiếp qua Zalo và email ngoài hệ thống."
         }
       ],
-      "aiCheckedAt": "2026-11-26T06:04:44.603559Z",
+      "aiCheckedAt": "2026-11-26T11:36:41.843683Z",
       "statusAfterReview": "PENDING_REVIEW",
       "employerSeesAiFields": true,
       "verdictMatches": true,
@@ -99,37 +99,32 @@
       "sampleId": "mau-04-chi-nam-duoi-20-tui",
       "title": "Tuyển nhân viên bán hàng nam tại showroom",
       "expected": "SUSPECT + DISCRIMINATION",
-      "jobId": "job-17a47a94-c4c",
+      "jobId": "job-ba270a03-96d",
       "verdict": "SUSPECT",
-      "summary": "Tin tuyen dung co nhieu vi pham ve phan biet doi xu va muc luong bat thuong so voi thi truong.",
+      "summary": "Tin tuyen dung vi pham quy dinh ve phan biet doi xu gioi tinh, noi o, do tuoi va quoc tich.",
       "reasons": [
         {
           "code": "DISCRIMINATION",
-          "evidence": "Chỉ tuyển nam.",
-          "detail": "Vi pham quy dinh ve phan biet doi xu gioi tinh trong tuyen dung."
+          "evidence": "- Chỉ tuyển nam.",
+          "detail": "Vi pham phan biet doi xu ve gioi tinh."
         },
         {
           "code": "DISCRIMINATION",
-          "evidence": "Không ở trọ, phải tự tìm chỗ ở.",
-          "detail": "Phan biet doi xu dua tren noi o cua nguoi lao dong."
+          "evidence": "- Không ở trọ, phải tự tìm chỗ ở.",
+          "detail": "Vi pham phan biet doi xu ve noi o."
         },
         {
           "code": "DISCRIMINATION",
-          "evidence": "Dưới 20 tuổi không xét.",
-          "detail": "Vi pham quy dinh ve gioi han do tuoi trong tuyen dung."
+          "evidence": "- Dưới 20 tuổi không xét.",
+          "detail": "Vi pham phan biet doi xu ve do tuoi."
         },
         {
           "code": "DISCRIMINATION",
-          "evidence": "Ưu tiên người có hộ chiếu Hồng Kông.",
-          "detail": "Phan biet doi xu dua tren quoc tich."
-        },
-        {
-          "code": "SALARY_ANOMALY",
-          "evidence": "Muc luong: MONTHLY, tu 6000000 den 8000000 VND (quy doi 37500 - 50000 VND/gio)",
-          "detail": "Muc luong theo gio quy doi (den 50000 VND/gio) vuot muc cao nhat cua nhom viec (45000 VND/gio)."
+          "evidence": "- Ưu tiên người có hộ chiếu Hồng Kông.",
+          "detail": "Vi pham phan biet doi xu ve quoc tich."
         }
       ],
-      "aiCheckedAt": "2026-11-26T06:04:52.057165Z",
+      "aiCheckedAt": "2026-11-26T11:36:45.951556Z",
       "statusAfterReview": "PENDING_REVIEW",
       "employerSeesAiFields": true,
       "verdictMatches": true,
@@ -145,9 +140,9 @@
       "sampleId": "mau-05-lien-quan-mai-dam",
       "title": "Tuyển host tiệc quay bar đêm khu vực Phú Nhuận",
       "expected": "SUSPECT + ILLEGAL_WORK",
-      "jobId": "job-f1201121-fd6",
+      "jobId": "job-fb0053ca-c6d",
       "verdict": "SUSPECT",
-      "summary": "Tin tuyen dung vi pham phap luat, su dung lao dong phi chinh quyen va co dau hieu yeu cau lien he ngoai nen tang.",
+      "summary": "Tin tuyen dung co nhieu vi pham nghiem trong nhu noi dung vi pham phap luat, phi chinh quy va yeu cau lien he ngoai nen tang.",
       "reasons": [
         {
           "code": "ILLEGAL_WORK",
@@ -156,21 +151,21 @@
         },
         {
           "code": "UNREGISTERED_WORK",
-          "evidence": "Không cần CCCD.",
-          "detail": "Tuyen lao dong phi chinh quyen, khong yeu cau giay to tuy than."
+          "evidence": "- Không cần CCCD.",
+          "detail": "Tuyen lao dong khong yeu cau giay to tuy than, phi chinh quy."
         },
         {
           "code": "OFF_PLATFORM",
-          "evidence": "Gọi điện trao đổi trực tiếp.",
-          "detail": "Yeu cau lien he ngoai nen tang thong qua hinh thuc goi dien thoai."
+          "evidence": "- Gọi điện trao đổi trực tiếp.",
+          "detail": "Yeu cau lien he truc tiep bang hinh thuc goi dien ngoai nen tang."
         },
         {
           "code": "DISCRIMINATION",
           "evidence": "Đội quay bar đêm cần tìm host nữ xinh cho các buổi tiệc sinh viên.",
-          "detail": "Yeu cau gioi tinh nu va ngoai hinh trong tuyen dung."
+          "detail": "Yeu cau cu the ve gioi tinh (nu) khi tuyen dung."
         }
       ],
-      "aiCheckedAt": "2026-11-26T06:05:29.821914Z",
+      "aiCheckedAt": "2026-11-26T11:36:50.656425Z",
       "statusAfterReview": "PENDING_REVIEW",
       "employerSeesAiFields": true,
       "verdictMatches": true,
@@ -178,7 +173,6 @@
       "okHasNoReasons": true,
       "notes": [
         "Nhom viec da gan (gan tay theo ma): F&B, Barista & Phục vụ (cat-fnb).",
-        "Endpoint kiem tra AI that bai 1 lan truoc do (503 tam thoi tu nha cung cap AI) — thu lai thanh cong.",
         "Trang thai tin van la PENDING_REVIEW sau khi kiem tra.",
         "Nha tuyen dung khong thay truong AI nao."
       ]
@@ -187,17 +181,17 @@
       "sampleId": "mau-06-luong-anh",
       "title": "Phục vụ nhà hàng lương cao, tuyển nhiều người",
       "expected": "WARN hoặc SUSPECT + SALARY_ANOMALY",
-      "jobId": "job-96cb4663-592",
+      "jobId": "job-11ec7fc1-a61",
       "verdict": "SUSPECT",
-      "summary": "Tin tuyen dung co muc luong bat thuong so voi mat bang chung cua nhom viec.",
+      "summary": "Tin tuyển dụng có mức lương bất thường so với mặt bằng chung của nhóm việc.",
       "reasons": [
         {
           "code": "SALARY_ANOMALY",
           "evidence": "Muc luong: HOURLY, tu 500000 den 500000 VND (quy doi 500000 - 500000 VND/gio)",
-          "detail": "Muc luong 500000 VND/gio cao bat thuong so voi muc trung binh 29000 VND/gio cua nhom viec F&B tai Ho Chi Minh."
+          "detail": "Muc luong 500.000 VND/gio cao bat thuong so voi muc trung binh 29.000 VND/gio cua nhom viec F&B tai Ho Chi Minh."
         }
       ],
-      "aiCheckedAt": "2026-11-26T06:05:34.393880Z",
+      "aiCheckedAt": "2026-11-26T11:36:55.340887Z",
       "statusAfterReview": "PENDING_REVIEW",
       "employerSeesAiFields": true,
       "verdictMatches": true,
@@ -213,11 +207,11 @@
       "sampleId": "mau-07-tin-binh-thuong",
       "title": "Nhân viên phục vụ bán trà sữa part-time",
       "expected": "OK, reasons rỗng",
-      "jobId": "job-385e2b9e-110",
+      "jobId": "job-4c8becd3-b94",
       "verdict": "OK",
-      "summary": "Tin tuyen dung nhan vien phuc vu quan tra sua phu hop quy dinh, khong phat hien vi pham.",
+      "summary": "Tin tuyển dụng nhân viên phục vụ quán trà sữa không phát hiện vi phạm nào.",
       "reasons": [],
-      "aiCheckedAt": "2026-11-26T06:05:45.367782Z",
+      "aiCheckedAt": "2026-11-26T11:36:59.610065Z",
       "statusAfterReview": "PENDING_REVIEW",
       "employerSeesAiFields": true,
       "verdictMatches": true,

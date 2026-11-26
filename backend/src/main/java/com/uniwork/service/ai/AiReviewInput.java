@@ -29,6 +29,17 @@ public class AiReviewInput {
     /** Nội dung tin tuyển dụng dạng văn bản — nguồn duy nhất để AI đối chiếu bằng chứng. */
     private String jobContent;
 
+    /**
+     * Phần nội dung <b>do nhà tuyển dụng viết</b> — nguồn duy nhất được phép làm
+     * bằng chứng nguyên văn.
+     *
+     * <p>Tách khỏi {@link #jobContent} vì {@code jobContent} còn chứa ngữ cảnh
+     * thị trường do hệ thống dựng (mức lương quy đổi, bảng xếp hạng, uy tín).
+     * Những dòng đó không phải chữ nhà tuyển dụng — quản trị viên đối chiếu
+     * bằng mắt sẽ không tìm thấy, nên không được làm bằng chứng.
+     */
+    private String employerAuthoredContent;
+
     /** Mức lương của tin: đơn vị trả gốc + mức đã quy đổi về đồng/giờ. */
     private AiSalaryInfo salaryInfo;
 

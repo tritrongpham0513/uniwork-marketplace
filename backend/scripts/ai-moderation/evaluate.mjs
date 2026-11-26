@@ -445,6 +445,40 @@ export function buildJobContent(sample, context = {}) {
 }
 
 /**
+ * Dung vung noi dung DO NHA TUYEN DUNG VIET — nguon duy nhat duoc phep lam bang
+ * chung nguyen van (khop backend `JobContentAssembler.employerAuthoredContent`).
+ *
+ * <p>Khong gom dong bang xep hang luong va dong uy tin: do HE THONG dung, khong
+ * phai chu nha tuyen dung viet. Quan tri vien doi chieu bang mat se khong tim
+ * thay trong tin.
+ *
+ * @param {object} sample Mau tin tuyen dung.
+ * @param {object} context Du lieu nghiep vu he thong cung cap.
+ * @returns {string} Noi dung do nha tuyen dung viet.
+ */
+export function buildEmployerAuthoredContent(sample, context = {}) {
+  const { salaryLine = null } = context;
+
+  const lines = [];
+  lines.push(`Tieu de: ${sample.title}`);
+  lines.push(`Mo ta: ${sample.description}`);
+  lines.push("Yeu cau:");
+  for (const requirement of sample.requirements) {
+    lines.push(`  - ${requirement}`);
+  }
+  lines.push("Quyen loi:");
+  for (const benefit of sample.benefits) {
+    lines.push(`  - ${benefit}`);
+  }
+  lines.push("Hinh thuc lam viec: ONSITE");
+  lines.push("Loai hinh lam viec: PART_TIME");
+  lines.push("So suat: 1 nguoi");
+  if (salaryLine) lines.push(salaryLine);
+
+  return lines.join("\n");
+}
+
+/**
  * Dung dong muc luong y het dinh dang backend.
  *
  * @param {object} sample Mau tin tuyen dung.
@@ -745,28 +779,31 @@ async function runLive(options) {
 
       // --- Buoc 6: doi chieu tay ---
       const benchmark = category ? pickBenchmark(benchmarks, category.id, "79") : null;
-      const jobContent = buildJobContent(sample, {
-        salaryLine: buildSalaryLine(sample),
-        benchmarkLine: buildBenchmarkLine(
-          benchmark
-            ? {
-                ...benchmark,
-                categoryName: category.name,
-                provinceName: provinceNames.get(benchmark.provinceId) ?? null,
-              }
-            : null,
-        ),
-        trustLine: buildTrustLine(sample.employer),
+      const salaryLine = buildSalaryLine(sample);
+      const benchmarkLine = buildBenchmarkLine(
+        benchmark
+          ? {
+              ...benchmark,
+              categoryName: category.name,
+              provinceName: provinceNames.get(benchmark.provinceId) ?? null,
+            }
+          : null,
+      );
+      const trustLine = buildTrustLine(sample.employer);
+
+      // Vung BANG CHUNG: chi noi dung do nha tuyen dung viet — khop backend.
+      const employerAuthoredContent = buildEmployerAuthoredContent(sample, {
+        salaryLine,
       });
 
       row.evidenceAllVerbatim = row.reasons.every((reason) =>
-        isEvidenceVerbatim(reason.evidence, jobContent),
+        isEvidenceVerbatim(reason.evidence, employerAuthoredContent),
       );
       row.okHasNoReasons = row.verdict !== "OK" || row.reasons.length === 0;
       row.verdictMatches = verdictMatchesExpectation(sample, row);
 
       for (const reason of row.reasons) {
-        if (!isEvidenceVerbatim(reason.evidence, jobContent)) {
+        if (!isEvidenceVerbatim(reason.evidence, employerAuthoredContent)) {
           sampleNotes.push(
             `Bang chung KHONG nguyen van cho ma ${reason.code}: "${reason.evidence}".`,
           );

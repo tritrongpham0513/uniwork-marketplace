@@ -43,17 +43,19 @@ Công cụ: `backend/scripts/ai-moderation/evaluate.mjs` (`--live`).
 
 ### Bằng chứng thực tế AI trích dẫn (đối chiếu tay được)
 
-| Mẫu | Evidence AI trả về                                                                                                        | Có thật trong tin?                          |
-| --- | ------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------- |
-| 1   | `Đặt cọc 500.000đ để giữ chỗ làm, hoàn lại khi làm xong.`                                                                 | ✅ nguyên văn                               |
-| 2   | `- Không cần CCCD, không ký hợp đồng, làm thì công.`                                                                      | ✅ nguyên văn                               |
-| 3   | `Ứng viên liên hệ Zalo 0903 456 789, gửi CV qua email nangcong123@gmail.com, không cần lên nền tảng.`                     | ✅ nguyên văn                               |
-| 4   | `Chỉ tuyển nam.` / `Không ở trọ, phải tự tìm chỗ ở.` / `Dưới 20 tuổi không xét.` / `Ưu tiên người có hộ chiếu Hồng Kông.` | ✅ nguyên văn ×4                            |
-| 5   | `Công việc liên quan mại dâm, đánh giá và đưa khách đi giải trí.`                                                         | ✅ nguyên văn                               |
-| 6   | `Muc luong: HOURLY, tu 500000 den 500000 VND (quy doi 500000 - 500000 VND/gio)`                                           | ✅ nguyên văn (dòng mức lương backend dựng) |
-| 7   | _(không có lý do)_                                                                                                        | ✅ reasons rỗng                             |
+| Mẫu | Evidence AI trả về                                                                                                        | Có thật trong tin?                                     |
+| --- | ------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------ |
+| 1   | `Đặt cọc 500.000đ để giữ chỗ làm, hoàn lại khi làm xong.`                                                                 | ✅ nguyên văn                                          |
+| 2   | `- Không cần CCCD, không ký hợp đồng, làm thì công.`                                                                      | ✅ nguyên văn                                          |
+| 3   | `Ứng viên liên hệ Zalo 0903 456 789, gửi CV qua email nangcong123@gmail.com, không cần lên nền tảng.`                     | ✅ nguyên văn                                          |
+| 4   | `Chỉ tuyển nam.` / `Không ở trọ, phải tự tìm chỗ ở.` / `Dưới 20 tuổi không xét.` / `Ưu tiên người có hộ chiếu Hồng Kông.` | ✅ nguyên văn ×4                                       |
+| 5   | `Công việc liên quan mại dâm, đánh giá và đưa khách đi giải trí.`                                                         | ✅ nguyên văn                                          |
+| 6   | `Muc luong: HOURLY, tu 500000 den 500000 VND (quy doi 500000 - 500000 VND/gio)`                                           | ✅ nguyên văn (dòng mức lương nhà tuyển dụng khai báo) |
+| 7   | _(không có lý do)_                                                                                                        | ✅ reasons rỗng                                        |
 
 Mọi evidence đều được backend kiểm lại bằng `AiEvidenceMatcher` (NFC → gộp khoảng trắng → không phân biệt hoa thường → `includes`) trước khi ghi vào DB. Trong lần chạy này **không có lý do nào bị loại** — AI không bịa câu trích dẫn.
+
+Phạm vi so khớp: chỉ phần nội dung **do nhà tuyển dụng viết** (xem mục 5.2). Dòng bảng xếp hạng lương và dòng uy tín do hệ thống sinh ra **không** được làm bằng chứng.
 
 ---
 
@@ -114,24 +116,31 @@ Mẫu 4 (`mau-04-chi-nam-duoi-20-tui`) trả về **5 lý do**: 4 lý do `DISCRI
 từng điều kiện để biết cần sửa cái nào. Nhưng nó đặt ra yêu cầu về giao diện: khối "Đánh giá của AI"
 phải hiển thị được danh sách lý do dài mà vẫn đọc được (đã đáp ứng — mỗi lý do là một `<li>` riêng).
 
-### 5.2 `SALARY_ANOMALY` dựa trên dòng mức lương do backend dựng
+### 5.2 `SALARY_ANOMALY` dựa trên dòng mức lương do backend dựng — **ĐÃ SỬA**
 
 Với mẫu 6, AI trích dẫn dòng `Muc luong: HOURLY, tu 500000 den 500000 VND (quy doi 500000 - 500000 VND/gio)`
 — dòng này **do backend dựng** (`JobContentAssembler`), không phải do nhà tuyển dụng viết.
 
-Về mặt kỹ thuật, nó vẫn là "nguyên văn trong nội dung tin" theo đúng quy tắc backend đang áp dụng
-(`AiEvidenceMatcher` so trên toàn bộ nội dung tin dựng ra). Nhưng nó **không phải câu nhà tuyển dụng viết** —
-quản trị viên đối chiếu bằng mắt sẽ không tìm thấy dòng đó trong mô tả tin.
+**Đã sửa**: khối dữ liệu gửi cho AI được tách thành hai vùng rõ ràng (ADR 0005 mục 4):
 
-Đây là hệ quả của việc đưa ngữ cảnh thị trường vào cùng khối dữ liệu (ticket 03). **Chưa sửa** vì:
+| Vùng                                           | Được làm bằng chứng? |
+| ---------------------------------------------- | -------------------- |
+| Nội dung do nhà tuyển dụng viết                | ✅ Có                |
+| Ngữ cảnh hệ thống sinh (bảng xếp hạng, uy tín) | ❌ Không             |
 
-- Sửa ở đây sẽ đụng tới quy tắc "evidence là câu nguyên văn" đã chốt ở `CONTRACT.md` mục 5.5 và ADR 0005.
-- Hiện tại hành vi vẫn **an toàn** (không bịa bằng chứng) và vẫn hữu ích (quản trị viên thấy con số 500.000đ/giờ
-  ngay trong khối đánh giá).
+Dòng mức lương **vẫn** được coi là bằng chứng hợp lệ — nhà tuyển dụng tự khai báo mức lương
+và đơn vị trả; phần quy đổi sang đồng/giờ chỉ là quy tắc công khai (8/40/160 giờ) mà họ
+đã chọn đơn vị đó, và quản trị viên thấy đúng con số này ở thẻ "Lương" của tin.
 
-**Nếu sau này muốn siết**: giới hạn `AiEvidenceMatcher` chỉ so khớp trên phần _nội dung do nhà tuyển dụng viết_
-(tiêu đề, mô tả, yêu cầu, quyền lợi), tách khỏi phần _ngữ cảnh hệ thống_ (mức lương, bảng xếp hạng, uy tín).
-Việc này cần một ADR riêng vì đổi quy tắc so khớp.
+Ngược lại, dòng bảng xếp hạng và dòng uy tín **không** còn được làm bằng chứng. Trước đây
+matcher so khớp trên toàn bộ nội dung tin đã dựng — nghĩa là AI có thể gắn dòng
+`Xep hang luong nhom viec ... trung binh 28000 VND/gio` làm bằng chứng cho lý do
+`DISCRIMINATION` và vẫn được chấp nhận. Đó đúng là thứ cơ chế "bằng chứng nguyên văn"
+phải chặn.
+
+Bản sửa: `JobContentAssembler.employerAuthoredContent(job, salaryInfo)` dựng vùng
+bằng chứng riêng; `AiReviewService.validate()` so khớp trên vùng đó; script Node
+`run.mjs` dùng `buildEmployerAuthoredContent()` cho đúng phạm vi.
 
 ### 5.3 Nhà cung cấp AI trả 503 tạm thời
 
@@ -185,5 +194,6 @@ không làm hỏng luồng đăng tin.
 **Khuyến nghị**: đưa vào quy trình duyệt với vai trò **tín hiệu ưu tiên** — tin bị gắn cờ được sắp lên đầu
 hàng đợi duyệt (đã làm ở ticket 05), tuyệt đối không tự động từ chối.
 
-**Chưa giải quyết** (xem mục 5.2): evidence trích từ dòng ngữ cảnh hệ thống (mức lương quy đổi) chưa
-tách bạch với nội dung do nhà tuyển dụng viết. Cần một ADR nếu muốn siết.
+**Chưa giải quyết**: (xem mục 5.2 — **đã sửa**) bằng chứng giờ chỉ được trích từ phần nội dung
+do nhà tuyển dụng viết; dòng bảng xếp hạng và dòng uy tín do hệ thống sinh ra không còn làm
+bằng chứng được.

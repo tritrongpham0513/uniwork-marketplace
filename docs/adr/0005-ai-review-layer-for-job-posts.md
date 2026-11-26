@@ -77,6 +77,17 @@ Quy tắc so khớp **có chủ đích hẹp**, không dùng so khớp mờ (fuz
 
 **Lý do không dùng so khớp mờ**: mục tiêu của quy tắc là phát hiện AI **bịa** câu trích dẫn. So khớp mờ sẽ chấp nhận cả những câu AI tự diễn giải — tức là đúng thứ cần chặn. Đánh đổi được chấp nhận: một lý do hợp lệ nhưng bị loại là hành vi an toàn hơn việc trình bày cho quản trị viên một bằng chứng không tồn tại trong tin.
 
+**Phạm vi so khớp: chỉ phần nội dung _do nhà tuyển dụng viết_.** Khối dữ liệu gửi cho AI có hai vùng rõ ràng:
+
+| Vùng                                    | Nội dung                                                                                                                             | Được làm bằng chứng? |
+| --------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------ | -------------------- |
+| **Nội dung tin** (nhà tuyển dụng viết)  | Tiêu đề, mô tả, yêu cầu, quyền lợi, địa điểm, nhóm việc, hình thức làm việc, số suất, kỹ năng, **mức lương nhà tuyển dụng khai báo** | ✅ Có                |
+| **Ngữ cảnh thị trường** (hệ thống sinh) | Dòng bảng xếp hạng lương, dòng uy tín nhà tuyển dụng                                                                                 | ❌ Không             |
+
+**Lý do phải tách**: quản trị viên đối chiếu bằng chứng **bằng mắt** — bằng chứng phải là câu nhà tuyển dụng đã viết trong tin. Nếu cho phép trích từ dòng hệ thống sinh, AI có thể gắn dòng _"Xep hang luong nhom viec ... trung binh 28000 VND/gio"_ làm bằng chứng cho lý do `DISCRIMINATION` và vẫn được chấp nhận — người đọc không tìm thấy câu đó trong tin, và cơ chế "bằng chứng nguyên văn" trở nên vô nghĩa.
+
+**Vì sao dòng mức lương vẫn là bằng chứng được**: nhà tuyển dụng **tự khai báo** mức lương và đơn vị trả; phần quy đổi sang đồng/giờ chỉ là quy tắc công khai của hệ thống (bảng quy ước 8/40/160 giờ) mà họ đã chọn đơn vị đó. Quản trị viên thấy đúng con số này ở thẻ "Lương" của tin. Nhưng dòng **bảng xếp hạng** là dữ liệu về _tin khác_ trên thị trường, và dòng **uy tín** là danh tiếng tích luỹ của nhà tuyển dụng — không phải nội dung của tin này, nên không được làm bằng chứng.
+
 Ngoài ra, kết quả phải đúng cấu trúc thì mới ghi: `verdict` thuộc `{OK, WARN, SUSPECT}`; `code` thuộc đúng 6 mã; `evidence` không rỗng; và **`verdict == "OK"` thì `reasons` phải rỗng**. Sai cấu trúc → **không ghi gì vào bản ghi tin tuyển dụng**, chỉ ghi log. Lý do bị loại cũng chỉ được loại khỏi kết quả, không được tính vào phần trả về cho quản trị viên.
 
 **Lý do kiểm lại ở backend**: đây là ranh giới giữa "mô hình có thể tin" và "mô hình không thể tin". Đặt ranh giới ở backend nghĩa là quy tắc được ép bằng code, không phụ thuộc provider nào có tuân thủ prompt hay không — kể cả khi sau này đổi sang provider khác.
@@ -193,11 +204,13 @@ Cùng bảng này cũng quyết định quy tắc **lùi tỉnh** của bảng x
 
 2. **Độ nhạy thấp với tin vi phạm tinh vi.** Mẫu đánh giá là vi phạm **rõ ràng** (đặt cọc, tuyển qua Zalo, chỉ tuyển nam…). Tin vi phạm viết tinh tế — ví dụ yêu cầu tiền mà không nói là "đặt cọc" — nhiều khả năng **không** bị gắn cờ. Mã `SUSPECT` là _tín hiệu để soi_, không phải _kết luận_.
 
-3. **Hạn mức tính theo project, không theo khoá.** Giới hạn theo 3 chiều — lượt/phút (RPM), token đầu vào/phút (TPM), lượt/ngày (RPD) — **reset lúc 00:00 giờ Thái Bình Dương**. Vượt hạn mức → lỗi HTTP `429` (`RESOURCE_EXHAUSTED`), dịch thành thông điệp tiếng Việt _"Đã hết hạn mức gọi AI. Vui lòng thử lại sau."_. Hạn mức thực tế của một project chỉ đọc được ở trang Rate Limits của AI Studio (cần đăng nhập Google), **không suy ra được từ con số của tài liệu**.
+3. **`SALARY_ANOMALY` chỉ dựa trên mức lương khai báo, không dựa trên bảng xếp hạng.** Vì bằng chứng phải là câu nhà tuyển dụng viết, lý do `SALARY_ANOMALY` chỉ có thể dựa trên dòng mức lương — dòng bảng xếp hạng không được làm bằng chứng (xem mục 4). Hệ quả: quản trị viên thấy con số lương trong bằng chứng, nhưng phải tự đối chiếu với bảng xếp hạng (mà giao diện hiển thị ngay cạnh đó) để hiểu vì sao AI gắn cờ.
 
-4. **Free tier dùng dữ liệu để cải thiện sản phẩm.** Nội dung tin tuyển dụng gửi đi có thể được dùng để huấn luyện/cải thiện mô hình của nhà cung cấp. Đây là **rủi ro được chấp nhận**: nội dung tin tuyển dụng là **dữ liệu do nhà tuyển dụng nhập**, không phải dữ liệu cá nhân của sinh viên. Hệ thống **không bao giờ** gửi CV, hồ sơ sinh viên, đơn ứng tuyển hay bất kỳ dữ liệu cá nhân nào của sinh viên cho nhà cung cấp AI — chỉ nội dung tin tuyển dụng và ngữ cảnh xếp hạng lương / uy tín.
+4. **Hạn mức tính theo project, không theo khoá.** Giới hạn theo 3 chiều — lượt/phút (RPM), token đầu vào/phút (TPM), lượt/ngày (RPD) — **reset lúc 00:00 giờ Thái Bình Dương**. Vượt hạn mức → lỗi HTTP `429` (`RESOURCE_EXHAUSTED`), dịch thành thông điệp tiếng Việt _"Đã hết hạn mức gọi AI. Vui lòng thử lại sau."_. Hạn mức thực tế của một project chỉ đọc được ở trang Rate Limits của AI Studio (cần đăng nhập Google), **không suy ra được từ con số của tài liệu**.
 
-5. **Mức lương `PER_TASK` và `NEGOTIABLE` không quy đổi được** sang đồng/giờ, nên AI **không được** suy luận `SALARY_ANOMALY` từ hai đơn vị này.
+5. **Free tier dùng dữ liệu để cải thiện sản phẩm.** Nội dung tin tuyển dụng gửi đi có thể được dùng để huấn luyện/cải thiện mô hình của nhà cung cấp. Đây là **rủi ro được chấp nhận**: nội dung tin tuyển dụng là **dữ liệu do nhà tuyển dụng nhập**, không phải dữ liệu cá nhân của sinh viên. Hệ thống **không bao giờ** gửi CV, hồ sơ sinh viên, đơn ứng tuyển hay bất kỳ dữ liệu cá nhân nào của sinh viên cho nhà cung cấp AI — chỉ nội dung tin tuyển dụng và ngữ cảnh xếp hạng lương / uy tín.
+
+6. **Mức lương `PER_TASK` và `NEGOTIABLE` không quy đổi được** sang đồng/giờ, nên AI **không được** suy luận `SALARY_ANOMALY` từ hai đơn vị này.
 
 ---
 

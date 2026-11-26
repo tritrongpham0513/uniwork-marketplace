@@ -12,12 +12,65 @@ import java.util.stream.Collectors;
  * ngữ cảnh (xếp hạng lương, uy tín nhà tuyển dụng) mà không phải sửa lớp
  * điều phối.
  *
- * <p>Văn bản này cũng là nguồn đối chiếu bằng chứng nguyên văn: mọi
- * {@code evidence} AI trả về phải xuất hiện trong chính văn bản này.
+ * <p><b>Hai vùng văn bản, hai vai trò khác nhau</b>:
+ *
+ * <ul>
+ *   <li><b>Nội dung tin</b> ({@link #assemble(JobPost, AiSalaryInfo, AiSalaryBenchmark,
+ *       AiEmployerTrust, List)}) — toàn bộ khối dữ liệu gửi cho AI, gồm cả ngữ
+ *       cảnh thị trường do hệ thống dựng.</li>
+ *   <li><b>Nội dung do nhà tuyển dụng viết</b> ({@link #employerAuthoredContent(JobPost)}) —
+ *       <b>riêng** phần AI được phép trích làm bằng chứng nguyên văn.</li>
+ * </ul>
+ *
+ * <p>Vì sao tách: quản trị viên đối chiếu bằng chứng bằng mắt — bằng chứng phải
+ * là câu <b>nhà tuyển dụng đã viết</b> trong tin. Nếu cho phép trích từ dòng
+ * hệ thống dựng (mức lương quy đổi, bảng xếp hạng, uy tín) thì AI có thể gắn
+ * dòng "Xep hang luong ... trung binh 28000 VND/gio" làm bằng chứng cho lý do
+ * `DISCRIMINATION` — người đọc không tìm thấy câu đó trong tin, và cơ chế
+ * "bằng chứng nguyên văn" trở nên vô nghĩa.
  */
 public final class JobContentAssembler {
 
     private JobContentAssembler() {
+    }
+
+    /**
+     * Phần nội dung <b>do nhà tuyển dụng viết</b> — nguồn duy nhất được phép làm
+     * bằng chứng nguyên văn.
+     *
+     * <p>Bao gồm: tiêu đề, mô tả, yêu cầu, quyền lợi, địa điểm, nhóm việc, hình
+     * thức làm việc, loại hình làm việc, số suất, kỹ năng, và <b>dòng mức lương
+     * nhà tuyển dụng khai báo</b>.
+     *
+     * <p>Không bao gồm: dòng bảng xếp hạng lương và dòng uy tín nhà tuyển dụng —
+     * vì đó là dữ liệu về <b>tin khác</b> và về <b>danh tiếng tích luỹ</b>, không
+     * phải chữ nhà tuyển dụng viết. Trích dòng đó làm bằng chứng sẽ tạo ra một
+     * "bằng chứng" mà quản trị viên không thể tìm thấy trong tin — và cơ chế
+     * "bằng chứng nguyên văn" trở nên vô nghĩa.
+     *
+     * <p>Dòng mức lương thì **có** nằm trong vùng này: nhà tuyển dụng tự khai
+     * báo mức lương và đơn vị trả, phần quy đổi chỉ là quy tắc công khai của
+     * hệ thống (bảng quy ước 8/40/160 giờ) mà nhà tuyển dụng đã chọn đơn vị đó.
+     * Quản trị viên thấy đúng con số này ở thẻ "Lương" của tin.
+     *
+     * @param salaryInfo mức lương đã chuẩn hoá của tin (có thể {@code null})
+     */
+    public static String employerAuthoredContent(JobPost job, AiSalaryInfo salaryInfo) {
+        StringBuilder sb = new StringBuilder();
+
+        appendLine(sb, "Tieu de", job.getTitle());
+        appendLine(sb, "Mo ta", job.getDescription());
+        appendList(sb, "Yeu cau", job.getRequirements());
+        appendList(sb, "Quyen loi", job.getBenefits());
+        appendLine(sb, "Dia diem", location(job));
+        appendLine(sb, "Nhom viec", job.getCategory() == null ? null : job.getCategory().getName());
+        appendLine(sb, "Hinh thuc lam viec", job.getWorkMode());
+        appendLine(sb, "Loai hinh lam viec", job.getEmploymentType());
+        appendLine(sb, "So suat", job.getPositionsCount() == null
+                ? null : job.getPositionsCount() + " nguoi");
+        appendSalary(sb, salaryInfo);
+
+        return sb.toString().strip();
     }
 
     /** Dựng nội dung tin tuyển dụng dạng văn bản (chỉ phần nội dung tin). */

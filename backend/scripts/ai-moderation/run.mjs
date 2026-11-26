@@ -102,20 +102,7 @@ export function buildJobContent(sample) {
   lines.push(`Dia diem: ${sample.location}`);
   lines.push(`Nhom viec: ${sample.category}`);
 
-  const hourlyMin = toHourly(sample.salaryMin, sample.salaryType);
-  const hourlyMax = toHourly(sample.salaryMax, sample.salaryType);
-  if (hourlyMin > 0 && hourlyMax > 0) {
-    lines.push(
-      `Muc luong: ${sample.salaryType}, tu ${sample.salaryMin} den ${sample.salaryMax} ` +
-        `VND${sample.salaryType === "HOURLY" ? "/gio" : ""} ` +
-        `(quy doi ${hourlyMin} - ${hourlyMax} VND/gio)`,
-    );
-  } else {
-    lines.push(
-      `Muc luong: ${sample.salaryType}, tu ${sample.salaryMin} den ${sample.salaryMax} ` +
-        `(khong quy doi duoc sang VND/gio)`,
-    );
-  }
+  lines.push(buildSalaryLine(sample));
 
   if (sample.benchmark) {
     lines.push(
@@ -130,6 +117,63 @@ export function buildJobContent(sample) {
     `Uy tin nha tuyen dung: ${employer.isVerified ? "da xac minh" : "chua xac minh"}, ` +
       `diem uy tin trung binh ${employer.avgRating}/5 tren ${employer.ratingCount} danh gia`,
   );
+
+  return lines.join("\n");
+}
+
+/**
+ * Dung dong muc luong cua tin.
+ *
+ * @param {object} sample Mẫu tin tuyển dụng.
+ * @returns {string} Dòng mức lương.
+ */
+function buildSalaryLine(sample) {
+  const hourlyMin = toHourly(sample.salaryMin, sample.salaryType);
+  const hourlyMax = toHourly(sample.salaryMax, sample.salaryType);
+  if (hourlyMin > 0 && hourlyMax > 0) {
+    return (
+      `Muc luong: ${sample.salaryType}, tu ${sample.salaryMin} den ${sample.salaryMax} ` +
+      `VND${sample.salaryType === "HOURLY" ? "/gio" : ""} ` +
+      `(quy doi ${hourlyMin} - ${hourlyMax} VND/gio)`
+    );
+  }
+  return (
+    `Muc luong: ${sample.salaryType}, tu ${sample.salaryMin} den ${sample.salaryMax} ` +
+    `(khong quy doi duoc sang VND/gio)`
+  );
+}
+
+/**
+ * Dung phan noi dung DO NHA TUYEN DUNG VIET — nguon duy nhat duoc phep lam
+ * bang chung nguyen van.
+ *
+ * Ly do tach rieng (khop backend `JobContentAssembler.employerAuthoredContent`):
+ * dong "Xep hang luong ..." va "Uy tin nha tuyen dung ..." la du lieu do HE
+ * THONG dung, khong phai chu nha tuyen dung viet. Quan tri vien doi chieu bang
+ * mat se khong tim thay chung trong tin — nen khong duoc lam bang chung.
+ *
+ * Dong muc luong thi CO nam o vung nay: nha tuyen dung tu khai bao muc luong va
+ * don vi tra, phan quy doi chi la quy tac cong khai (8/40/160 gio) ma nha
+ * tuyen dung da chon don vi do.
+ *
+ * @param {object} sample Mẫu tin tuyển dụng.
+ * @returns {string} Nội dung do nhà tuyển dụng viết.
+ */
+export function buildEmployerAuthoredContent(sample) {
+  const lines = [];
+  lines.push(`Tieu de: ${sample.title}`);
+  lines.push(`Mo ta: ${sample.description}`);
+  lines.push("Yeu cau:");
+  for (const requirement of sample.requirements) {
+    lines.push(`  - ${requirement}`);
+  }
+  lines.push("Quyen loi:");
+  for (const benefit of sample.benefits) {
+    lines.push(`  - ${benefit}`);
+  }
+  lines.push(`Dia diem: ${sample.location}`);
+  lines.push(`Nhom viec: ${sample.category}`);
+  lines.push(buildSalaryLine(sample));
 
   return lines.join("\n");
 }
@@ -213,7 +257,8 @@ export function validateShape(parsed) {
  * khong phai chi danh dau.
  *
  * @param {object[]} reasons Danh sach ly do tho.
- * @param {string} jobContent Noi dung tin.
+ * @param {string} jobContent Phan noi dung DO NHA TUYEN DUNG VIET (nguon duy nhat
+ *   duoc phep lam bang chung).
  * @returns {{ kept: object[], dropped: object[] }} Ly do giu lai va ly do bi loai.
  */
 export function filterReasons(reasons, jobContent) {
@@ -450,11 +495,17 @@ function printHelp() {
  */
 async function reviewSample(sample, apiKey, model) {
   const jobContent = buildJobContent(sample);
+  const employerAuthoredContent = buildEmployerAuthoredContent(sample);
   const prompt = buildPrompt(jobContent);
 
   const parsed = await callGemini(prompt, apiKey, model);
   const shape = validateShape(parsed);
-  const { kept, dropped } = filterReasons(shape.isValid ? parsed.reasons : [], jobContent);
+  // Bang chung phai xuat hien trong phan NOI DUNG DO NHA TUYEN DUNG VIET —
+  // khop backend (`AiReviewService.validate`).
+  const { kept, dropped } = filterReasons(
+    shape.isValid ? parsed.reasons : [],
+    employerAuthoredContent,
+  );
 
   // Verdict OK ma van co ly do -> cau truc sai, phai bao loi de quang tri vien
   // khong tin nham. Backend cung phai tu choi truong hop nay.
