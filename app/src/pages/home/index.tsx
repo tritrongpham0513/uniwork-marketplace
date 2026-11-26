@@ -204,6 +204,21 @@ export function HomePage() {
     {}
   );
 
+  const provinceCategoryCounts = (allJobs?.items ?? []).reduce<
+    Record<string, Record<string, number>>
+  >((acc, job) => {
+    const pId = job.location.provinceId;
+    const cId = job.category.id;
+    acc[pId] ??= {};
+    acc[pId][cId] = (acc[pId][cId] ?? 0) + 1;
+    return acc;
+  }, {});
+
+  // Chỉ hiển thị các tỉnh thực sự có tin tuyển dụng (sắp xếp theo số tin giảm dần)
+  const activeProvinces = [...provinces]
+    .filter((p) => (provinceCounts[p.id] ?? 0) > 0)
+    .sort((a, b) => (provinceCounts[b.id] ?? 0) - (provinceCounts[a.id] ?? 0));
+
   const renderJobList = (jobs: Job[] | undefined, isPending = false) => {
     if (isPending) {
       return (
@@ -487,7 +502,12 @@ export function HomePage() {
           </div>
         </div>
 
-        <ProvinceGrid provinces={provinces} counts={provinceCounts} />
+        <ProvinceGrid
+          provinces={
+            activeProvinces.length > 0 ? activeProvinces : provinces.slice(0, 6)
+          }
+          counts={provinceCounts}
+        />
       </section>
 
       {/* ================= VIỆC LÀM TẠI {TỈNH} — Viecoday ================= */}
@@ -506,10 +526,11 @@ export function HomePage() {
           </div>
 
           <JobLinkGrid
-            provinces={provinces}
+            provinces={activeProvinces}
             categories={categories}
             provinceCounts={provinceCounts}
             categoryCounts={categoryCounts}
+            provinceCategoryCounts={provinceCategoryCounts}
           />
         </div>
       </section>
@@ -529,10 +550,11 @@ export function HomePage() {
         </div>
 
         <JobLinkGrid
-          provinces={provinces}
+          provinces={activeProvinces.slice(0, 3)}
           categories={categories}
           provinceCounts={provinceCounts}
           categoryCounts={categoryCounts}
+          provinceCategoryCounts={provinceCategoryCounts}
           variant="popular"
           perProvince={5}
         />
