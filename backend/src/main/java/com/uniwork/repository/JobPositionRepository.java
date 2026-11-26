@@ -15,7 +15,11 @@ public interface JobPositionRepository extends JpaRepository<JobPosition, Intege
 
     List<JobPosition> findByIsActiveTrueOrderBySortOrderAsc();
 
+    List<JobPosition> findAllByOrderBySortOrderAsc();
+
     List<JobPosition> findByCategoryIdOrderBySortOrderAsc(Short categoryId);
 
     Optional<JobPosition> findByCode(String code);
+
+    Optional<JobPosition> findBySlug(String slug);
 }

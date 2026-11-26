@@ -24,4 +24,6 @@ public class JobPositionResponse {
     private String slug;
 
     private Integer jobCount;
+
+    private Boolean isActive;
 }

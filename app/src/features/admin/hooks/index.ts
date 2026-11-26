@@ -13,6 +13,7 @@ import {
   adminService,
   type AdminCategoryPayload,
   type AdminDashboardStats,
+  type AdminPositionPayload,
 } from "../services/admin.service";
 
 export { ADMIN_KEYS };
@@ -220,6 +221,68 @@ export const useDeleteCategory = () => {
   return useMutation({
     mutationFn: async (id: string) => {
       const response = await adminService.removeCategory(id);
+      return response.data;
+    },
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: ADMIN_KEYS.all });
+    },
+  });
+};
+
+/** Danh sách vị trí công việc (admin) */
+export const useAdminPositions = (categoryId?: string) => {
+  return useQuery({
+    queryKey: [...ADMIN_KEYS.all, "positions", categoryId ?? "all"] as const,
+    queryFn: async () => {
+      const response = await adminService.listPositions(categoryId);
+      return response.data;
+    },
+  });
+};
+
+/** Tạo vị trí công việc */
+export const useCreatePosition = () => {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (payload: AdminPositionPayload) => {
+      const response = await adminService.createPosition(payload);
+      return response.data;
+    },
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: ADMIN_KEYS.all });
+    },
+  });
+};
+
+/** Cập nhật vị trí công việc */
+export const useUpdatePosition = () => {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async ({
+      id,
+      payload,
+    }: {
+      id: string;
+      payload: Partial<AdminPositionPayload>;
+    }) => {
+      const response = await adminService.updatePosition(id, payload);
+      return response.data;
+    },
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: ADMIN_KEYS.all });
+    },
+  });
+};
+
+/** Xoá mềm vị trí công việc */
+export const useDeletePosition = () => {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (id: string) => {
+      const response = await adminService.removePosition(id);
       return response.data;
     },
     onSuccess: () => {

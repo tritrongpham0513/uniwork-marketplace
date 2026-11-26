@@ -2,17 +2,21 @@ package com.uniwork.service.impl;
 
 import com.uniwork.dto.request.AdminUpdateUserRequest;
 import com.uniwork.dto.request.CategoryUpsertRequest;
+import com.uniwork.dto.request.PositionUpsertRequest;
 import com.uniwork.dto.response.AdminDashboardResponse;
 import com.uniwork.dto.response.AdminUserResponse;
 import com.uniwork.dto.response.JobCategoryResponse;
+import com.uniwork.dto.response.JobPositionResponse;
 import com.uniwork.entity.EmployerProfile;
 import com.uniwork.entity.JobCategory;
+import com.uniwork.entity.JobPosition;
 import com.uniwork.entity.Role;
 import com.uniwork.entity.StudentProfile;
 import com.uniwork.entity.User;
 import com.uniwork.repository.ApplicationRepository;
 import com.uniwork.repository.EmployerProfileRepository;
 import com.uniwork.repository.JobCategoryRepository;
+import com.uniwork.repository.JobPositionRepository;
 import com.uniwork.repository.JobPostRepository;
 import com.uniwork.repository.ReviewRepository;
 import com.uniwork.repository.RoleRepository;
@@ -43,6 +47,7 @@ public class AdminServiceImpl implements AdminService {
     private final StudentProfileRepository studentProfileRepository;
     private final EmployerProfileRepository employerProfileRepository;
     private final JobCategoryRepository jobCategoryRepository;
+    private final JobPositionRepository jobPositionRepository;
     private final JobPostRepository jobPostRepository;
     private final ApplicationRepository applicationRepository;
     private final ReviewRepository reviewRepository;
@@ -263,6 +268,124 @@ public class AdminServiceImpl implements AdminService {
                 .jobCount(0)
                 .isActive(category.getIsActive())
                 .sortOrder(category.getSortOrder() != null ? category.getSortOrder().intValue() : 0)
+                .build();
+    }
+
+    // ------------------------------------------------------------------
+    // VỊ TRÍ CÔNG VIỆC
+    // ------------------------------------------------------------------
+
+    @Override
+    @Transactional(readOnly = true)
+    public List<JobPositionResponse> listPositions(String categoryId) {
+        List<JobPosition> positions;
+        if (categoryId != null && !categoryId.isBlank()) {
+            JobCategory category = jobCategoryRepository.findByCode(categoryId)
+                    .or(() -> jobCategoryRepository.findBySlug(categoryId))
+                    .orElseThrow(() -> ApiErrors.notFound("Không tìm thấy nhóm việc."));
+            positions = jobPositionRepository.findByCategoryIdOrderBySortOrderAsc(category.getId());
+        } else {
+            positions = jobPositionRepository.findAllByOrderBySortOrderAsc();
+        }
+        return positions.stream().map(p -> toPositionResponse(p, 0)).toList();
+    }
+
+    @Override
+    @Transactional
+    public JobPositionResponse createPosition(PositionUpsertRequest request) {
+        if (request.getCategoryId() == null || request.getCategoryId().isBlank()) {
+            throw ApiErrors.badRequest("Nhóm việc là bắt buộc.",
+                    ApiErrors.errors("categoryId", "Vui lòng chọn nhóm việc"));
+        }
+        if (request.getName() == null || request.getName().isBlank()) {
+            throw ApiErrors.badRequest("Tên vị trí công việc là bắt buộc.",
+                    ApiErrors.errors("name", "Vui lòng nhập tên vị trí công việc"));
+        }
+
+        JobCategory category = jobCategoryRepository.findByCode(request.getCategoryId().trim())
+                .or(() -> jobCategoryRepository.findBySlug(request.getCategoryId().trim()))
+                .orElseThrow(() -> ApiErrors.notFound("Không tìm thấy nhóm việc."));
+
+        String slug = (request.getSlug() != null && !request.getSlug().isBlank())
+                ? request.getSlug().trim()
+                : slugify(request.getName());
+
+        if (jobPositionRepository.findBySlug(slug).isPresent()) {
+            throw ApiErrors.badRequest("Slug đã tồn tại. Vui lòng chọn tên khác.",
+                    ApiErrors.errors("slug", "Slug đã tồn tại"));
+        }
+
+        JobPosition position = JobPosition.builder()
+                .code("pos-" + slug)
+                .category(category)
+                .name(request.getName().trim())
+                .slug(slug)
+                .sortOrder(request.getSortOrder() != null
+                        ? request.getSortOrder().shortValue()
+                        : (short) (jobPositionRepository.count() + 1))
+                .isActive(request.getIsActive() != null ? request.getIsActive() : true)
+                .build();
+
+        position = jobPositionRepository.save(position);
+        return toPositionResponse(position, 0);
+    }
+
+    @Override
+    @Transactional
+    public JobPositionResponse updatePosition(String positionId, PositionUpsertRequest request) {
+        JobPosition position = jobPositionRepository.findByCode(positionId)
+                .or(() -> jobPositionRepository.findBySlug(positionId))
+                .orElseThrow(() -> ApiErrors.notFound("Không tìm thấy vị trí công việc."));
+
+        if (request.getCategoryId() != null && !request.getCategoryId().isBlank()) {
+            JobCategory category = jobCategoryRepository.findByCode(request.getCategoryId().trim())
+                    .or(() -> jobCategoryRepository.findBySlug(request.getCategoryId().trim()))
+                    .orElseThrow(() -> ApiErrors.notFound("Không tìm thấy nhóm việc."));
+            position.setCategory(category);
+        }
+        if (request.getName() != null && !request.getName().isBlank()) {
+            position.setName(request.getName().trim());
+        }
+        if (request.getIsActive() != null) {
+            position.setIsActive(request.getIsActive());
+        }
+        if (request.getSortOrder() != null) {
+            position.setSortOrder(request.getSortOrder().shortValue());
+        }
+
+        position = jobPositionRepository.save(position);
+        return toPositionResponse(position, 0);
+    }
+
+    @Override
+    @Transactional
+    public JobPositionResponse removePosition(String positionId) {
+        JobPosition position = jobPositionRepository.findByCode(positionId)
+                .or(() -> jobPositionRepository.findBySlug(positionId))
+                .orElseThrow(() -> ApiErrors.notFound("Không tìm thấy vị trí công việc."));
+
+        final Integer positionPk = position.getId();
+        boolean usedByJobs = jobPostRepository.findAllByDeletedAtIsNull().stream()
+                .anyMatch(j -> j.getPosition() != null && positionPk.equals(j.getPosition().getId()));
+
+        if (usedByJobs) {
+            position.setIsActive(false);
+            position = jobPositionRepository.save(position);
+        } else {
+            jobPositionRepository.delete(position);
+        }
+
+        return toPositionResponse(position, 0);
+    }
+
+    private JobPositionResponse toPositionResponse(JobPosition p, int jobCount) {
+        return JobPositionResponse.builder()
+                .id(p.getCode())
+                .categoryId(p.getCategory() != null ? p.getCategory().getCode() : null)
+                .name(p.getName())
+                .slug(p.getSlug())
+                .isActive(p.getIsActive())
+                .jobCount(jobCount)
                 .build();
     }
 

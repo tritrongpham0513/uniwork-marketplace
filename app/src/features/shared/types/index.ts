@@ -99,6 +99,7 @@ export interface JobPosition {
   name: string;
   slug: string;
   jobCount: number;
+  isActive?: boolean;
 }
 
 export interface Province {

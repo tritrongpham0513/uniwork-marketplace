@@ -342,7 +342,7 @@ export default function AdminJobsPage() {
                           verified={job.employer.verified}
                         />
 
-                        <div className="mt-3 grid grid-cols-2 gap-x-4 gap-y-2 rounded-lg bg-muted/40 p-3 sm:grid-cols-4">
+                        <div className="mt-3 grid w-full grid-cols-2 gap-x-4 gap-y-2 rounded-lg bg-muted/40 p-3 sm:grid-cols-4">
                           <div>
                             <p className="text-[10px] font-medium tracking-wide text-muted-foreground uppercase">
                               Lương

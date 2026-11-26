@@ -2,9 +2,11 @@ package com.uniwork.service;
 
 import com.uniwork.dto.request.AdminUpdateUserRequest;
 import com.uniwork.dto.request.CategoryUpsertRequest;
+import com.uniwork.dto.request.PositionUpsertRequest;
 import com.uniwork.dto.response.AdminDashboardResponse;
 import com.uniwork.dto.response.AdminUserResponse;
 import com.uniwork.dto.response.JobCategoryResponse;
+import com.uniwork.dto.response.JobPositionResponse;
 
 import java.util.List;
 
@@ -33,4 +35,16 @@ public interface AdminService {
 
     /** Xoá nhóm việc (xoá mềm nếu đang được dùng). */
     JobCategoryResponse removeCategory(String categoryId);
+
+    /** Danh sách vị trí công việc (kể cả đã khoá) cho quản trị. */
+    List<JobPositionResponse> listPositions(String categoryId);
+
+    /** Tạo vị trí công việc thuộc một nhóm việc. */
+    JobPositionResponse createPosition(PositionUpsertRequest request);
+
+    /** Cập nhật vị trí công việc. */
+    JobPositionResponse updatePosition(String positionId, PositionUpsertRequest request);
+
+    /** Xoá vị trí công việc (xoá mềm nếu đang được dùng). */
+    JobPositionResponse removePosition(String positionId);
 }

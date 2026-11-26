@@ -3,6 +3,7 @@ package com.uniwork.controller;
 import com.uniwork.constant.ApiEndpoints;
 import com.uniwork.dto.request.AdminUpdateUserRequest;
 import com.uniwork.dto.request.CategoryUpsertRequest;
+import com.uniwork.dto.request.PositionUpsertRequest;
 import com.uniwork.dto.request.JobReviewRequest;
 import com.uniwork.dto.response.AdminDashboardResponse;
 import com.uniwork.dto.response.AdminJobResponse;
@@ -10,6 +11,7 @@ import com.uniwork.dto.response.AdminUserResponse;
 import com.uniwork.dto.response.ApiResponse;
 import com.uniwork.dto.response.AiReviewResponse;
 import com.uniwork.dto.response.JobCategoryResponse;
+import com.uniwork.dto.response.JobPositionResponse;
 import com.uniwork.dto.response.JobResponse;
 import com.uniwork.dto.response.ReviewResponse;
 import com.uniwork.dto.response.WorkHistoryResponse;
@@ -138,6 +140,47 @@ public class AdminController {
 
         return ResponseEntity.ok(ApiResponse.success(
                 "Đã xoá nhóm việc.", adminService.removeCategory(id)));
+    }
+
+    // ------------------------------------------------------------------
+    // VỊ TRÍ CÔNG VIỆC
+    // ------------------------------------------------------------------
+
+    @GetMapping("/positions")
+    @Operation(summary = "Danh sách vị trí công việc (quản trị)")
+    public ResponseEntity<ApiResponse<List<JobPositionResponse>>> listPositions(
+            @RequestParam(value = "categoryId", required = false) String categoryId) {
+
+        return ResponseEntity.ok(ApiResponse.success(
+                "Lấy danh sách vị trí công việc thành công", adminService.listPositions(categoryId)));
+    }
+
+    @PostMapping("/positions")
+    @Operation(summary = "Tạo vị trí công việc")
+    public ResponseEntity<ApiResponse<JobPositionResponse>> createPosition(
+            @RequestBody PositionUpsertRequest request) {
+
+        return ResponseEntity.status(HttpStatus.CREATED)
+                .body(ApiResponse.success("Đã tạo vị trí công việc.", adminService.createPosition(request)));
+    }
+
+    @PutMapping("/positions/{id}")
+    @Operation(summary = "Cập nhật vị trí công việc")
+    public ResponseEntity<ApiResponse<JobPositionResponse>> updatePosition(
+            @PathVariable("id") String id,
+            @RequestBody PositionUpsertRequest request) {
+
+        return ResponseEntity.ok(ApiResponse.success(
+                "Đã cập nhật vị trí công việc.", adminService.updatePosition(id, request)));
+    }
+
+    @DeleteMapping("/positions/{id}")
+    @Operation(summary = "Xoá vị trí công việc (xoá mềm nếu đang được dùng)")
+    public ResponseEntity<ApiResponse<JobPositionResponse>> removePosition(
+            @PathVariable("id") String id) {
+
+        return ResponseEntity.ok(ApiResponse.success(
+                "Đã xoá vị trí công việc.", adminService.removePosition(id)));
     }
 
     // ------------------------------------------------------------------

@@ -7,6 +7,7 @@ import type {
   EmployerProfile,
   Job,
   JobCategory,
+  JobPosition,
   JobStatus,
   Review,
   SalaryBenchmark,
@@ -38,6 +39,13 @@ export interface AdminCategoryPayload {
   slug?: string;
   description?: string;
   icon?: string;
+}
+
+export interface AdminPositionPayload {
+  categoryId: string;
+  name: string;
+  slug?: string;
+  isActive?: boolean;
 }
 
 export const adminService = {
@@ -183,6 +191,52 @@ export const adminService = {
   removeCategory(id: string): Promise<ApiResponse<JobCategory>> {
     return http.delete<ApiResponse<JobCategory>>(
       `/api/v1/admin/categories/${id}`
+    );
+  },
+
+  /**
+   * GET /api/v1/admin/positions — danh sách vị trí công việc.
+   */
+  listPositions(categoryId?: string): Promise<ApiResponse<JobPosition[]>> {
+    const query = categoryId
+      ? `?categoryId=${encodeURIComponent(categoryId)}`
+      : "";
+    return http.get<ApiResponse<JobPosition[]>>(
+      `/api/v1/admin/positions${query}`
+    );
+  },
+
+  /**
+   * POST /api/v1/admin/positions — tạo vị trí công việc.
+   */
+  createPosition(
+    payload: AdminPositionPayload
+  ): Promise<ApiResponse<JobPosition>> {
+    return http.post<ApiResponse<JobPosition>, AdminPositionPayload>(
+      "/api/v1/admin/positions",
+      payload
+    );
+  },
+
+  /**
+   * PUT /api/v1/admin/positions/{id} — cập nhật vị trí công việc.
+   */
+  updatePosition(
+    id: string,
+    payload: Partial<AdminPositionPayload>
+  ): Promise<ApiResponse<JobPosition>> {
+    return http.put<ApiResponse<JobPosition>, Partial<AdminPositionPayload>>(
+      `/api/v1/admin/positions/${id}`,
+      payload
+    );
+  },
+
+  /**
+   * DELETE /api/v1/admin/positions/{id} — xoá mềm vị trí công việc.
+   */
+  removePosition(id: string): Promise<ApiResponse<JobPosition>> {
+    return http.delete<ApiResponse<JobPosition>>(
+      `/api/v1/admin/positions/${id}`
     );
   },
 };

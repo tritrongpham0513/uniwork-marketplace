@@ -53,9 +53,9 @@ QUY TAC VE VERDICT:
 Hinh dang ket qua tra ve (JSON, dung responseSchema):
 {
   "verdict": "OK" | "WARN" | "SUSPECT",
-  "summary": "mot cau tom tat tieng Viet ngan gon",
+  "summary": "một câu tóm tắt ngắn gọn bằng tiếng Việt có dấu",
   "reasons": [
-    { "code": "<mot trong 6 ma>", "evidence": "<cau nguyen van trong tin>", "detail": "<giai thich ngan tieng Viet>" }
+    { "code": "<mot trong 6 ma>", "evidence": "<cau nguyen van trong tin>", "detail": "<giải thích ngắn gọn bằng tiếng Việt có dấu>" }
   ]
 }
 ```
@@ -196,9 +196,9 @@ QUY TAC VE VERDICT:
 Hinh dang ket qua tra ve (JSON, dung responseSchema):
 {
   "verdict": "OK" | "WARN" | "SUSPECT",
-  "summary": "mot cau tom tat tieng Viet ngan gon",
+  "summary": "một câu tóm tắt ngắn gọn bằng tiếng Việt có dấu",
   "reasons": [
-    { "code": "<mot trong 6 ma>", "evidence": "<cau nguyen van trong tin>", "detail": "<giai thich ngan tieng Viet>" }
+    { "code": "<mot trong 6 ma>", "evidence": "<cau nguyen van trong tin>", "detail": "<giải thích ngắn gọn bằng tiếng Việt có dấu>" }
   ]
 }
 ```
