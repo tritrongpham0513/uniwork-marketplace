@@ -3,29 +3,10 @@ import { Sparkles } from "lucide-react";
 import { AiReviewBadge } from "@/features/admin/components/ai-review-badge";
 import {
   AI_PANEL_MESSAGES,
+  AI_VIOLATION_LABELS,
   getAiPanelState,
 } from "@/features/admin/lib/ai-review";
-import type {
-  AiReason,
-  AiReview,
-  AiVerdict,
-  AiViolationCode,
-} from "@/features/shared/types";
-
-/**
- * Nhãn tiếng Việt cho 6 mã vi phạm — cố định theo `CONTRACT.md` mục 1.
- *
- * <p>Hiển thị mã + nhãn để quản trị viên đối chiếu được với hợp đồng,
- * nhưng không bắt buộc phải nhớ mã.
- */
-const VIOLATION_LABELS: Record<AiViolationCode, string> = {
-  FEE_ADVANCE: "Yêu cầu tiền trước",
-  UNREGISTERED_WORK: "Tuyển lao động phi chính quyền",
-  OFF_PLATFORM: "Tuyển ngoài nền tảng",
-  SALARY_ANOMALY: "Mức lương bất thường",
-  DISCRIMINATION: "Phân biệt đối xử",
-  ILLEGAL_WORK: "Công việc vi phạm pháp luật",
-};
+import type { AiReason, AiReview, AiVerdict } from "@/features/shared/types";
 
 interface AiReviewPanelProps {
   /** Kết quả kiểm duyệt AI — `null` nghĩa là tin chưa được kiểm tra. */
@@ -68,7 +49,7 @@ const ReasonItem = ({ reason }: { reason: AiReason }) => (
         {reason.code}
       </Badge>
       <span className="text-xs font-medium text-foreground">
-        {VIOLATION_LABELS[reason.code]}
+        {AI_VIOLATION_LABELS[reason.code]}
       </span>
     </div>
 
