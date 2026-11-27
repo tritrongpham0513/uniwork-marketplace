@@ -18,6 +18,7 @@ import {
   TrendingDown,
   TrendingUp,
   Users,
+  ZoomIn,
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -27,6 +28,8 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { EmployerAvatar } from "@/components/shared/employer-avatar";
+import { JobImageLightbox } from "@/components/shared/job-image-lightbox";
+import { useState } from "react";
 import { ErrorState } from "@/components/shared/empty-state";
 import { JobCard } from "@/features/jobs/components/job-card";
 import { SaveJobButton } from "@/components/shared/save-job-button";
@@ -58,6 +61,7 @@ import {
   useToggleJobNotify,
 } from "@/features/notifications/hooks";
 import { PATHS } from "@/config/paths";
+import { SHOW_SALARY_RANKING } from "@/config/feature-flags";
 import { showApiError, toast } from "@/lib/toast";
 
 /** Tạo link Google Maps từ địa chỉ của tin tuyển dụng */
@@ -83,6 +87,9 @@ export function JobDetailPage() {
   );
   const { data: notifyPreferences = [] } = useJobNotifyPreferences();
   const toggleJobNotify = useToggleJobNotify();
+
+  /** Hộp thoại phóng to ảnh preview. */
+  const [lightboxOpen, setLightboxOpen] = useState(false);
 
   /** Đơn ứng tuyển của SV hiện tại cho tin này (null nếu chưa ứng tuyển). */
   const { data: myApplication } = useStudentApplicationByJob(
@@ -289,7 +296,7 @@ export function JobDetailPage() {
                   </span>
                 </div>
 
-                {comparison && (
+                {SHOW_SALARY_RANKING && comparison && (
                   <div className="mt-2 flex flex-wrap items-center gap-2 text-xs">
                     {comparison.verdict === "BELOW" ? (
                       <TrendingDown className="size-3.5 text-muted-foreground" />
@@ -510,6 +517,25 @@ export function JobDetailPage() {
           {/* HÀNH ĐỘNG */}
           <Card>
             <CardContent className="space-y-3 p-5">
+              {job.previewImageUrl && (
+                <button
+                  type="button"
+                  className="group relative block w-full overflow-hidden rounded-lg border border-border"
+                  onClick={() => setLightboxOpen(true)}
+                  aria-label="Xem ảnh preview"
+                >
+                  <img
+                    src={job.previewImageUrl}
+                    alt={job.title}
+                    loading="lazy"
+                    className="aspect-[4/3] w-full object-cover transition-transform group-hover:scale-[1.02]"
+                  />
+                  <span className="absolute right-2 bottom-2 flex items-center gap-1 rounded-md bg-background/90 px-2 py-1 text-xs text-foreground shadow-sm">
+                    <ZoomIn className="size-3.5" />
+                    Phóng to
+                  </span>
+                </button>
+              )}
               {canReapply ? (
                 <>
                   <Button
@@ -769,6 +795,15 @@ export function JobDetailPage() {
           </Card>
         </aside>
       </div>
+
+      {job.previewImageUrl && (
+        <JobImageLightbox
+          src={job.previewImageUrl}
+          alt={job.title}
+          open={lightboxOpen}
+          onOpenChange={setLightboxOpen}
+        />
+      )}
     </div>
   );
 }

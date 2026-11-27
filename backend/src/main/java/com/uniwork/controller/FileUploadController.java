@@ -191,7 +191,7 @@ public class FileUploadController {
             return FileStorageService.Kind.valueOf(kind.trim().toUpperCase());
         } catch (IllegalArgumentException e) {
             throw ApiErrors.badRequest(
-                    "Loại file không hợp lệ. Chỉ hỗ trợ: CV, AVATAR, LOGO.",
+                    "Loại file không hợp lệ. Chỉ hỗ trợ: CV, AVATAR, LOGO, JOB_IMAGE.",
                     ApiErrors.errors("kind", "Loại file không hợp lệ."));
         }
     }

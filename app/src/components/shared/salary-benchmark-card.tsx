@@ -2,6 +2,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import { TrendingDown, TrendingUp } from "lucide-react";
+import { SHOW_SALARY_RANKING } from "@/config/feature-flags";
 import type { SalaryComparison } from "@/features/shared/types";
 import { cn } from "cn";
 
@@ -22,6 +23,8 @@ export function SalaryBenchmarkCard({
   displaySalary,
   className,
 }: SalaryBenchmarkCardProps) {
+  if (!SHOW_SALARY_RANKING) return null;
+
   if (!comparison) {
     return (
       <Card size="sm" className={cn("border-border/60", className)}>
@@ -47,7 +50,11 @@ export function SalaryBenchmarkCard({
       ? "Thấp hơn trung bình"
       : "Trung bình ngành";
 
-  const VerdictIcon = isAbove ? TrendingUp : isBelow ? TrendingDown : TrendingUp;
+  const VerdictIcon = isAbove
+    ? TrendingUp
+    : isBelow
+      ? TrendingDown
+      : TrendingUp;
 
   const avgText = `${Math.round(benchmark.avgHourly / 1000)}k/giờ`;
   const diffText =
@@ -72,7 +79,10 @@ export function SalaryBenchmarkCard({
         </div>
 
         <p className="text-xs text-muted-foreground">
-          Tin này trả <span className="font-semibold text-foreground">{displaySalary ?? avgText}</span>
+          Tin này trả{" "}
+          <span className="font-semibold text-foreground">
+            {displaySalary ?? avgText}
+          </span>
           {", "}
           trung bình ngành là{" "}
           <span className="font-semibold text-foreground">{avgText}</span>{" "}

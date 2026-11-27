@@ -48,6 +48,17 @@ public class JobPost {
     @Column(name = "title", nullable = false, length = 200)
     private String title;
 
+    /**
+     * Ảnh preview của tin tuyển dụng — URL công khai tương đối
+     * ({@code /api/v1/files/{slug}}).
+     *
+     * <p>Tuỳ chọn: khi {@code null} thẻ tin dùng logo của tổ chức, thiếu logo
+     * thì dùng khối chữ cái. Cột lưu URL chứ không phải id — cùng cách lưu
+     * {@code employer_profiles.logo_url}.
+     */
+    @Column(name = "preview_image_url", length = 500)
+    private String previewImageUrl;
+
     @Column(name = "description", nullable = false, columnDefinition = "TEXT")
     private String description;
 

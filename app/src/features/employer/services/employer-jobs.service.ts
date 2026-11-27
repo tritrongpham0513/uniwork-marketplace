@@ -3,6 +3,13 @@ import http from "@/lib/axios";
 
 export interface CreateJobPayload {
   title: string;
+  /**
+   * Ảnh preview của tin tuyển dụng.
+   *
+   * <p>`null` = không gửi trường này (giữ ảnh cũ khi sửa tin), chuỗi rỗng =
+   * xoá ảnh. Backend kiểm tra ảnh phải thuộc về chính nhà tuyển dụng đang đăng.
+   */
+  previewImageUrl: string | null;
   description: string;
   requirements: string[];
   benefits: string[];
@@ -53,7 +60,6 @@ export const employerJobService = {
       payload as unknown as Partial<Job>
     );
   },
-
   /**
    * DELETE /api/v1/employer/jobs/{id} — huỷ tin tuyển dụng.
    */

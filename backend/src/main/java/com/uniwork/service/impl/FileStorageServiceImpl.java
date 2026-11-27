@@ -74,7 +74,7 @@ public class FileStorageServiceImpl implements FileStorageService {
 
     /** storageKey do backend sinh: {@code {kind}/{userId}/{32 hex}.{ext}}. */
     private static final Pattern STORAGE_KEY_PATTERN =
-            Pattern.compile("^[a-z]+/[0-9]+/[a-f0-9]{32}\\.[a-z0-9]{2,5}$");
+            Pattern.compile("^[a-z_]+/[0-9]+/[a-f0-9]{32}\\.[a-z0-9]{2,5}$");
 
     private final FileUploadRepository fileUploadRepository;
     private final ApplicationRepository applicationRepository;
@@ -234,10 +234,10 @@ public class FileStorageServiceImpl implements FileStorageService {
             long finalSize = rawSize;
             String finalMime = detected;
 
-            // Ảnh (avatar / logo): đọc về, resize + nén lại rồi ghi đè.
+            // Ảnh (avatar / logo / ảnh preview): đọc về, resize + nén lại rồi ghi đè.
             if (kind.isPublic()) {
                 byte[] original = storageProvider.read(bucket, storageKey);
-                byte[] resized = resizeImage(original);
+                byte[] resized = resizeImage(original, kind);
                 if (resized != null && resized.length < original.length) {
                     finalMime = detectImageMime(resized);
 
@@ -478,7 +478,7 @@ public class FileStorageServiceImpl implements FileStorageService {
             return Kind.valueOf(kind.trim().toUpperCase(Locale.ROOT));
         } catch (IllegalArgumentException | NullPointerException e) {
             throw ApiErrors.badRequest(
-                    "Loại file không hợp lệ. Chỉ hỗ trợ: CV, AVATAR, LOGO.",
+                    "Loại file không hợp lệ. Chỉ hỗ trợ: CV, AVATAR, LOGO, JOB_IMAGE.",
                     ApiErrors.errors("kind", "Loại file không hợp lệ."));
         }
     }
@@ -536,7 +536,11 @@ public class FileStorageServiceImpl implements FileStorageService {
      */
     private void enforceQuota(Long ownerUserId, long incomingSize) {
         long total = 0;
-        for (String otherKind : List.of(Kind.CV.name(), Kind.AVATAR.name(), Kind.LOGO.name())) {
+        for (String otherKind : List.of(
+                Kind.CV.name(),
+                Kind.AVATAR.name(),
+                Kind.LOGO.name(),
+                Kind.JOB_IMAGE.name())) {
             for (FileUpload file : fileUploadRepository
                     .findByOwnerUserIdAndKindAndStillStored(ownerUserId, otherKind)) {
                 total += file.getSizeBytes() == null ? 0 : file.getSizeBytes();
@@ -580,10 +584,11 @@ public class FileStorageServiceImpl implements FileStorageService {
      * Resize ảnh nếu là loại file ảnh (avatar / logo).
      *
      * @param content nội dung ảnh gốc
+     * @param kind    loại file — quyết định cạnh dài tối đa sau khi resize
      * @return nội dung đã resize, hoặc {@code null} nếu không resize được
      */
-    private byte[] resizeImage(byte[] content) {
-        ImageResizer.Result result = ImageResizer.resize(content);
+    private byte[] resizeImage(byte[] content, Kind kind) {
+        ImageResizer.Result result = ImageResizer.resize(content, kind.maxDimension());
         return result == null ? null : result.content();
     }
 
@@ -599,7 +604,7 @@ public class FileStorageServiceImpl implements FileStorageService {
         if (!kind.isPublic() || !mimeType.startsWith("image/")) {
             return content;
         }
-        byte[] resized = resizeImage(content);
+        byte[] resized = resizeImage(content, kind);
         return resized == null ? content : resized;
     }
 

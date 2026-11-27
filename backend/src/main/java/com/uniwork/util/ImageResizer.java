@@ -25,8 +25,17 @@ import java.io.IOException;
 @Slf4j
 public final class ImageResizer {
 
-    /** Cạnh dài tối đa của ảnh sau khi resize (px). */
-    public static final int MAX_DIMENSION = 512;
+    /** Cạnh dài tối đa của avatar / logo sau khi resize (px). */
+    public static final int MAX_DIMENSION_AVATAR_LOGO = 512;
+
+    /**
+     * Cạnh dài tối đa của ảnh preview tin tuyển dụng sau khi resize (px).
+     *
+     * <p>Lớn hơn avatar/logo vì ảnh preview hiển thị vuông ~120px trên thẻ tin
+     * nhưng còn mở phóng to ở trang chi tiết — 1200px cho phép sắc nét trên màn
+     * hình retina mà vẫn giữ dung lượng ở mức vài trăm KB.
+     */
+    public static final int MAX_DIMENSION_JOB_IMAGE = 1200;
 
     /** Chất lượng WebP (0.0 – 1.0). */
     private static final float WEBP_QUALITY = 0.82f;
@@ -47,15 +56,33 @@ public final class ImageResizer {
     }
 
     /**
-     * Resize ảnh về cạnh dài tối đa {@link #MAX_DIMENSION}px và nén lại.
+     * Resize ảnh về cạnh dài tối đa {@link #MAX_DIMENSION_AVATAR_LOGO}px và nén lại.
      *
-     * <p>Luôn trả về ảnh ở dạng PNG (hỗ trợ alpha) hoặc JPEG — không phụ thuộc
-     * writer WebP của JDK.
+     * <p>Giữ lại overload này cho avatar / logo — chúng không cần tham số.
      *
      * @param content nội dung ảnh gốc
      * @return ảnh đã resize, hoặc {@code null} nếu ảnh không đọc được
      */
     public static Result resize(byte[] content) {
+        return resize(content, MAX_DIMENSION_AVATAR_LOGO);
+    }
+
+    /**
+     * Resize ảnh về cạnh dài tối đa {@code maxDimension}px và nén lại.
+     *
+     * <p><b>Không crop</b> — giữ nguyên tỉ lệ gốc, chỉ giới hạn cạnh dài. Nhà
+     * tuyển dụng chụp ảnh mặt tiền quán theo chiều dọc cũng không bị mất nội dung
+     * khi lưu; phần bị che là do khung vuông ở phía client, và nhà tuyển dụng
+     * đã được xem trước đúng khung đó trong form đăng tin.
+     *
+     * <p>Luôn trả về ảnh ở dạng PNG (hỗ trợ alpha) hoặc JPEG — không phụ thuộc
+     * writer WebP của JDK.
+     *
+     * @param content      nội dung ảnh gốc
+     * @param maxDimension cạnh dài tối đa sau khi resize (px)
+     * @return ảnh đã resize, hoặc {@code null} nếu ảnh không đọc được
+     */
+    public static Result resize(byte[] content, int maxDimension) {
         BufferedImage source;
         try {
             source = ImageIO.read(new ByteArrayInputStream(content));
@@ -73,7 +100,7 @@ public final class ImageResizer {
         int width = source.getWidth();
         int height = source.getHeight();
 
-        double scale = Math.min(1.0, (double) MAX_DIMENSION / Math.max(width, height));
+        double scale = Math.min(1.0, (double) maxDimension / Math.max(width, height));
         int targetWidth = Math.max(1, (int) Math.round(width * scale));
         int targetHeight = Math.max(1, (int) Math.round(height * scale));
 

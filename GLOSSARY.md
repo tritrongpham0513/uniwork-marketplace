@@ -116,6 +116,14 @@ _Avoid_: salary benchmark, xếp hạng, đối chiếu lương, xếp hạng l�
 Vòng đời của tin tuyển dụng: `DRAFT` → `PENDING_REVIEW` → `OPEN` → `FILLED` → `IN_PROGRESS` → `COMPLETED`, kèm `REJECTED`, `CLOSED`, `CANCELLED`.
 _Avoid_: job status, trạng thái tin
 
+**Ảnh preview**:
+Ảnh minh hoạ tuỳ chọn của một tin tuyển dụng (`previewImageUrl`) — mỗi tin có nhiều nhất một ảnh. Tin có ảnh preview hiển thị ảnh vuông thay cho logo tổ chức trên thẻ tin.
+_Avoid_: ảnh tin tuyển dụng, ảnh bìa tin, thumbnail tin, job image, banner tin
+
+**Khối ảnh vuông của tin**:
+Vị trí hình cố định trên thẻ tin tuyển dụng — hiển thị ảnh preview, nếu không có thì logo tổ chức, nếu không có nữa thì khối chữ cái tên nhà tuyển dụng.
+_Avoid_: thumbnail, avatar tin, ảnh đại diện tin
+
 ### Đơn ứng tuyển
 
 **Đơn ứng tuyển**:
@@ -211,7 +219,7 @@ Chuỗi định danh URL thân thiện, duy nhất, sinh từ tên hiển thị 
 _Avoid_: id, đường dẫn đẹp
 
 **Tệp lưu trữ**:
-Mọi tệp người dùng tải lên (CV, avatar, logo) nằm trên Cloudflare R2, không nằm trong container.
+Mọi tệp người dùng tải lên (CV, avatar, logo, ảnh preview tin tuyển dụng) nằm trên Cloudflare R2, không nằm trong container.
 _Avoid_: file upload, upload, file
 
 **Xác thực hai lớp**:

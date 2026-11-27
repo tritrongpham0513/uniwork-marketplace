@@ -4,6 +4,7 @@ import com.uniwork.dto.request.ConfirmUploadRequest;
 import com.uniwork.dto.response.FileUploadResponse;
 import com.uniwork.dto.response.PresignUploadResponse;
 import com.uniwork.entity.User;
+import com.uniwork.util.ImageResizer;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.io.IOException;
@@ -55,7 +56,16 @@ public interface FileStorageService {
         AVATAR(List.of("image/png", "image/jpeg", "image/webp"), 2L * 1024 * 1024),
 
         /** Logo tổ chức — công khai. */
-        LOGO(List.of("image/png", "image/jpeg", "image/webp"), 2L * 1024 * 1024);
+        LOGO(List.of("image/png", "image/jpeg", "image/webp"), 2L * 1024 * 1024),
+
+        /**
+         * Ảnh preview tin tuyển dụng — công khai.
+         *
+         * <p>Tách riêng khỏi LOGO/AVATAR vì giới hạn dung lượng, kích thước
+         * resize và quota đều khác: ảnh preview hiển thị vuông trên thẻ tin và
+         * trang chi tiết nên cần cạnh dài lớn hơn nhiều so với avatar.
+         */
+        JOB_IMAGE(List.of("image/png", "image/jpeg", "image/webp"), 5L * 1024 * 1024);
 
         private final List<String> allowedMimeTypes;
         private final long maxSizeBytes;
@@ -73,9 +83,23 @@ public interface FileStorageService {
             return maxSizeBytes;
         }
 
-        /** Ảnh công khai (avatar / logo) hay tài nguyên riêng tư (CV)? */
+        /**
+         * Ảnh công khai (avatar / logo / ảnh preview) hay tài nguyên riêng tư (CV)?
+         */
         public boolean isPublic() {
             return this != CV;
+        }
+
+        /**
+         * Cạnh dài tối đa sau khi resize ảnh (px).
+         *
+         * <p>Ảnh preview tin tuyển dụng cạnh dài lớn hơn vì hiển thị vuông
+         * ~120px trên thẻ tin nhưng còn mở phóng to ở trang chi tiết.
+         */
+        public int maxDimension() {
+            return this == JOB_IMAGE
+                    ? ImageResizer.MAX_DIMENSION_JOB_IMAGE
+                    : ImageResizer.MAX_DIMENSION_AVATAR_LOGO;
         }
 
         /** Tên hiển thị lỗi thân thiện cho người dùng. */
@@ -84,6 +108,7 @@ public interface FileStorageService {
                 case CV -> "CV";
                 case AVATAR -> "ảnh đại diện";
                 case LOGO -> "logo";
+                case JOB_IMAGE -> "ảnh preview";
             };
         }
 

@@ -24,6 +24,7 @@ import com.uniwork.entity.User;
 import com.uniwork.entity.Ward;
 import com.uniwork.repository.DistrictRepository;
 import com.uniwork.repository.EmployerProfileRepository;
+import com.uniwork.repository.FileUploadRepository;
 import com.uniwork.repository.JobCategoryRepository;
 import com.uniwork.repository.JobPostRepository;
 import com.uniwork.repository.JobPostScheduleRepository;
@@ -36,10 +37,12 @@ import com.uniwork.repository.WardRepository;
 import com.uniwork.repository.specification.JobPostSpecification;
 import com.uniwork.service.JobNotifyService;
 import com.uniwork.service.JobService;
+import com.uniwork.service.FileStorageService;
 import com.uniwork.service.NotificationService;
 import com.uniwork.service.ai.JobAiReviewScheduler;
 import com.uniwork.util.ApiErrors;
 import com.uniwork.util.DateTimeUtils;
+import com.uniwork.util.FileUrlValidator;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -86,6 +89,7 @@ public class JobServiceImpl implements JobService {
     private final SkillRepository skillRepository;
     private final EmployerProfileRepository employerProfileRepository;
     private final UserRepository userRepository;
+    private final FileUploadRepository fileUploadRepository;
     private final NotificationService notificationService;
     private final JobNotifyService jobNotifyService;
 
@@ -210,12 +214,17 @@ public class JobServiceImpl implements JobService {
         EmployerProfile employer = employerProfileRepository.findById(employerUserId)
                 .orElseThrow(() -> ApiErrors.notFound("Không tìm thấy hồ sơ nhà tuyển dụng."));
 
+        // Kiểm tra ảnh trước khi dựng entity: ảnh sai sở hữu là lỗi của
+        // request, báo ra sớm thì nhà tuyển dụng biết ngay nguyên nhân.
+        String previewImageUrl = resolvePreviewImageUrl(request.getPreviewImageUrl(), employerUserId);
+
         JobPost job = JobPost.builder()
                 .slug(generateSlug("job"))
                 .employer(employer)
                 .category(resolveCategory(request))
                 .position(resolvePosition(request))
                 .title(request.getTitle().trim())
+                .previewImageUrl(previewImageUrl)
                 .description(request.getDescription() != null ? request.getDescription() : "")
                 .requirements(request.getRequirements() != null ? request.getRequirements() : new ArrayList<>())
                 .benefits(request.getBenefits() != null ? request.getBenefits() : new ArrayList<>())
@@ -269,7 +278,24 @@ public class JobServiceImpl implements JobService {
                     ApiErrors.errors("title", "Vui lòng nhập tiêu đề tin tuyển dụng"));
         }
 
+        // Tính trước khi sửa: so sánh nội dung chữ cũ với nội dung mới.
+        // AI chỉ đọc chữ (`JobContentAssembler`) nên khi chỉ đổi ảnh preview thì
+        // gọi lại AI là đốt hạn mức vô ích.
+        boolean textChanged = hasTextContentChanged(job, request);
+
         job.setTitle(request.getTitle().trim());
+
+        // Ảnh preview: chỉ set khi client thực sự gửi lên (không gửi = giữ
+        // ảnh cũ). Gửi rỗng = xoá ảnh.
+        String previousImageUrl = job.getPreviewImageUrl();
+        boolean imageFieldProvided = request.getPreviewImageUrl() != null;
+        String resolvedImageUrl = imageFieldProvided
+                ? resolvePreviewImageUrl(request.getPreviewImageUrl(), employerUserId)
+                : previousImageUrl;
+        if (imageFieldProvided) {
+            job.setPreviewImageUrl(resolvedImageUrl);
+        }
+
         if (request.getDescription() != null) {
             job.setDescription(request.getDescription());
         }
@@ -334,9 +360,13 @@ public class JobServiceImpl implements JobService {
         if (backToReview) {
             notifyAdminsAboutPendingJob(job, job.getEmployer());
 
-            // Nội dung vừa sửa cần được kiểm duyệt lại — chạy nền.
+            // Nội dung chữ vừa sửa cần được kiểm duyệt lại — chạy nền.
             // Tin vốn đang ở PENDING_REVIEW thì không gọi lại AI (giữ hạn mức).
-            scheduleAiReview(job.getSlug());
+            // Chỉ đổi ảnh preview thì không gọi AI: AI không đọc ảnh, gọi lại chỉ
+            // đốt hạn mức mà không đổi kết quả.
+            if (textChanged) {
+                scheduleAiReview(job.getSlug());
+            }
         }
 
         return toResponse(job);
@@ -521,6 +551,150 @@ public class JobServiceImpl implements JobService {
             throw ApiErrors.badRequest("Mức lương không hợp lệ.",
                     ApiErrors.errors("salaryMin", "Mức lương không được nhỏ hơn 0"));
         }
+    }
+
+    /**
+     * Kiểm tra & chuẩn hoá URL ảnh preview của tin tuyển dụng.
+     *
+     * <p>Ảnh phải là file do chính nhà tuyển dụng đang đăng tin tải lên, có
+     * loại {@code JOB_IMAGE} và chưa bị xoá. Nhờ vậy không ai dán được URL ảnh
+     * của nhà tuyển dụng khác (hay ảnh ngoài hệ thống) vào tin của mình.
+     *
+     * @param url          URL ảnh do client gửi lên (có thể null / rỗng)
+     * @param ownerUserId  id nhà tuyển dụng sở hữu tin
+     * @return URL ảnh hợp lệ (chuẩn hoá về dạng tương đối), hoặc {@code null}
+     * @throws com.uniwork.exception.AppException 400 nếu ảnh không hợp lệ
+     */
+    private String resolvePreviewImageUrl(String url, Long ownerUserId) {
+        if (url == null || url.isBlank()) {
+            return null;
+        }
+
+        String slug = FileUrlValidator.slugOf(url);
+        if (slug == null) {
+            throw ApiErrors.badRequest("Ảnh preview không hợp lệ.",
+                    ApiErrors.errors("previewImageUrl", "Ảnh preview không hợp lệ."));
+        }
+
+        var file = fileUploadRepository.findBySlugAndDeletedAtIsNull(slug)
+                .filter(f -> FileStorageService.Kind.JOB_IMAGE.name().equals(f.getKind()))
+                .filter(f -> ownerUserId.equals(f.getOwnerUserId()))
+                .orElseThrow(() -> ApiErrors.badRequest("Ảnh preview không hợp lệ.",
+                        ApiErrors.errors("previewImageUrl", "Ảnh preview không hợp lệ.")));
+
+        return FileUrlValidator.FILES_PATH + file.getSlug();
+    }
+
+    /**
+     * Nội dung chữ của tin có thay đổi không (bỏ qua ảnh preview)?
+     *
+     * <p>Dùng để quyết định có gọi lại AI kiểm duyệt không. AI chỉ đọc chữ
+     * (`JobContentAssembler`) nên khi nhà tuyển dụng chỉ đổi ảnh thì gọi lại là
+     * đốt hạn mức vô ích.
+     */
+    private boolean hasTextContentChanged(JobPost job, JobUpsertRequest request) {
+        if (request.getTitle() != null
+                && !request.getTitle().trim().equals(job.getTitle())) {
+            return true;
+        }
+        if (request.getDescription() != null
+                && !request.getDescription().equals(job.getDescription())) {
+            return true;
+        }
+        if (request.getRequirements() != null
+                && !request.getRequirements().equals(
+                        job.getRequirements() != null ? job.getRequirements() : List.of())) {
+            return true;
+        }
+        if (request.getBenefits() != null
+                && !request.getBenefits().equals(
+                        job.getBenefits() != null ? job.getBenefits() : List.of())) {
+            return true;
+        }
+        if (request.getCategory() != null) {
+            String currentCode = job.getCategory() != null ? job.getCategory().getCode() : null;
+            if (!request.getCategory().getId().equals(currentCode)) {
+                return true;
+            }
+        }
+        if (request.getPosition() != null) {
+            String currentCode = job.getPosition() != null ? job.getPosition().getCode() : null;
+            if (!request.getPosition().getId().equals(currentCode)) {
+                return true;
+            }
+        }
+        if (request.getEmploymentType() != null
+                && !request.getEmploymentType().equals(job.getEmploymentType())) {
+            return true;
+        }
+        if (request.getWorkMode() != null
+                && !request.getWorkMode().equals(job.getWorkMode())) {
+            return true;
+        }
+        if (request.getSalaryType() != null
+                && !request.getSalaryType().equals(job.getSalaryType())) {
+            return true;
+        }
+        if (request.getSalaryMin() != null
+                && !BigDecimal.valueOf(request.getSalaryMin()).equals(job.getSalaryMin())) {
+            return true;
+        }
+        if (request.getSalaryMax() != null
+                && !BigDecimal.valueOf(request.getSalaryMax()).equals(job.getSalaryMax())) {
+            return true;
+        }
+        if (request.getPositionsCount() != null
+                && !request.getPositionsCount().equals(
+                        job.getPositionsCount() != null
+                                ? job.getPositionsCount().intValue()
+                                : null)) {
+            return true;
+        }
+        return locationChanged(job, request);
+    }
+
+    /**
+     * Địa điểm của tin có thay đổi không?
+     *
+     * <p>So sánh trên mã tỉnh / xã mà client gửi lên (chuỗi) — cùng nguồn với
+     * {@link #applyLocation} nên không dịch vòng hai lần.
+     */
+    private boolean locationChanged(JobPost job, JobUpsertRequest request) {
+        JobUpsertRequest.LocationRef location = request.getLocation();
+        if (location == null) {
+            return false;
+        }
+
+        String currentAddress = job.getAddressDetail() != null ? job.getAddressDetail() : "";
+        String requestedAddress = location.getAddress() != null ? location.getAddress() : "";
+        if (!currentAddress.equals(requestedAddress)) {
+            return true;
+        }
+
+        String currentBranch = job.getBranchName() != null ? job.getBranchName() : "";
+        String requestedBranch = location.getBranchName() != null ? location.getBranchName() : "";
+        if (!currentBranch.equals(requestedBranch)) {
+            return true;
+        }
+
+        if (location.getProvinceId() != null && !location.getProvinceId().isBlank()) {
+            Province province = provinceRepository.findByCode(location.getProvinceId()).orElse(null);
+            if (province != null && !province.getId().equals(job.getProvinceId())) {
+                return true;
+            }
+        }
+
+        if (location.getWardId() != null && !location.getWardId().isBlank()) {
+            Ward ward = wardRepository.findByCode(location.getWardId()).orElse(null);
+            if (ward != null && !ward.getId().equals(job.getWardId())) {
+                return true;
+            }
+        } else if (job.getWardId() != null) {
+            // Client bỏ chọn xã/phường → giá trị cũ sẽ bị xoá.
+            return true;
+        }
+
+        return false;
     }
 
     private JobCategory resolveCategory(JobUpsertRequest request) {
@@ -722,6 +896,7 @@ public class JobServiceImpl implements JobService {
         return builder
                 .id(job.getSlug())
                 .title(job.getTitle())
+                .previewImageUrl(job.getPreviewImageUrl())
                 .description(job.getDescription())
                 .requirements(job.getRequirements() != null ? job.getRequirements() : List.of())
                 .benefits(job.getBenefits() != null ? job.getBenefits() : List.of())

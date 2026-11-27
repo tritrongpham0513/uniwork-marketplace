@@ -1,5 +1,12 @@
 import { useMemo, useState } from "react";
-import { CheckCircle2, Eye, Search, Sparkles, XCircle } from "lucide-react";
+import {
+  CheckCircle2,
+  Eye,
+  Search,
+  Sparkles,
+  XCircle,
+  ZoomIn,
+} from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
@@ -38,6 +45,7 @@ import {
   useReviewJob,
 } from "@/features/admin/hooks";
 import { AiReviewBadge } from "@/features/admin/components/ai-review-badge";
+import { JobImageLightbox } from "@/components/shared/job-image-lightbox";
 import { AiReviewPanel } from "@/features/admin/components/ai-review-panel";
 import { JobTrustInfo } from "@/features/admin/components/job-trust-info";
 import { sortJobsByAiSeverity } from "@/features/admin/lib/ai-review";
@@ -65,6 +73,9 @@ export default function AdminJobsPage() {
   const [status, setStatus] = useState<JobStatus | "ALL">("PENDING_REVIEW");
   const [keyword, setKeyword] = useState("");
   const [preview, setPreview] = useState<AdminJob | null>(null);
+
+  /** Hộp thoại phóng to ảnh preview trong màn duyệt. */
+  const [lightboxOpen, setLightboxOpen] = useState(false);
   const [rejectTarget, setRejectTarget] = useState<AdminJob | null>(null);
   const [rejectReason, setRejectReason] = useState("");
   /**
@@ -458,6 +469,26 @@ export default function AdminJobsPage() {
 
           {preview && (
             <div className="space-y-4 text-sm">
+              {preview.previewImageUrl && (
+                <button
+                  type="button"
+                  className="group relative block w-full overflow-hidden rounded-lg border border-border"
+                  onClick={() => setLightboxOpen(true)}
+                  aria-label="Xem ảnh preview"
+                >
+                  <img
+                    src={preview.previewImageUrl}
+                    alt={preview.title}
+                    loading="lazy"
+                    className="max-h-64 w-full bg-muted/30 object-contain transition-transform group-hover:scale-[1.02]"
+                  />
+                  <span className="absolute right-2 bottom-2 flex items-center gap-1 rounded-md bg-background/90 px-2 py-1 text-xs text-foreground shadow-sm">
+                    <ZoomIn className="size-3.5" />
+                    Phóng to
+                  </span>
+                </button>
+              )}
+
               <div className="grid grid-cols-2 gap-x-4 gap-y-2 rounded-lg bg-muted/40 p-3 sm:grid-cols-4">
                 <div>
                   <p className="text-[10px] font-medium tracking-wide text-muted-foreground uppercase">
@@ -635,6 +666,15 @@ export default function AdminJobsPage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {preview?.previewImageUrl && (
+        <JobImageLightbox
+          src={preview.previewImageUrl}
+          alt={preview.title}
+          open={lightboxOpen}
+          onOpenChange={setLightboxOpen}
+        />
+      )}
 
       {/* DIALOG TỪ CHỐI */}
       <Dialog

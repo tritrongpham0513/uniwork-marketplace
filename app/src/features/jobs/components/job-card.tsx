@@ -9,6 +9,7 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { SaveJobButton } from "@/components/shared/save-job-button";
+import { JobPreviewImage } from "@/components/shared/job-preview-image";
 import { EmployerAvatar } from "@/components/shared/employer-avatar";
 import {
   CalendarDays,
@@ -22,9 +23,15 @@ import {
 } from "lucide-react";
 import type { Job, SalaryComparison } from "@/features/jobs/types";
 import { EMPLOYMENT_TYPE_LABELS } from "@/features/jobs/types";
-import { formatDeadline, formatPostedAgo, formatSalary, locationName } from "@/features/jobs/lib/format";
+import {
+  formatDeadline,
+  formatPostedAgo,
+  formatSalary,
+  locationName,
+} from "@/features/jobs/lib/format";
 import { CategoryIcon } from "@/features/jobs/lib/category-icon";
 import { PATHS } from "@/config/paths";
+import { SHOW_SALARY_RANKING } from "@/config/feature-flags";
 import { cn } from "cn";
 
 interface JobCardProps {
@@ -52,6 +59,7 @@ export function JobCard({
   return (
     <Card className="group transition-colors hover:bg-muted/30">
       <CardHeader className="gap-2">
+        {/* Hàng trên: các tag/badge — full chiều ngang */}
         <div className="flex flex-wrap items-center gap-2">
           {job.isUrgent && <Badge>Tuyển gấp</Badge>}
           {isNewJob(job.postedAt) && (
@@ -73,103 +81,120 @@ export function JobCard({
             </Badge>
           )}
         </div>
-
-        <div className="flex items-start justify-between gap-3">
-          <div className="flex min-w-0 items-start gap-3">
-            <EmployerAvatar
-              name={job.employer.name}
-              variant={job.employer.logoVariant}
-              logoUrl={job.employer.logoUrl}
-              verified={job.employer.verified}
-              size="md"
-            />
-
-            <div className="min-w-0">
-              <CardTitle className="font-heading text-base font-medium">
-                <Link
-                  to={PATHS.JOBS.DETAIL(job.id)}
-                  className="transition-colors hover:text-primary"
-                >
-                  {job.title}
-                </Link>
-              </CardTitle>
-
-              <p className="mt-1 flex items-center gap-1.5 text-sm text-muted-foreground">
-                <Link
-                  to={PATHS.EMPLOYER.PUBLIC_PROFILE(job.employerId)}
-                  className="underline-offset-4 transition-colors hover:text-primary hover:underline"
-                >
-                  {job.employer.name}
-                </Link>
-                {job.employer.verified && (
-                  <CheckCircle2
-                    className="size-3.5 text-primary"
-                    aria-label="Đã xác minh"
-                  />
-                )}
-              </p>
-            </div>
-          </div>
-
-          {showSave && <SaveJobButton jobId={job.id} />}
-        </div>
       </CardHeader>
 
-      <CardContent className="space-y-3">
-        {/* 4 ô thông tin tóm tắt — layout giống Chốt Ca */}
-        <div className="grid grid-cols-2 gap-x-4 gap-y-2 rounded-lg bg-muted p-3 sm:grid-cols-4">
-          <SummaryItem label="Lương" value={formatSalary(job)} highlight />
-          <SummaryItem
-            label="Loại hình"
-            value={EMPLOYMENT_TYPE_LABELS[job.employmentType]}
-          />
-          <SummaryItem label="Cần tuyển" value={`${remaining} người`} />
-          <SummaryItem label="Địa điểm" value={`${locationName(job.location)}`} />
-        </div>
-
-        {/* Xếp hạng lương — Viecoday */}
-        {comparison && (
-          <div className="flex items-center gap-2 text-xs">
-            {comparison.verdict === "BELOW" ? (
-              <TrendingDown className="size-3.5 text-muted-foreground" />
-            ) : (
-              <TrendingUp className="size-3.5 text-primary" />
-            )}
-            <span className="font-medium text-foreground">
-              Top {comparison.percentile}%
-            </span>
-            <span className="text-muted-foreground">
-              {comparison.verdict === "ABOVE"
-                ? "· Cao hơn trung bình"
-                : comparison.verdict === "BELOW"
-                  ? "· Thấp hơn trung bình"
-                  : "· Trung bình ngành"}
-            </span>
-            <span className="ml-auto text-muted-foreground">
-              {comparison.benchmark.sampleSize} tin cùng ngành
-            </span>
+      <CardContent>
+        {/* Hàng giữa: cột trái = ảnh, cột phải = toàn bộ thông tin job */}
+        <div className="flex flex-col gap-4 md:flex-row">
+          <div className="w-full shrink-0 md:w-50">
+            <JobPreviewImage
+              src={job.previewImageUrl}
+              employerName={job.employer.name}
+              logoUrl={job.employer.logoUrl}
+              logoVariant={job.employer.logoVariant}
+              sizeClass="size-none w-full h-60 sm:size-32 md:size-50"
+            />
           </div>
-        )}
 
-        <div className="flex flex-wrap items-center gap-x-4 gap-y-1.5 text-sm text-muted-foreground">
-          <span className="flex items-center gap-1.5">
-            <MapPin className="size-4" />
-            {locationName(job.location)}, {job.location.province}
-          </span>
-          <span className="flex items-center gap-1.5">
-            <Users className="size-4" />
-            {job.applicantCount} ứng viên
-          </span>
-          <span className="flex items-center gap-1.5">
-            <CalendarDays className="size-4" />
-            {formatPostedAgo(job.postedAt)}
-          </span>
-          {job.deadline && (
-            <span className="flex items-center gap-1.5">
-              <Clock className="size-4" />
-              Hạn {formatDeadline(job.deadline)}
-            </span>
-          )}
+          <div className="min-w-0 flex-1 space-y-3">
+            <div className="flex items-start justify-between gap-3">
+              <div className="min-w-0">
+                <CardTitle className="font-heading text-base font-medium">
+                  <Link
+                    to={PATHS.JOBS.DETAIL(job.id)}
+                    className="transition-colors hover:text-primary"
+                  >
+                    {job.title}
+                  </Link>
+                </CardTitle>
+
+                <p className="mt-1 flex items-center gap-1.5 text-sm text-muted-foreground">
+                  {job.previewImageUrl && (
+                    <EmployerAvatar
+                      name={job.employer.name}
+                      variant={job.employer.logoVariant}
+                      logoUrl={job.employer.logoUrl}
+                      size="xs"
+                      className="size-5"
+                    />
+                  )}
+                  <Link
+                    to={PATHS.EMPLOYER.PUBLIC_PROFILE(job.employerId)}
+                    className="underline-offset-4 transition-colors hover:text-primary hover:underline"
+                  >
+                    {job.employer.name}
+                  </Link>
+                  {job.employer.verified && (
+                    <CheckCircle2
+                      className="size-3.5 text-primary"
+                      aria-label="Đã xác minh"
+                    />
+                  )}
+                </p>
+              </div>
+
+              {showSave && <SaveJobButton jobId={job.id} />}
+            </div>
+
+            {/* 4 ô thông tin tóm tắt — layout giống Chốt Ca */}
+            <div className="grid grid-cols-2 gap-x-4 gap-y-2 rounded-lg bg-muted p-3 sm:grid-cols-4">
+              <SummaryItem label="Lương" value={formatSalary(job)} highlight />
+              <SummaryItem
+                label="Loại hình"
+                value={EMPLOYMENT_TYPE_LABELS[job.employmentType]}
+              />
+              <SummaryItem label="Cần tuyển" value={`${remaining} người`} />
+              <SummaryItem
+                label="Địa điểm"
+                value={`${locationName(job.location)}`}
+              />
+            </div>
+
+            {/* Xếp hạng lương — Viecoday */}
+            {SHOW_SALARY_RANKING && comparison && (
+              <div className="flex items-center gap-2 text-xs">
+                {comparison.verdict === "BELOW" ? (
+                  <TrendingDown className="size-3.5 text-muted-foreground" />
+                ) : (
+                  <TrendingUp className="size-3.5 text-primary" />
+                )}
+                <span className="font-medium text-foreground">
+                  Top {comparison.percentile}%
+                </span>
+                <span className="text-muted-foreground">
+                  {comparison.verdict === "ABOVE"
+                    ? "· Cao hơn trung bình"
+                    : comparison.verdict === "BELOW"
+                      ? "· Thấp hơn trung bình"
+                      : "· Trung bình ngành"}
+                </span>
+                <span className="ml-auto text-muted-foreground">
+                  {comparison.benchmark.sampleSize} tin cùng ngành
+                </span>
+              </div>
+            )}
+
+            <div className="flex flex-wrap items-center gap-x-4 gap-y-1.5 text-sm text-muted-foreground">
+              <span className="flex items-center gap-1.5">
+                <MapPin className="size-4" />
+                {locationName(job.location)}, {job.location.province}
+              </span>
+              <span className="flex items-center gap-1.5">
+                <Users className="size-4" />
+                {job.applicantCount} ứng viên
+              </span>
+              <span className="flex items-center gap-1.5">
+                <CalendarDays className="size-4" />
+                {formatPostedAgo(job.postedAt)}
+              </span>
+              {job.deadline && (
+                <span className="flex items-center gap-1.5">
+                  <Clock className="size-4" />
+                  Hạn {formatDeadline(job.deadline)}
+                </span>
+              )}
+            </div>
+          </div>
         </div>
       </CardContent>
 

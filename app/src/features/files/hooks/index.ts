@@ -44,7 +44,9 @@ export const useUploadFile = () => {
           ? "Đã tải lên CV thành công."
           : kind === "LOGO"
             ? "Đã cập nhật logo thành công."
-            : "Đã cập nhật ảnh đại diện thành công."
+            : kind === "JOB_IMAGE"
+              ? "Đã tải lên ảnh preview thành công."
+              : "Đã cập nhật ảnh đại diện thành công."
       );
       void queryClient.invalidateQueries({ queryKey: FILE_KEYS.all });
     },

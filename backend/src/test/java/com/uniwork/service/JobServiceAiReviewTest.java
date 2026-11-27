@@ -9,6 +9,7 @@ import com.uniwork.entity.User;
 import com.uniwork.exception.AppException;
 import com.uniwork.repository.DistrictRepository;
 import com.uniwork.repository.EmployerProfileRepository;
+import com.uniwork.repository.FileUploadRepository;
 import com.uniwork.repository.JobCategoryRepository;
 import com.uniwork.repository.JobPositionRepository;
 import com.uniwork.repository.JobPostRepository;
@@ -102,6 +103,9 @@ class JobServiceAiReviewTest {
 
     @Mock
     private NotificationService notificationService;
+
+    @Mock
+    private FileUploadRepository fileUploadRepository;
 
     @Mock
     private JobNotifyService jobNotifyService;

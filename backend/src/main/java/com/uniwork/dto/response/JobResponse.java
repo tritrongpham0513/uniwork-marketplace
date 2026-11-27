@@ -28,6 +28,14 @@ public class JobResponse {
 
     private String title;
 
+    /**
+     * Ảnh preview của tin tuyển dụng — {@code null} khi tin chưa có ảnh.
+     *
+     * <p>Cùng shape cho cả endpoint công khai và endpoint quản trị viên
+     * ({@code AdminJobResponse} kế thừa lớp này).
+     */
+    private String previewImageUrl;
+
     private String description;
 
     private List<String> requirements;

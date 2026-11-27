@@ -134,6 +134,45 @@ class FileStorageServiceImplTest {
                 "storageKey sai pattern: " + res.getStorageKey());
     }
 
+    @Test
+    @DisplayName("Presign ảnh preview -> storageKey có dạng job_image/{userId}/{32 hex}.png")
+    void presign_JobImage_BuildsExpectedStorageKey() {
+        when(storageProvider.presignPut(anyString(), anyString(), anyString(), any()))
+                .thenReturn("https://r2.example/presigned-put");
+
+        var res = fileStorageService.presign(Kind.JOB_IMAGE, owner, "image/png");
+
+        assertTrue(res.getStorageKey().startsWith("job_image/" + OWNER_USER_ID + "/"),
+                "storageKey phải bắt đầu bằng job_image/{userId}/ — thực tế: " + res.getStorageKey());
+        assertTrue(res.getStorageKey().endsWith(".png"));
+    }
+
+    @Test
+    @DisplayName("Presign ảnh preview -> storageKey khớp pattern (dấu gạch dưới trong kind)")
+    void presign_JobImage_StorageKeyMatchesPattern() {
+        when(storageProvider.presignPut(anyString(), anyString(), anyString(), any()))
+                .thenReturn("https://r2.example/presigned-put");
+
+        var res = fileStorageService.presign(Kind.JOB_IMAGE, owner, "image/webp");
+
+        assertTrue(res.getStorageKey().matches("^[a-z_]+/[0-9]+/[a-f0-9]{32}\\.[a-z0-9]{2,5}$"),
+                "storageKey sai pattern: " + res.getStorageKey());
+    }
+
+    @Test
+    @DisplayName("Presign ảnh preview -> nằm trong bucket public và trả publicUrl")
+    void presign_JobImage_UsesPublicBucket() {
+        when(storageProvider.presignPut(anyString(), anyString(), anyString(), any()))
+                .thenReturn("https://r2.example/presigned-put");
+        when(storageProvider.publicUrl(eq(PUBLIC_BUCKET), anyString()))
+                .thenReturn("https://cdn.example/job_image/42/abc.png");
+
+        var res = fileStorageService.presign(Kind.JOB_IMAGE, owner, "image/png");
+
+        assertEquals(PUBLIC_BUCKET, res.getBucket());
+        assertEquals("https://cdn.example/job_image/42/abc.png", res.getPublicUrl());
+    }
+
     // ================================================================
     // B. PRESIGN — MIME TYPE
     // ================================================================
@@ -228,6 +267,51 @@ class FileStorageServiceImplTest {
                 fileStorageService.presign(Kind.AVATAR, owner, "image/png").getMaxSizeBytes());
     }
 
+    @Test
+    @DisplayName("Presign ảnh preview -> giới hạn 5MB, cạnh dài resize 1200px")
+    void presign_JobImage_UsesLargerLimits() {
+        when(storageProvider.presignPut(anyString(), anyString(), anyString(), any()))
+                .thenReturn("https://r2.example/presigned-put");
+
+        assertEquals(5L * 1024 * 1024,
+                fileStorageService.presign(Kind.JOB_IMAGE, owner, "image/png").getMaxSizeBytes());
+        assertEquals(1200, Kind.JOB_IMAGE.maxDimension());
+        assertEquals(512, Kind.AVATAR.maxDimension());
+    }
+
+    // ================================================================
+    // D. QUOTA — ẢNH PREVIEW CŨNG TÍNH VÀO HẠN MỨC
+    // ================================================================
+
+    @Test
+    @DisplayName("Ảnh preview đã tải lên cũng chiếm quota tổng của user")
+    void presign_JobImage_CountsTowardQuota() {
+        // Quota tính tổng mọi loại file — ảnh preview cũng phải được tính.
+        when(fileUploadRepository.findByOwnerUserIdAndKindAndStillStored(eq(OWNER_USER_ID), anyString()))
+                .thenReturn(List.of(fileUploadOfKind(21L * 1024 * 1024, "JOB_IMAGE")));
+
+        AppException ex = assertThrows(AppException.class,
+                () -> fileStorageService.presign(Kind.JOB_IMAGE, owner, "image/png"));
+
+        assertEquals(HttpStatus.BAD_REQUEST, ex.getStatus());
+        verify(storageProvider, never()).presignPut(anyString(), anyString(), anyString(), any());
+    }
+
+    /** Dựng bản ghi file đã lưu để giả lập dung lượng đã dùng. */
+    private com.uniwork.entity.FileUpload fileUploadOf(long sizeBytes) {
+        return fileUploadOfKind(sizeBytes, "CV");
+    }
+
+    /** Dựng bản ghi file đã lưu với loại file cho trước. */
+    private com.uniwork.entity.FileUpload fileUploadOfKind(long sizeBytes, String kind) {
+        return com.uniwork.entity.FileUpload.builder()
+                .id(1L)
+                .ownerUserId(OWNER_USER_ID)
+                .kind(kind)
+                .sizeBytes(sizeBytes)
+                .build();
+    }
+
     // ================================================================
     // D. QUOTA
     // ================================================================
@@ -255,15 +339,5 @@ class FileStorageServiceImplTest {
                 .thenReturn("https://r2.example/presigned-put");
 
         assertNotNull(fileStorageService.presign(Kind.AVATAR, owner, "image/png"));
-    }
-
-    /** Dựng bản ghi file đã lưu để giả lập dung lượng đã dùng. */
-    private com.uniwork.entity.FileUpload fileUploadOf(long sizeBytes) {
-        return com.uniwork.entity.FileUpload.builder()
-                .id(1L)
-                .ownerUserId(OWNER_USER_ID)
-                .kind("CV")
-                .sizeBytes(sizeBytes)
-                .build();
     }
 }

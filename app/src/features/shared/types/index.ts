@@ -215,6 +215,12 @@ export interface JobLocation {
 export interface Job {
   id: string;
   title: string;
+  /**
+   * Ảnh preview của tin tuyển dụng — `null` khi tin chưa có ảnh.
+   *
+   * <p>Khi có ảnh này thì thẻ tin hiển thị ảnh vuông thay cho logo tổ chức.
+   */
+  previewImageUrl: string | null;
   description: string;
   requirements: string[];
   benefits: string[];

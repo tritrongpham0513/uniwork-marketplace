@@ -1,5 +1,6 @@
 package com.uniwork.dto.request;
 
+import jakarta.validation.constraints.Size;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
@@ -20,6 +21,17 @@ import java.util.List;
 public class JobUpsertRequest {
 
     private String title;
+
+    /**
+     * Ảnh preview của tin tuyển dụng — URL file do hệ thống cấp
+     * ({@code /api/v1/files/{slug}}).
+     *
+     * <p>Tuỳ chọn. Backend kiểm tra file này phải thuộc về chính nhà tuyển dụng
+     * đang đăng tin và có loại {@code JOB_IMAGE} — chặn dán URL ảnh của người
+     * khác vào tin.
+     */
+    @Size(max = 500, message = "Đường dẫn ảnh preview quá dài.")
+    private String previewImageUrl;
 
     private String description;
 

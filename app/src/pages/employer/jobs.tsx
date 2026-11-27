@@ -1,6 +1,14 @@
 import { useMemo, useState } from "react";
 import { Link } from "react-router";
-import { Eye, Pencil, Plus, Search, Trash2, Users } from "lucide-react";
+import {
+  Eye,
+  ImageIcon,
+  Pencil,
+  Plus,
+  Search,
+  Trash2,
+  Users,
+} from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
@@ -31,10 +39,7 @@ import { JobStatusBadge } from "@/components/shared/status-badge";
 import { ConfirmDialog } from "@/components/shared/confirm-dialog";
 import { EmptyState, ErrorState } from "@/components/shared/empty-state";
 import { useDeleteJob, useEmployerJobs } from "@/features/employer/hooks";
-import {
-  JOB_STATUS_LABELS,
-  type JobStatus,
-} from "@/features/shared/types";
+import { JOB_STATUS_LABELS, type JobStatus } from "@/features/shared/types";
 import { formatSalary } from "@/features/jobs/lib/format";
 import { PATHS } from "@/config/paths";
 import { showApiError, toast } from "@/lib/toast";
@@ -84,7 +89,11 @@ export default function EmployerJobsPage() {
       title="Tin tuyển dụng"
       description="Quản lý các tin đã đăng, theo dõi số ứng viên và cập nhật trạng thái."
       actions={
-        <Button size="sm" nativeButton={false} render={<Link to={PATHS.EMPLOYER.JOB_NEW} />}>
+        <Button
+          size="sm"
+          nativeButton={false}
+          render={<Link to={PATHS.EMPLOYER.JOB_NEW} />}
+        >
           <Plus className="size-4" />
           Đăng tin mới
         </Button>
@@ -136,7 +145,10 @@ export default function EmployerJobsPage() {
         {isPending && (
           <div className="space-y-3">
             {Array.from({ length: 4 }).map((_, index) => (
-              <div key={index} className="h-20 animate-pulse rounded-xl bg-muted/60" />
+              <div
+                key={index}
+                className="h-20 animate-pulse rounded-xl bg-muted/60"
+              />
             ))}
           </div>
         )}
@@ -207,6 +219,12 @@ export default function EmployerJobsPage() {
                               {job.category.name}
                               {job.position && ` · ${job.position.name}`}
                             </p>
+                            {!job.previewImageUrl && (
+                              <p className="mt-0.5 flex items-center gap-1 text-xs text-muted-foreground/80">
+                                <ImageIcon className="size-3" />
+                                Chưa có ảnh preview
+                              </p>
+                            )}
                           </Link>
                         </TableCell>
 
@@ -252,7 +270,9 @@ export default function EmployerJobsPage() {
                               size="icon-sm"
                               aria-label="Sửa tin"
                               nativeButton={false}
-                              render={<Link to={PATHS.EMPLOYER.JOB_EDIT(job.id)} />}
+                              render={
+                                <Link to={PATHS.EMPLOYER.JOB_EDIT(job.id)} />
+                              }
                             >
                               <Pencil className="size-4" />
                             </Button>

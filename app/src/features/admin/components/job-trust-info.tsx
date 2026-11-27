@@ -1,5 +1,6 @@
 import { BadgeCheck, ShieldCheck } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
+import { SHOW_SALARY_RANKING } from "@/config/feature-flags";
 import type {
   EmployerProfile,
   SalaryComparison,
@@ -46,7 +47,7 @@ export function JobTrustInfo({
 
   return (
     <div className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-1.5 text-xs text-muted-foreground">
-      {comparison && verdictMeta && (
+      {SHOW_SALARY_RANKING && comparison && verdictMeta && (
         <span className="inline-flex items-center gap-1.5">
           <span className={verdictMeta.className}>{verdictMeta.label}</span>
           <span>
@@ -65,7 +66,9 @@ export function JobTrustInfo({
         </span>
       )}
 
-      {!comparison && <span>Chưa có bảng xếp hạng lương để so sánh</span>}
+      {SHOW_SALARY_RANKING && !comparison && (
+        <span>Chưa có bảng xếp hạng lương để so sánh</span>
+      )}
 
       <span className="inline-flex items-center gap-1.5">
         {verified ? (

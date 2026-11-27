@@ -1,5 +1,6 @@
 import { useMemo, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router";
+import { cn } from "cn";
 import {
   AlertTriangle,
   ArrowLeft,
@@ -9,12 +10,14 @@ import {
   Check,
   Clock,
   Eye,
+  ImageIcon,
   MapPin,
   Plus,
   Save,
   Send,
   Sparkles,
   Trash2,
+  Upload,
   Wallet,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -49,11 +52,13 @@ import {
 import { DashboardLayout } from "@/components/layout/dashboard-layout";
 import { ErrorState } from "@/components/shared/empty-state";
 import { DatePicker } from "@/components/shared/date-picker";
+import { ConfirmDialog } from "@/components/shared/confirm-dialog";
 import {
   useCreateJob,
   useEmployerJob,
   useUpdateJob,
 } from "@/features/employer/hooks";
+import { cleanupReplacedFile, useUploadFile } from "@/features/files/hooks";
 import {
   useJobCategories,
   useJobPositions,
@@ -89,6 +94,8 @@ type StepValue = (typeof STEPS)[number]["value"];
 
 interface FormState {
   title: string;
+  /** URL ảnh preview của tin — null khi chưa chọn ảnh. */
+  previewImageUrl: string | null;
   description: string;
   requirements: string[];
   benefits: string[];
@@ -114,6 +121,7 @@ interface FormState {
 
 const EMPTY_FORM: FormState = {
   title: "",
+  previewImageUrl: null,
   description: "",
   requirements: [],
   benefits: [],
@@ -182,6 +190,13 @@ export default function EmployerJobFormPage() {
   } = useEmployerJob(id ?? "");
   const createJob = useCreateJob();
   const updateJob = useUpdateJob();
+  const uploadFile = useUploadFile();
+
+  /** Ảnh preview đang chờ xác nhận của người dùng trước khi gửi tin. */
+  const [pendingImageConfirm, setPendingImageConfirm] = useState(false);
+
+  /** Ảnh preview của tin đang sửa (để so sánh, phát hiện thay đổi). */
+  const originalImageUrl = existingJob?.previewImageUrl ?? null;
 
   // Nạp dữ liệu khi sửa tin — pattern "adjust state khi dữ liệu đổi"
   const [syncedJob, setSyncedJob] = useState<Job | null>(null);
@@ -190,6 +205,7 @@ export default function EmployerJobFormPage() {
     setSyncedJob(existingJob);
     setForm({
       title: existingJob.title,
+      previewImageUrl: existingJob.previewImageUrl ?? null,
       description: existingJob.description,
       requirements: [...existingJob.requirements],
       benefits: [...existingJob.benefits],
@@ -279,8 +295,22 @@ export default function EmployerJobFormPage() {
       return;
     }
 
+    // Đổi ảnh trên tin đang hiển thị sẽ đưa tin về chờ duyệt và tạm ẩn khỏi
+    // danh sách — cảnh báo trước để nhà tuyển dụng không bất ngờ.
+    const imageChanged = form.previewImageUrl !== originalImageUrl;
+    if (isEdit && imageChanged && existingJob?.status === "OPEN") {
+      setPendingImageConfirm(true);
+      return;
+    }
+
+    await submitJob();
+  };
+
+  /** Gửi tin lên API (tách khỏi `handleSubmit` để hộp thoại xác nhận gọi lại được). */
+  const submitJob = async () => {
     const payload = {
       title: form.title.trim(),
+      previewImageUrl: form.previewImageUrl ?? "",
       description: form.description.trim(),
       requirements: form.requirements,
       benefits: form.benefits,
@@ -319,10 +349,38 @@ export default function EmployerJobFormPage() {
             "Quản trị viên sẽ duyệt tin trước khi hiển thị công khai.",
         });
       }
+
+      // Ảnh cũ không còn được tin trỏ tới → dọn khỏi kho để giải phóng quota.
+      if (
+        isEdit &&
+        originalImageUrl &&
+        originalImageUrl !== form.previewImageUrl
+      ) {
+        void cleanupReplacedFile(originalImageUrl);
+      }
+
       navigate(PATHS.EMPLOYER.JOBS);
     } catch (error) {
       showApiError(error);
     }
+  };
+
+  /** Chọn & tải lên ảnh preview. */
+  const handleImageUpload = async (file: File) => {
+    try {
+      const uploaded = await uploadFile.mutateAsync({
+        file,
+        kind: "JOB_IMAGE",
+      });
+      patch({ previewImageUrl: uploaded.url });
+    } catch {
+      // Lỗi đã được hiển thị qua toast trong useUploadFile.
+    }
+  };
+
+  /** Bỏ ảnh preview khỏi tin (file cũ sẽ được dọn sau khi lưu thành công). */
+  const handleImageRemove = () => {
+    patch({ previewImageUrl: null });
   };
 
   const isPending = loadingJob || createJob.isPending || updateJob.isPending;
@@ -415,6 +473,80 @@ export default function EmployerJobFormPage() {
                       <FieldDescription>
                         {form.title.length}/120 ký tự
                       </FieldDescription>
+                    </Field>
+
+                    {/* ẢNH PREVIEW */}
+                    <Field>
+                      <FieldLabel htmlFor="preview-image">
+                        Ảnh preview
+                      </FieldLabel>
+                      <FieldDescription>
+                        PNG, JPG, WEBP — tối đa 5MB. Ảnh sẽ được hiển thị vuông,
+                        phần thừa hai bên bị che.
+                      </FieldDescription>
+
+                      <div className="flex flex-wrap items-start gap-4">
+                        <div className="size-32 shrink-0 overflow-hidden rounded-lg border border-border bg-muted/40">
+                          {form.previewImageUrl ? (
+                            <img
+                              src={form.previewImageUrl}
+                              alt="Xem trước ảnh preview"
+                              className="size-full object-cover"
+                            />
+                          ) : (
+                            <div className="flex size-full items-center justify-center border-2 border-dashed border-border text-muted-foreground">
+                              <ImageIcon className="size-6" />
+                            </div>
+                          )}
+                        </div>
+
+                        <div className="flex flex-col gap-2">
+                          <input
+                            id="preview-image"
+                            type="file"
+                            accept="image/png,image/jpeg,image/webp"
+                            className="hidden"
+                            disabled={uploadFile.isPending}
+                            onChange={(event) => {
+                              const file = event.target.files?.[0];
+                              event.target.value = "";
+                              if (file) void handleImageUpload(file);
+                            }}
+                          />
+                          <label
+                            htmlFor="preview-image"
+                            className={cn(
+                              "inline-flex h-8 w-fit cursor-pointer items-center gap-1.5 rounded-lg border border-border bg-background px-3 text-sm font-medium transition-colors hover:bg-muted",
+                              uploadFile.isPending &&
+                                "pointer-events-none opacity-60"
+                            )}
+                          >
+                            <Upload className="size-4" />
+                            {uploadFile.isPending
+                              ? "Đang tải lên..."
+                              : form.previewImageUrl
+                                ? "Đổi ảnh"
+                                : "Chọn ảnh"}
+                          </label>
+
+                          {form.previewImageUrl && (
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="sm"
+                              className="w-fit text-destructive"
+                              onClick={handleImageRemove}
+                            >
+                              <Trash2 className="size-4" />
+                              Xoá ảnh
+                            </Button>
+                          )}
+
+                          <p className="text-xs text-muted-foreground">
+                            Tin có ảnh preview thường được xem nhiều hơn.
+                          </p>
+                        </div>
+                      </div>
                     </Field>
 
                     <div className="grid gap-4 sm:grid-cols-2">
@@ -1444,6 +1576,21 @@ export default function EmployerJobFormPage() {
           </div>
         </div>
       </div>
+
+      <ConfirmDialog
+        open={pendingImageConfirm}
+        onOpenChange={(open) => {
+          if (!open) setPendingImageConfirm(false);
+        }}
+        title="Đổi ảnh preview?"
+        description="Đổi ảnh sẽ đưa tin về trạng thái chờ duyệt và tạm ẩn khỏi danh sách cho đến khi quản trị viên duyệt lại."
+        confirmLabel="Đổi ảnh & gửi duyệt"
+        isPending={isPending}
+        onConfirm={async () => {
+          setPendingImageConfirm(false);
+          await submitJob();
+        }}
+      />
     </DashboardLayout>
   );
 }

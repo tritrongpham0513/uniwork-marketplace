@@ -7,8 +7,9 @@ import http from "@/lib/axios";
  * - `CV`: hồ sơ xin việc (PDF/DOC/DOCX, tối đa 5MB)
  * - `AVATAR`: ảnh đại diện (PNG/JPG/WEBP, tối đa 2MB)
  * - `LOGO`: logo tổ chức (PNG/JPG/WEBP, tối đa 2MB)
+ * - `JOB_IMAGE`: ảnh preview tin tuyển dụng (PNG/JPG/WEBP, tối đa 5MB)
  */
-export type FileKind = "CV" | "AVATAR" | "LOGO";
+export type FileKind = "CV" | "AVATAR" | "LOGO" | "JOB_IMAGE";
 
 /**
  * Đường dẫn endpoint tải file nội bộ — khớp `FileUrlValidator.FILES_PATH` bên
@@ -86,6 +87,7 @@ export const FILE_SIZE_LIMITS: Record<FileKind, number> = {
   CV: 5 * 1024 * 1024,
   AVATAR: 2 * 1024 * 1024,
   LOGO: 2 * 1024 * 1024,
+  JOB_IMAGE: 5 * 1024 * 1024,
 };
 
 /** MIME type được phép cho từng loại file. */
@@ -97,6 +99,7 @@ export const FILE_MIME_TYPES: Record<FileKind, string[]> = {
   ],
   AVATAR: ["image/png", "image/jpeg", "image/webp"],
   LOGO: ["image/png", "image/jpeg", "image/webp"],
+  JOB_IMAGE: ["image/png", "image/jpeg", "image/webp"],
 };
 
 /** Nhãn tiếng Việt hiển thị cho người dùng. */
@@ -104,6 +107,7 @@ export const FILE_KIND_LABELS: Record<FileKind, string> = {
   CV: "CV",
   AVATAR: "ảnh đại diện",
   LOGO: "logo",
+  JOB_IMAGE: "ảnh preview",
 };
 
 export const formatFileSize = (bytes: number): string => {

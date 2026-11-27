@@ -50,6 +50,31 @@ Cung cấp bởi `WorkspaceLayout` + `RequireRole(["STUDENT"])`.
 
 ---
 
+## Ảnh preview tin tuyển dụng
+
+Tính năng **dùng chung** — xem `docs/adr/0006-job-preview-image-optional-and-uncropped.md`.
+
+Mỗi tin tuyển dụng có nhiều nhất một ảnh preview (`previewImageUrl`, tuỳ chọn). Thứ tự hiển thị trên thẻ tin: **ảnh preview → logo tổ chức → khối chữ cái**.
+
+| Nơi chứa                                   | Mô tả                                                                        |
+| ------------------------------------------ | ---------------------------------------------------------------------------- |
+| `components/shared/job-preview-image.tsx`  | Khung ảnh vuông dùng chung + logic fallback (`resolveJobImageSource`)        |
+| `components/shared/job-image-lightbox.tsx` | Hộp thoại phóng to ảnh (trang chi tiết + màn duyệt admin)                    |
+| `features/jobs/components/job-card.tsx`    | Thẻ tin — ảnh vuông 96px (mobile) / 120px (sm+), logo thu nhỏ còn 20px       |
+| `pages/employer/job-form.tsx`              | Chọn / xem trước / xoá ảnh + hộp thoại xác nhận khi đổi ảnh trên tin đang mở |
+| `pages/employer/jobs.tsx`                  | Gợi ý "Chưa có ảnh preview" cho tin chưa có ảnh                              |
+| `pages/job-detail/index.tsx`               | Ảnh lớn trong cột phải + hộp thoại phóng to                                  |
+| `pages/admin/jobs.tsx`                     | Ảnh preview trong dialog duyệt tin (không kèm checklist)                     |
+
+**Quy tắc nghiệp vụ**:
+
+- Loại tệp `JOB_IMAGE` (PNG/JPG/WEBP, tối đa 5MB), lưu ở bucket public, tính vào quota 20MB/user.
+- Server resize cạnh dài còn 1200px, **giữ nguyên tỉ lệ — không crop**.
+- Ảnh phải do **chính nhà tuyển dụng đang đăng tin** tải lên (backend kiểm tra sở hữu + loại file + chưa xoá).
+- Sửa tin chỉ đổi ảnh → tin về `PENDING_REVIEW` nhưng **không** gọi lại kiểm duyệt AI (AI chỉ đọc chữ).
+
+---
+
 ## Nhà tuyển dụng (EMPLOYER)
 
 Cung cấp bởi `WorkspaceLayout` + `RequireRole(["EMPLOYER"])`.
@@ -91,18 +116,18 @@ Cung cấp bởi `WorkspaceLayout` + `RequireRole(["ADMIN"])`.
 
 **Tính năng nằm trong trang, không có route riêng**:
 
-| Tính năng                       | Mô tả                                                                                         | Nơi chứa                                                  |
-| ------------------------------- | --------------------------------------------------------------------------------------------- | --------------------------------------------------------- |
-| **Kiểm duyệt nội dung bằng AI** | Góp ý AI cho quản trị viên: badge mức độ trên thẻ tin, panel kết quả, nút "Kiểm tra bằng AI" | `pages/admin/jobs.tsx` (dialog xem nội dung tin)          |
-| Sắp xếp tin theo mức độ AI     | Tin `SUSPECT` → `WARN` → `OK` → chưa kiểm tra, nổi lên đầu danh sách                        | `features/admin/lib/ai-review.ts` (`sortJobsByAiSeverity`) |
+| Tính năng                       | Mô tả                                                                                        | Nơi chứa                                                   |
+| ------------------------------- | -------------------------------------------------------------------------------------------- | ---------------------------------------------------------- |
+| **Kiểm duyệt nội dung bằng AI** | Góp ý AI cho quản trị viên: badge mức độ trên thẻ tin, panel kết quả, nút "Kiểm tra bằng AI" | `pages/admin/jobs.tsx` (dialog xem nội dung tin)           |
+| Sắp xếp tin theo mức độ AI      | Tin `SUSPECT` → `WARN` → `OK` → chưa kiểm tra, nổi lên đầu danh sách                         | `features/admin/lib/ai-review.ts` (`sortJobsByAiSeverity`) |
 
 > AI **chỉ góp ý, không quyết định**: tin bị gắn cờ vẫn vào hàng đợi duyệt, quản trị viên bấm Duyệt / Từ chối như trước. Kết quả AI **chỉ quản trị viên thấy** — nhà tuyển dụng và danh sách tin công khai không có trường AI. Xem `docs/adr/0005-ai-review-layer-for-job-posts.md`.
 
 **Endpoint riêng cho quản trị viên**:
 
-| Endpoint                                 | Mô tả                                                    |
-| ---------------------------------------- | -------------------------------------------------------- |
-| `POST /api/v1/admin/jobs/{id}/ai-review` | Kiểm tra thủ công một tin tuyển dụng bằng AI (1 lượt AI) |
+| Endpoint                                 | Mô tả                                                      |
+| ---------------------------------------- | ---------------------------------------------------------- |
+| `POST /api/v1/admin/jobs/{id}/ai-review` | Kiểm tra thủ công một tin tuyển dụng bằng AI (1 lượt AI)   |
 | `GET /api/v1/admin/ai/status`            | Tính năng AI có đang bật không (thiếu khoá API thì ẩn nút) |
 
 ---
