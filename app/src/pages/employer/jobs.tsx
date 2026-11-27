@@ -1,8 +1,12 @@
 import { useMemo, useState } from "react";
 import { Link } from "react-router";
 import {
+  CheckCircle2,
   Eye,
   ImageIcon,
+  Lock,
+  LockOpen,
+  MoreHorizontal,
   Pencil,
   Plus,
   Search,
@@ -11,6 +15,13 @@ import {
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { Input } from "@/components/ui/input";
 import {
   Card,
@@ -38,7 +49,20 @@ import { DashboardLayout } from "@/components/layout/dashboard-layout";
 import { JobStatusBadge } from "@/components/shared/status-badge";
 import { ConfirmDialog } from "@/components/shared/confirm-dialog";
 import { EmptyState, ErrorState } from "@/components/shared/empty-state";
-import { useDeleteJob, useEmployerJobs } from "@/features/employer/hooks";
+import {
+  useDeleteJob,
+  useEmployerJobs,
+  useUpdateJobStatus,
+  type EmployerJobStatusAction,
+  type Job,
+} from "@/features/employer/hooks";
+import {
+  canCloseJob,
+  canCompleteJob,
+  canReopenJob,
+  getJobStatusConfirmMeta,
+  getJobStatusSuccessMessage,
+} from "@/features/employer/lib/job-status-actions";
 import { JOB_STATUS_LABELS, type JobStatus } from "@/features/shared/types";
 import { formatSalary } from "@/features/jobs/lib/format";
 import { PATHS } from "@/config/paths";
@@ -47,19 +71,26 @@ import { showApiError, toast } from "@/lib/toast";
 const STATUS_FILTERS: Array<{ value: JobStatus | "ALL"; label: string }> = [
   { value: "ALL", label: "Tất cả" },
   { value: "OPEN", label: "Đang tuyển" },
+  { value: "IN_PROGRESS", label: "Đang tuyển thêm" },
   { value: "PENDING_REVIEW", label: "Chờ duyệt" },
   { value: "REJECTED", label: "Bị từ chối" },
-  { value: "FILLED", label: "Đã nhận người" },
+  { value: "FILLED", label: "Đã nhận đủ người" },
   { value: "CLOSED", label: "Đã đóng" },
+  { value: "COMPLETED", label: "Hoàn thành" },
 ];
 
 export default function EmployerJobsPage() {
   const [status, setStatus] = useState<JobStatus | "ALL">("ALL");
   const [keyword, setKeyword] = useState("");
   const [deleteTarget, setDeleteTarget] = useState<string | null>(null);
+  const [statusTarget, setStatusTarget] = useState<{
+    job: Job;
+    action: EmployerJobStatusAction;
+  } | null>(null);
 
   const { data: jobs = [], isPending, isError, refetch } = useEmployerJobs();
   const deleteJob = useDeleteJob();
+  const updateJobStatus = useUpdateJobStatus();
 
   const visible = useMemo(() => {
     const query = keyword.trim().toLowerCase();
@@ -83,6 +114,26 @@ export default function EmployerJobsPage() {
       showApiError(error);
     }
   };
+
+  const handleStatusChange = async () => {
+    if (!statusTarget) return;
+    try {
+      const updated = await updateJobStatus.mutateAsync({
+        id: statusTarget.job.id,
+        status: statusTarget.action,
+      });
+      toast.success(
+        getJobStatusSuccessMessage(statusTarget.action, updated.status)
+      );
+      setStatusTarget(null);
+    } catch (error) {
+      showApiError(error);
+    }
+  };
+
+  const statusConfirmMeta = statusTarget
+    ? getJobStatusConfirmMeta(statusTarget.job, statusTarget.action)
+    : null;
 
   return (
     <DashboardLayout
@@ -255,36 +306,104 @@ export default function EmployerJobsPage() {
                         </TableCell>
 
                         <TableCell className="text-right">
-                          <div className="flex items-center justify-end gap-1">
-                            <Button
-                              variant="ghost"
-                              size="icon-sm"
-                              aria-label="Xem tin"
-                              nativeButton={false}
-                              render={<Link to={PATHS.JOBS.DETAIL(job.id)} />}
-                            >
-                              <Eye className="size-4" />
-                            </Button>
-                            <Button
-                              variant="ghost"
-                              size="icon-sm"
-                              aria-label="Sửa tin"
-                              nativeButton={false}
+                          <DropdownMenu>
+                            <DropdownMenuTrigger
                               render={
-                                <Link to={PATHS.EMPLOYER.JOB_EDIT(job.id)} />
+                                <Button
+                                  variant="ghost"
+                                  size="icon-sm"
+                                  aria-label="Thao tác"
+                                />
                               }
                             >
-                              <Pencil className="size-4" />
-                            </Button>
-                            <Button
-                              variant="ghost"
-                              size="icon-sm"
-                              aria-label="Xoá tin"
-                              onClick={() => setDeleteTarget(job.id)}
+                              <MoreHorizontal className="size-4" />
+                            </DropdownMenuTrigger>
+
+                            <DropdownMenuContent
+                              align="end"
+                              className="w-52 min-w-0"
                             >
-                              <Trash2 className="size-4 text-destructive" />
-                            </Button>
-                          </div>
+                              <DropdownMenuItem
+                                render={<Link to={PATHS.JOBS.DETAIL(job.id)} />}
+                                className="cursor-pointer"
+                              >
+                                <Eye />
+                                Xem tin
+                              </DropdownMenuItem>
+                              <DropdownMenuItem
+                                render={
+                                  <Link to={PATHS.EMPLOYER.JOB_EDIT(job.id)} />
+                                }
+                                className="cursor-pointer"
+                              >
+                                <Pencil />
+                                Sửa tin
+                              </DropdownMenuItem>
+
+                              {(canCloseJob(job.status) ||
+                                job.status === "CLOSED" ||
+                                canCompleteJob(job.status)) && (
+                                <>
+                                  <DropdownMenuSeparator />
+                                  {canCloseJob(job.status) && (
+                                    <DropdownMenuItem
+                                      onClick={() =>
+                                        setStatusTarget({
+                                          job,
+                                          action: "CLOSED",
+                                        })
+                                      }
+                                      className="cursor-pointer"
+                                    >
+                                      <Lock />
+                                      Đóng tin
+                                    </DropdownMenuItem>
+                                  )}
+                                  {job.status === "CLOSED" && (
+                                    <DropdownMenuItem
+                                      disabled={!canReopenJob(job)}
+                                      title={
+                                        canReopenJob(job)
+                                          ? undefined
+                                          : "Tin đã nhận đủ suất tuyển, hãy tăng số lượng tuyển trước khi mở lại"
+                                      }
+                                      onClick={() =>
+                                        setStatusTarget({ job, action: "OPEN" })
+                                      }
+                                      className="cursor-pointer"
+                                    >
+                                      <LockOpen />
+                                      Mở lại tin
+                                    </DropdownMenuItem>
+                                  )}
+                                  {canCompleteJob(job.status) && (
+                                    <DropdownMenuItem
+                                      onClick={() =>
+                                        setStatusTarget({
+                                          job,
+                                          action: "COMPLETED",
+                                        })
+                                      }
+                                      className="cursor-pointer"
+                                    >
+                                      <CheckCircle2 />
+                                      Hoàn thành tin
+                                    </DropdownMenuItem>
+                                  )}
+                                </>
+                              )}
+
+                              <DropdownMenuSeparator />
+                              <DropdownMenuItem
+                                variant="destructive"
+                                onClick={() => setDeleteTarget(job.id)}
+                                className="cursor-pointer"
+                              >
+                                <Trash2 />
+                                Huỷ tin
+                              </DropdownMenuItem>
+                            </DropdownMenuContent>
+                          </DropdownMenu>
                         </TableCell>
                       </TableRow>
                     ))}
@@ -316,6 +435,19 @@ export default function EmployerJobsPage() {
         destructive
         isPending={deleteJob.isPending}
         onConfirm={handleDelete}
+      />
+
+      <ConfirmDialog
+        open={statusTarget !== null}
+        onOpenChange={(open) => {
+          if (!open) setStatusTarget(null);
+        }}
+        title={statusConfirmMeta?.title ?? ""}
+        description={statusConfirmMeta?.description}
+        confirmLabel={statusConfirmMeta?.confirmLabel}
+        destructive={statusConfirmMeta?.destructive}
+        isPending={updateJobStatus.isPending}
+        onConfirm={handleStatusChange}
       />
     </DashboardLayout>
   );

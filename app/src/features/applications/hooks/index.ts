@@ -1,6 +1,10 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import type { Application, ApplicationStatus } from "@/features/shared/types";
-import { APPLICATION_KEYS } from "@/features/shared/query-keys";
+import {
+  APPLICATION_KEYS,
+  EMPLOYER_JOB_KEYS,
+  JOB_KEYS,
+} from "@/features/shared/query-keys";
 import {
   applicationService,
   type CreateApplicationPayload,
@@ -122,6 +126,8 @@ export const useUpdateApplicationStatus = () => {
     onSuccess: (data: Application) => {
       queryClient.setQueryData(APPLICATION_KEYS.employerDetail(data.id), data);
       void queryClient.invalidateQueries({ queryKey: APPLICATION_KEYS.all });
+      void queryClient.invalidateQueries({ queryKey: EMPLOYER_JOB_KEYS.all });
+      void queryClient.invalidateQueries({ queryKey: JOB_KEYS.all });
     },
   });
 };
@@ -138,6 +144,8 @@ export const useUpdateApplicationNote = () => {
     onSuccess: (data: Application) => {
       queryClient.setQueryData(APPLICATION_KEYS.employerDetail(data.id), data);
       void queryClient.invalidateQueries({ queryKey: APPLICATION_KEYS.all });
+      void queryClient.invalidateQueries({ queryKey: EMPLOYER_JOB_KEYS.all });
+      void queryClient.invalidateQueries({ queryKey: JOB_KEYS.all });
     },
   });
 };

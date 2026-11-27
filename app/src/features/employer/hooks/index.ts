@@ -1,9 +1,10 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import type { Job } from "@/features/shared/types";
-import { EMPLOYER_JOB_KEYS } from "@/features/shared/query-keys";
+import { EMPLOYER_JOB_KEYS, JOB_KEYS } from "@/features/shared/query-keys";
 import {
   employerJobService,
   type CreateJobPayload,
+  type EmployerJobStatusAction,
 } from "../services/employer-jobs.service";
 
 export { EMPLOYER_JOB_KEYS };
@@ -65,6 +66,31 @@ export const useUpdateJob = () => {
   });
 };
 
+/** Đóng / mở lại / hoàn thành tin tuyển dụng */
+export const useUpdateJobStatus = () => {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async ({
+      id,
+      status,
+    }: {
+      id: string;
+      status: EmployerJobStatusAction;
+    }) => {
+      const response = await employerJobService.updateStatus(id, status);
+      return response.data;
+    },
+    onSuccess: (updatedJob) => {
+      void queryClient.invalidateQueries({ queryKey: EMPLOYER_JOB_KEYS.all });
+      void queryClient.invalidateQueries({ queryKey: JOB_KEYS.lists() });
+      void queryClient.invalidateQueries({
+        queryKey: JOB_KEYS.detail(updatedJob.id),
+      });
+    },
+  });
+};
+
 /** Huỷ tin tuyển dụng */
 export const useDeleteJob = () => {
   const queryClient = useQueryClient();
@@ -75,8 +101,9 @@ export const useDeleteJob = () => {
     },
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: EMPLOYER_JOB_KEYS.all });
+      void queryClient.invalidateQueries({ queryKey: JOB_KEYS.all });
     },
   });
 };
 
-export type { Job };
+export type { Job, EmployerJobStatusAction };

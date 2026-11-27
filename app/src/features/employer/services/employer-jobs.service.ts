@@ -1,6 +1,15 @@
 import type { ApiResponse, Job, JobStatus } from "@/features/shared/types";
 import http from "@/lib/axios";
 
+export type EmployerJobStatusAction = Extract<
+  JobStatus,
+  "CLOSED" | "OPEN" | "COMPLETED"
+>;
+
+export interface UpdateJobStatusPayload {
+  status: EmployerJobStatusAction;
+}
+
 export interface CreateJobPayload {
   title: string;
   /**
@@ -60,6 +69,19 @@ export const employerJobService = {
       payload as unknown as Partial<Job>
     );
   },
+  /**
+   * PATCH /api/v1/employer/jobs/{id}/status — đóng / mở lại / hoàn thành tin.
+   */
+  updateStatus(
+    id: string,
+    status: EmployerJobStatusAction
+  ): Promise<ApiResponse<Job>> {
+    return http.patch<ApiResponse<Job>, UpdateJobStatusPayload>(
+      `/api/v1/employer/jobs/${id}/status`,
+      { status }
+    );
+  },
+
   /**
    * DELETE /api/v1/employer/jobs/{id} — huỷ tin tuyển dụng.
    */
