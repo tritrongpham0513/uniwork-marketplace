@@ -1,7 +1,22 @@
 import { useMemo, useState } from "react";
 import { Link } from "react-router";
-import { CheckCircle2, FileText, Search, ThumbsDown, ThumbsUp } from "lucide-react";
+import {
+  CheckCircle2,
+  Eye,
+  FileText,
+  MoreHorizontal,
+  Search,
+  ThumbsDown,
+  ThumbsUp,
+} from "lucide-react";
 import { Button } from "@/components/ui/button";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { Input } from "@/components/ui/input";
 import {
   Card,
@@ -102,7 +117,9 @@ export default function EmployerApplicationsPage() {
           ? "Đã duyệt sơ bộ ứng viên."
           : nextStatus === "ACCEPTED"
             ? "Đã nhận ứng viên."
-            : "Đã từ chối ứng viên.",
+            : nextStatus === "COMPLETED"
+              ? "Đã đánh dấu hoàn thành công việc."
+              : "Đã từ chối ứng viên.",
         { description: "Ứng viên đã nhận được thông báo về thay đổi này." }
       );
     } catch (error) {
@@ -285,86 +302,127 @@ export default function EmployerApplicationsPage() {
                           label={APPLICATION_STATUS_LABELS[application.status]}
                         />
 
-                        <div className="flex items-center gap-1">
-                          {application.cvUrl &&
-                            application.cvMimeType === PDF_MIME_TYPE && (
+                        <DropdownMenu>
+                          <DropdownMenuTrigger
+                            render={
                               <Button
                                 variant="ghost"
-                                size="sm"
-                                onClick={() => setCvTarget(application)}
-                              >
-                                <FileText className="size-4" />
-                                Xem CV
-                              </Button>
-                            )}
-
-                          {application.status === "PENDING" && (
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              onClick={() =>
-                                handleStatus(
-                                  application.id,
-                                  "SHORTLISTED",
-                                  "Hồ sơ phù hợp, đã duyệt sơ bộ"
-                                )
-                              }
-                              disabled={updateStatus.isPending}
-                            >
-                              <ThumbsUp className="size-4" />
-                              Duyệt sơ bộ
-                            </Button>
-                          )}
-
-                          {application.status === "SHORTLISTED" && (
-                            <Button
-                              size="sm"
-                              onClick={() =>
-                                handleStatus(
-                                  application.id,
-                                  "ACCEPTED",
-                                  "Đã nhận ứng viên"
-                                )
-                              }
-                              disabled={updateStatus.isPending}
-                            >
-                              <CheckCircle2 className="size-4" />
-                              Nhận
-                            </Button>
-                          )}
-
-                          {(application.status === "PENDING" ||
-                            application.status === "SHORTLISTED") && (
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              className="text-destructive"
-                              onClick={() => {
-                                setRejectTarget(application);
-                                setRejectReason("");
-                              }}
-                              disabled={updateStatus.isPending}
-                            >
-                              <ThumbsDown className="size-4" />
-                              Từ chối
-                            </Button>
-                          )}
-
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            nativeButton={false}
-                            render={
-                              <Link
-                                to={PATHS.EMPLOYER.APPLICATION_DETAIL(
-                                  application.id
-                                )}
+                                size="icon-sm"
+                                aria-label="Thao tác"
                               />
                             }
                           >
-                            Xem hồ sơ
-                          </Button>
-                        </div>
+                            <MoreHorizontal className="size-4" />
+                          </DropdownMenuTrigger>
+
+                          <DropdownMenuContent
+                            align="end"
+                            className="w-52 min-w-0"
+                          >
+                            <DropdownMenuItem
+                              render={
+                                <Link
+                                  to={PATHS.EMPLOYER.APPLICATION_DETAIL(
+                                    application.id
+                                  )}
+                                />
+                              }
+                              className="cursor-pointer"
+                            >
+                              <Eye />
+                              Xem hồ sơ
+                            </DropdownMenuItem>
+
+                            {application.cvUrl &&
+                              application.cvMimeType === PDF_MIME_TYPE && (
+                                <DropdownMenuItem
+                                  onClick={() => setCvTarget(application)}
+                                  className="cursor-pointer"
+                                >
+                                  <FileText />
+                                  Xem CV
+                                </DropdownMenuItem>
+                              )}
+
+                            {(application.status === "PENDING" ||
+                              application.status === "SHORTLISTED" ||
+                              application.status === "ACCEPTED") && (
+                              <>
+                                <DropdownMenuSeparator />
+
+                                {application.status === "PENDING" && (
+                                  <DropdownMenuItem
+                                    disabled={updateStatus.isPending}
+                                    onClick={() =>
+                                      handleStatus(
+                                        application.id,
+                                        "SHORTLISTED",
+                                        "Hồ sơ phù hợp, đã duyệt sơ bộ"
+                                      )
+                                    }
+                                    className="cursor-pointer"
+                                  >
+                                    <ThumbsUp />
+                                    Duyệt sơ bộ
+                                  </DropdownMenuItem>
+                                )}
+
+                                {application.status === "SHORTLISTED" && (
+                                  <DropdownMenuItem
+                                    disabled={updateStatus.isPending}
+                                    onClick={() =>
+                                      handleStatus(
+                                        application.id,
+                                        "ACCEPTED",
+                                        "Đã nhận ứng viên"
+                                      )
+                                    }
+                                    className="cursor-pointer"
+                                  >
+                                    <CheckCircle2 />
+                                    Nhận ứng viên
+                                  </DropdownMenuItem>
+                                )}
+
+                                {application.status === "ACCEPTED" && (
+                                  <DropdownMenuItem
+                                    disabled={updateStatus.isPending}
+                                    onClick={() =>
+                                      handleStatus(
+                                        application.id,
+                                        "COMPLETED",
+                                        "Công việc đã hoàn thành"
+                                      )
+                                    }
+                                    className="cursor-pointer"
+                                  >
+                                    <CheckCircle2 />
+                                    Đánh dấu hoàn thành
+                                  </DropdownMenuItem>
+                                )}
+
+                                {(application.status === "PENDING" ||
+                                  application.status === "SHORTLISTED") && (
+                                  <>
+                                    <DropdownMenuSeparator />
+                                    <DropdownMenuItem
+                                      variant="destructive"
+                                      disabled={updateStatus.isPending}
+                                      onClick={() => {
+                                        setRejectTarget(application);
+                                        setRejectReason("");
+                                      }}
+                                      className="cursor-pointer"
+                                    >
+                                      <ThumbsDown />
+                                      Từ chối
+                                    </DropdownMenuItem>
+                                  </>
+                                )}
+                              </>
+                            )}
+                          </DropdownMenuContent>
+                        </DropdownMenu>
                       </div>
                     </div>
                   </CardContent>
