@@ -44,10 +44,7 @@ import {
 import { useEmployerJobs } from "@/features/employer/hooks";
 import { useEmployerApplications } from "@/features/applications/hooks";
 import { useProvinces } from "@/features/jobs/hooks/useJobs";
-import {
-  cleanupReplacedFile,
-  useUploadFile,
-} from "@/features/files/hooks";
+import { cleanupReplacedFile, useUploadFile } from "@/features/files/hooks";
 import {
   EMPLOYER_TYPE_LABELS,
   type EmployerProfile,
@@ -66,7 +63,9 @@ export default function EmployerOrganizationPage() {
 
   const [form, setForm] = useState<EmployerProfile | null>(null);
   // Đồng bộ form khi hồ sơ tải về — pattern "adjust state khi dữ liệu đổi"
-  const [syncedProfile, setSyncedProfile] = useState<EmployerProfile | null>(null);
+  const [syncedProfile, setSyncedProfile] = useState<EmployerProfile | null>(
+    null
+  );
   // Input file ẩn cho logo
   const logoInputRef = useRef<HTMLInputElement>(null);
 
@@ -198,9 +197,7 @@ export default function EmployerOrganizationPage() {
 
   if (isPending || !form) {
     return (
-      <DashboardLayout
-        title="Thông tin tổ chức"
-      >
+      <DashboardLayout title="Thông tin tổ chức">
         <div className="h-96 animate-pulse rounded-xl bg-muted/60" />
       </DashboardLayout>
     );
@@ -208,9 +205,7 @@ export default function EmployerOrganizationPage() {
 
   if (isError) {
     return (
-      <DashboardLayout
-        title="Thông tin tổ chức"
-      >
+      <DashboardLayout title="Thông tin tổ chức">
         <ErrorState
           title="Không tải được thông tin tổ chức"
           onRetry={() => void refetch()}
@@ -224,7 +219,11 @@ export default function EmployerOrganizationPage() {
       title="Thông tin tổ chức"
       description="Thông tin này được hiển thị công khai trên mọi tin tuyển dụng của bạn."
       actions={
-        <Button size="sm" onClick={handleSave} disabled={updateProfile.isPending}>
+        <Button
+          size="sm"
+          onClick={handleSave}
+          disabled={updateProfile.isPending}
+        >
           <Save className="size-4" />
           {updateProfile.isPending ? "Đang lưu..." : "Lưu thay đổi"}
         </Button>
@@ -280,7 +279,7 @@ export default function EmployerOrganizationPage() {
                     </FieldLabel>
                     <Input
                       id="displayName"
-                      value={form.displayName}
+                      value={form.displayName ?? ""}
                       onChange={(event) =>
                         patch({ displayName: event.target.value })
                       }
@@ -290,9 +289,7 @@ export default function EmployerOrganizationPage() {
 
                   {form.employerType === "COMPANY" && (
                     <Field>
-                      <FieldLabel htmlFor="taxCode">
-                        Mã số thuế
-                      </FieldLabel>
+                      <FieldLabel htmlFor="taxCode">Mã số thuế</FieldLabel>
                       <Input
                         id="taxCode"
                         value={form.taxCode ?? ""}
@@ -315,7 +312,7 @@ export default function EmployerOrganizationPage() {
                       </FieldLabel>
                       <Input
                         id="contactName"
-                        value={form.contactName}
+                        value={form.contactName ?? ""}
                         onChange={(event) =>
                           patch({ contactName: event.target.value })
                         }
@@ -329,7 +326,7 @@ export default function EmployerOrganizationPage() {
                       </FieldLabel>
                       <Input
                         id="contactPhone"
-                        value={form.contactPhone}
+                        value={form.contactPhone ?? ""}
                         onChange={(event) =>
                           patch({ contactPhone: event.target.value })
                         }
@@ -340,7 +337,9 @@ export default function EmployerOrganizationPage() {
 
                   <div className="grid gap-4 sm:grid-cols-2">
                     <Field>
-                      <FieldLabel htmlFor="province">Tỉnh / Thành phố</FieldLabel>
+                      <FieldLabel htmlFor="province">
+                        Tỉnh / Thành phố
+                      </FieldLabel>
                       <Select
                         value={form.provinceId ?? "none"}
                         onValueChange={(value) =>
@@ -360,14 +359,9 @@ export default function EmployerOrganizationPage() {
                           <SelectValue />
                         </SelectTrigger>
                         <SelectContent>
-                          <SelectItem value="none">
-                            Không xác định
-                          </SelectItem>
+                          <SelectItem value="none">Không xác định</SelectItem>
                           {provinces.map((province) => (
-                            <SelectItem
-                              key={province.id}
-                              value={province.id}
-                            >
+                            <SelectItem key={province.id} value={province.id}>
                               {province.name}
                             </SelectItem>
                           ))}
@@ -392,7 +386,7 @@ export default function EmployerOrganizationPage() {
                     <FieldLabel htmlFor="address">Địa chỉ *</FieldLabel>
                     <Input
                       id="address"
-                      value={form.address}
+                      value={form.address ?? ""}
                       onChange={(event) =>
                         patch({ address: event.target.value })
                       }
@@ -408,14 +402,14 @@ export default function EmployerOrganizationPage() {
                       id="description"
                       rows={6}
                       maxLength={1000}
-                      value={form.description}
+                      value={form.description ?? ""}
                       onChange={(event) =>
                         patch({ description: event.target.value })
                       }
                       placeholder="Giới thiệu về công ty, môi trường làm việc, văn hóa làm việc..."
                     />
                     <FieldDescription>
-                      {form.description.length}/1000 ký tự
+                      {(form.description ?? "").length}/1000 ký tự
                     </FieldDescription>
                   </Field>
 

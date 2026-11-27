@@ -69,8 +69,12 @@ app:
     expiration-ms: ${JWT_EXPIRATION_MS:86400000} # 24 giờ
   mail:
     from: ${APP_MAIL_FROM:UniWork Marketplace <no-reply@uniwork.vn>}
+    # Resend HTTP API (cổng 443) — dùng trên PaaS chặn cổng SMTP như Render Free.
+    # Có RESEND_API_KEY thì ưu tiên gửi qua Resend, ngược lại fallback về SMTP.
+    resend-api-key: ${RESEND_API_KEY:}
+    resend-from: ${RESEND_FROM:}
   google:
-    client-id: ${GOOGLE_CLIENT_ID:your-google-client-id.apps.googleusercontent.com}
+    client-id: ${GOOGLE_CLIENT_ID:453610447705-f8tsl8tu5psji76slhhupkj02o5m81uc.apps.googleusercontent.com}
   base-url: ${APP_BASE_URL:http://localhost:8080}
   # Tính năng kiểm duyệt nội dung tin tuyển dụng bằng AI.
   # Thiếu GEMINI_API_KEY -> tính năng ẨN (không phải lỗi).

@@ -94,20 +94,26 @@ services:
       - key: R2_PRESIGN_GET_TTL_MINUTES
         value: "5"
 
-      # --- Email (tuỳ chọn) ---------------------------------------------
-      # Để trống => tính năng "gửi email xác thực" không hoạt động
-      # (tài khoản đăng ký mới sẽ kẹt ở trạng thái PENDING_VERIFY).
+      # --- Email --------------------------------------------------------
+      # Render Free chặn outbound SMTP (25/465/587) -> ưu tiên Resend HTTP API (443).
+      # Tạo API key tại https://resend.com/api-keys và dán vào Render Dashboard (RESEND_API_KEY).
+      # KHÔNG ghi API key trực tiếp vào file này để tránh lộ secret trên Git.
+      - key: RESEND_API_KEY
+        sync: false
+      - key: RESEND_FROM
+        value: VieJob Marketplace <no-reply@noreply.viejoy.io.vn>
+      # Fallback SMTP (chỉ chạy được nếu nâng cấp Render trả phí mở cổng 587)
       - key: MAIL_HOST
         value: smtp.gmail.com
       - key: MAIL_PORT
         value: "587"
       - key: MAIL_USERNAME
-        value: ""
+        sync: false
       - key: MAIL_PASSWORD
-        value: ""
+        sync: false
       - key: APP_MAIL_FROM
-        value: UniWork Marketplace <no-reply@viejob.vn>
+        value: VieJob Marketplace <no-reply@viejob.vn>
 
-      # --- Google OAuth (tuỳ chọn — UI hiện chưa bật nút thật) ----------
+      # --- Google OAuth -------------------------------------------------
       - key: GOOGLE_CLIENT_ID
-        value: ""
+        value: 453610447705-f8tsl8tu5psji76slhhupkj02o5m81uc.apps.googleusercontent.com

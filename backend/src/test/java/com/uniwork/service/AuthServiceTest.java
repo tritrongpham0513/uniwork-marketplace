@@ -368,6 +368,33 @@ class AuthServiceTest {
         assertNotNull(res);
         assertFalse(res.getNeedsRole());
         assertEquals("google-jwt-token", res.getAccessToken());
+        assertNotNull(res.getRefreshToken());
+        verify(refreshTokenRepository).save(any());
+    }
+
+    @Test
+    @DisplayName("Google Login: Tài khoản đã bị xóa (DELETED) -> Ném 403 ACCOUNT_DELETED")
+    void googleLogin_ThrowsForbidden_WhenUserDeleted() {
+        GoogleLoginRequest req = GoogleLoginRequest.builder().idToken("valid-id-token").build();
+
+        GoogleIdToken.Payload payload = new GoogleIdToken.Payload();
+        payload.setEmail("deleted.user@uniwork.vn");
+        payload.setSubject("google-sub-deleted");
+
+        when(googleTokenVerifierService.verifyToken("valid-id-token")).thenReturn(payload);
+
+        User deletedUser = User.builder()
+                .id(11L)
+                .email("deleted.user@uniwork.vn")
+                .status("DELETED")
+                .deletedAt(LocalDateTime.now())
+                .role(studentRole)
+                .build();
+        when(userRepository.findByEmail("deleted.user@uniwork.vn")).thenReturn(Optional.of(deletedUser));
+
+        AppException ex = assertThrows(AppException.class, () -> authService.googleLogin(req));
+        assertEquals(HttpStatus.FORBIDDEN, ex.getStatus());
+        assertEquals("ACCOUNT_DELETED", ex.getCode());
     }
 
     @Test
@@ -416,7 +443,43 @@ class AuthServiceTest {
         assertNotNull(res);
         assertFalse(res.getNeedsRole());
         assertEquals("new-user-jwt", res.getAccessToken());
+        assertNotNull(res.getRefreshToken());
         verify(studentProfileRepository).save(argThat(sp -> sp.getSlug() != null && sp.getSlug().startsWith("stu-")));
+    }
+
+    @Test
+    @DisplayName("Google Login: Email mới chọn role EMPLOYER + employerType COMPANY -> Tạo EmployerProfile đúng loại")
+    void googleLogin_NewEmployer_Success_WithEmployerTypeCompany() {
+        GoogleLoginRequest req = GoogleLoginRequest.builder()
+                .idToken("valid-id-token")
+                .role("EMPLOYER")
+                .employerType("COMPANY")
+                .build();
+
+        GoogleIdToken.Payload payload = new GoogleIdToken.Payload();
+        payload.setEmail("company@uniwork.vn");
+        payload.setSubject("google-sub-company");
+        payload.set("name", "Cong Ty ABC");
+
+        when(googleTokenVerifierService.verifyToken("valid-id-token")).thenReturn(payload);
+        when(userRepository.findByEmail("company@uniwork.vn")).thenReturn(Optional.empty());
+        when(roleRepository.findByCode("EMPLOYER")).thenReturn(Optional.of(employerRole));
+        when(passwordEncoder.encode(anyString())).thenReturn("$2a$10$randomHash");
+
+        User savedUser = User.builder().id(21L).email("company@uniwork.vn").status("ACTIVE").role(employerRole).build();
+        when(userRepository.save(any(User.class))).thenReturn(savedUser);
+        when(jwtService.generateToken(21L, "company@uniwork.vn", "EMPLOYER")).thenReturn("new-employer-jwt");
+
+        GoogleAuthResponse res = authService.googleLogin(req);
+
+        assertNotNull(res);
+        assertFalse(res.getNeedsRole());
+        assertEquals("new-employer-jwt", res.getAccessToken());
+        assertNotNull(res.getRefreshToken());
+        verify(employerProfileRepository).save(argThat(ep ->
+                ep.getSlug() != null
+                        && ep.getSlug().startsWith("emp-")
+                        && "COMPANY".equals(ep.getEmployerType())));
     }
 
     @Test

@@ -69,11 +69,12 @@ import {
   useUpdateStudentProfile,
 } from "@/features/profile/hooks";
 import { useStudentWorkHistory } from "@/features/work-history/hooks";
-import { useJobCategories, useProvinces, useSkills } from "@/features/jobs/hooks/useJobs";
 import {
-  cleanupReplacedFile,
-  useUploadFile,
-} from "@/features/files/hooks";
+  useJobCategories,
+  useProvinces,
+  useSkills,
+} from "@/features/jobs/hooks/useJobs";
+import { cleanupReplacedFile, useUploadFile } from "@/features/files/hooks";
 import { formatDateVi, todayIso } from "@/lib/date";
 import { showApiError, toast } from "@/lib/toast";
 import { PATHS } from "@/config/paths";
@@ -120,7 +121,9 @@ export default function StudentProfilePage() {
   const [cvOpen, setCvOpen] = useState(false);
   const [experience, setExperience] = useState<StudentExperience | null>(null);
   // Đồng bộ form khi hồ sơ tải về — pattern "adjust state khi dữ liệu đổi"
-  const [syncedProfile, setSyncedProfile] = useState<StudentProfile | null>(null);
+  const [syncedProfile, setSyncedProfile] = useState<StudentProfile | null>(
+    null
+  );
   // Input file ẩn cho CV & ảnh đại diện
   const cvInputRef = useRef<HTMLInputElement>(null);
   const avatarInputRef = useRef<HTMLInputElement>(null);
@@ -156,14 +159,15 @@ export default function StudentProfilePage() {
   }
 
   const completion = useMemo(() => {
-    if (!form) return { percent: 0, checks: {} as Record<CompletionKey, boolean> };
+    if (!form)
+      return { percent: 0, checks: {} as Record<CompletionKey, boolean> };
 
     const checks: Record<CompletionKey, boolean> = {
       avatar: Boolean(form.avatarUrl),
       contact: Boolean(form.phone && form.address),
       education: Boolean(form.studentCode && form.university && form.major),
       skills: form.skills.length > 0,
-      bio: Boolean(form.bio.trim()),
+      bio: Boolean(form.bio?.trim()),
       preferences:
         form.jobPreferences.categoryIds.length > 0 &&
         form.jobPreferences.employmentTypes.length > 0,
@@ -322,9 +326,7 @@ export default function StudentProfilePage() {
   const handleFileRemove = async (key: "cvUrl" | "avatarUrl") => {
     const url = form?.[key];
     patch(
-      key === "cvUrl"
-        ? { cvUrl: null, cvFileName: null }
-        : { avatarUrl: null }
+      key === "cvUrl" ? { cvUrl: null, cvFileName: null } : { avatarUrl: null }
     );
     if (key === "avatarUrl") removedAvatarRef.current = true;
     if (!url) return;
@@ -381,7 +383,7 @@ export default function StudentProfilePage() {
 
   const saveExperience = () => {
     if (!experience || !form) return;
-    if (!experience.company.trim() || !experience.position.trim()) {
+    if (!experience.company?.trim() || !experience.position?.trim()) {
       toast.warning("Vui lòng nhập tên công ty và vai trò.");
       return;
     }
@@ -416,9 +418,7 @@ export default function StudentProfilePage() {
 
   if (isError) {
     return (
-      <DashboardLayout
-        title="Hồ sơ tìm việc"
-      >
+      <DashboardLayout title="Hồ sơ tìm việc">
         <ErrorState
           title="Không tải được hồ sơ"
           description="Vui lòng thử lại sau."
@@ -433,7 +433,11 @@ export default function StudentProfilePage() {
       title="Hồ sơ tìm việc"
       description="Quản lý thông tin cá nhân, học vấn và kỹ năng của bạn."
       actions={
-        <Button size="sm" onClick={handleSave} disabled={updateProfile.isPending}>
+        <Button
+          size="sm"
+          onClick={handleSave}
+          disabled={updateProfile.isPending}
+        >
           <Save className="size-4" />
           {updateProfile.isPending ? "Đang lưu..." : "Lưu hồ sơ"}
         </Button>
@@ -490,7 +494,8 @@ export default function StudentProfilePage() {
                 {form.fullName}
               </p>
               <p className="text-sm text-muted-foreground">
-                {form.major} · {form.university}
+                {[form.major, form.university].filter(Boolean).join(" · ") ||
+                  "Chưa cập nhật học vấn"}
               </p>
 
               {/* Điểm đánh giá từ nhà tuyển dụng — dẫn tới trang /student/reviews */}
@@ -525,7 +530,9 @@ export default function StudentProfilePage() {
               {COMPLETION_CHECKS.map((item) => (
                 <Badge
                   key={item.key}
-                  variant={completion.checks[item.key] ? "secondary" : "outline"}
+                  variant={
+                    completion.checks[item.key] ? "secondary" : "outline"
+                  }
                   className={cn(
                     "gap-1 text-[10px]",
                     !completion.checks[item.key] && "text-muted-foreground"
@@ -567,7 +574,7 @@ export default function StudentProfilePage() {
                       <FieldLabel htmlFor="fullName">Họ và tên</FieldLabel>
                       <Input
                         id="fullName"
-                        value={form.fullName}
+                        value={form.fullName ?? ""}
                         onChange={(event) =>
                           patch({ fullName: event.target.value })
                         }
@@ -578,7 +585,7 @@ export default function StudentProfilePage() {
                       <FieldLabel htmlFor="phone">Số điện thoại</FieldLabel>
                       <Input
                         id="phone"
-                        value={form.phone}
+                        value={form.phone ?? ""}
                         onChange={(event) =>
                           patch({ phone: event.target.value })
                         }
@@ -611,22 +618,28 @@ export default function StudentProfilePage() {
                           <SelectValue />
                         </SelectTrigger>
                         <SelectContent>
-                          {Object.entries(GENDER_LABELS).map(([value, label]) => (
-                            <SelectItem key={value} value={value}>
-                              {label}
-                            </SelectItem>
-                          ))}
+                          {Object.entries(GENDER_LABELS).map(
+                            ([value, label]) => (
+                              <SelectItem key={value} value={value}>
+                                {label}
+                              </SelectItem>
+                            )
+                          )}
                         </SelectContent>
                       </Select>
                     </Field>
                   </div>
 
                   <Field>
-                    <FieldLabel htmlFor="provinceId">Tỉnh / Thành phố</FieldLabel>
+                    <FieldLabel htmlFor="provinceId">
+                      Tỉnh / Thành phố
+                    </FieldLabel>
                     <Select
                       value={form.provinceId ?? "__none__"}
                       onValueChange={(value) =>
-                        patch({ provinceId: value === "__none__" ? null : value })
+                        patch({
+                          provinceId: value === "__none__" ? null : value,
+                        })
                       }
                       items={[
                         { value: "__none__", label: "Chưa chọn tỉnh" },
@@ -654,7 +667,7 @@ export default function StudentProfilePage() {
                     <FieldLabel htmlFor="address">Địa chỉ</FieldLabel>
                     <Input
                       id="address"
-                      value={form.address}
+                      value={form.address ?? ""}
                       onChange={(event) =>
                         patch({ address: event.target.value })
                       }
@@ -678,10 +691,12 @@ export default function StudentProfilePage() {
                 <FieldGroup>
                   <div className="grid gap-4 sm:grid-cols-2">
                     <Field>
-                      <FieldLabel htmlFor="studentCode">Mã sinh viên</FieldLabel>
+                      <FieldLabel htmlFor="studentCode">
+                        Mã sinh viên
+                      </FieldLabel>
                       <Input
                         id="studentCode"
-                        value={form.studentCode}
+                        value={form.studentCode ?? ""}
                         onChange={(event) =>
                           patch({ studentCode: event.target.value })
                         }
@@ -711,7 +726,7 @@ export default function StudentProfilePage() {
                     <FieldLabel htmlFor="university">Trường đại học</FieldLabel>
                     <Input
                       id="university"
-                      value={form.university}
+                      value={form.university ?? ""}
                       onChange={(event) =>
                         patch({ university: event.target.value })
                       }
@@ -722,10 +737,8 @@ export default function StudentProfilePage() {
                     <FieldLabel htmlFor="major">Ngành học</FieldLabel>
                     <Input
                       id="major"
-                      value={form.major}
-                      onChange={(event) =>
-                        patch({ major: event.target.value })
-                      }
+                      value={form.major ?? ""}
+                      onChange={(event) => patch({ major: event.target.value })}
                     />
                   </Field>
                 </FieldGroup>
@@ -885,7 +898,8 @@ export default function StudentProfilePage() {
                           patch({
                             jobPreferences: {
                               ...form.jobPreferences,
-                              provinceIds: value && value !== "none" ? [value] : [],
+                              provinceIds:
+                                value && value !== "none" ? [value] : [],
                             },
                           })
                         }
@@ -897,7 +911,10 @@ export default function StudentProfilePage() {
                           })),
                         ]}
                       >
-                        <SelectTrigger id="preferenceProvince" className="w-full">
+                        <SelectTrigger
+                          id="preferenceProvince"
+                          className="w-full"
+                        >
                           <SelectValue />
                         </SelectTrigger>
                         <SelectContent>
@@ -931,12 +948,12 @@ export default function StudentProfilePage() {
                     id="bio"
                     rows={5}
                     maxLength={800}
-                    value={form.bio}
+                    value={form.bio ?? ""}
                     onChange={(event) => patch({ bio: event.target.value })}
                     placeholder="Giới thiệu ngắn gọn về bạn, kỹ năng và động lực làm việc..."
                   />
                   <FieldDescription>
-                    {form.bio.length}/800 ký tự
+                    {(form.bio ?? "").length}/800 ký tự
                   </FieldDescription>
                 </Field>
 
@@ -959,7 +976,11 @@ export default function StudentProfilePage() {
                           fileName={form.cvFileName}
                         />
                         {form.cvMimeType === PDF_MIME_TYPE && (
-                          <Button variant="outline" size="sm" onClick={() => setCvOpen(true)}>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => setCvOpen(true)}
+                          >
                             <FileText className="size-4" />
                             Xem CV
                           </Button>
@@ -1118,7 +1139,9 @@ export default function StudentProfilePage() {
                         </p>
                         <p className="text-xs text-muted-foreground">
                           {item.company} · {formatDateVi(item.startDate)} —{" "}
-                          {item.endDate ? formatDateVi(item.endDate) : "Hiện tại"}
+                          {item.endDate
+                            ? formatDateVi(item.endDate)
+                            : "Hiện tại"}
                         </p>
                         {item.description && (
                           <p className="mt-1.5 text-xs text-muted-foreground">
@@ -1162,7 +1185,10 @@ export default function StudentProfilePage() {
                         id="exp-company"
                         value={experience.company}
                         onChange={(event) =>
-                          setExperience({ ...experience, company: event.target.value })
+                          setExperience({
+                            ...experience,
+                            company: event.target.value,
+                          })
                         }
                       />
                     </Field>

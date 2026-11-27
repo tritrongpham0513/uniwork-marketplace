@@ -295,6 +295,12 @@ public class AuthServiceImpl implements AuthService {
                         HttpStatus.FORBIDDEN, "ACCOUNT_LOCKED");
             }
 
+            // Nếu tài khoản đã bị xóa -> từ chối
+            if ("DELETED".equals(user.getStatus()) || user.getDeletedAt() != null) {
+                throw new AppException("Tài khoản này đã bị xóa hoặc không còn hoạt động.",
+                        HttpStatus.FORBIDDEN, "ACCOUNT_DELETED");
+            }
+
             // Nếu user đang PENDING_VERIFY -> Google đã xác thực email nên kích hoạt luôn
             if ("PENDING_VERIFY".equals(user.getStatus())) {
                 user.setStatus("ACTIVE");
@@ -310,10 +316,12 @@ public class AuthServiceImpl implements AuthService {
             userRepository.save(user);
 
             String token = jwtService.generateToken(user.getId(), user.getEmail(), user.getRole().getCode());
+            String refreshToken = issueRefreshToken(user);
 
             return GoogleAuthResponse.builder()
                     .needsRole(false)
                     .accessToken(token)
+                    .refreshToken(refreshToken)
                     .tokenType("Bearer")
                     .expiresIn(86400L)
                     .user(buildUserSummary(user))
@@ -355,13 +363,18 @@ public class AuthServiceImpl implements AuthService {
 
             // Tạo hồ sơ tương ứng
             String displayName = (name != null && !name.isBlank()) ? name : "Người dùng Google";
-            createProfileForUser(newUser, displayName, "INDIVIDUAL");
+            String employerType = (req.getEmployerType() != null && !req.getEmployerType().isBlank())
+                    ? req.getEmployerType().toUpperCase()
+                    : "INDIVIDUAL";
+            createProfileForUser(newUser, displayName, employerType);
 
             String token = jwtService.generateToken(newUser.getId(), newUser.getEmail(), newUser.getRole().getCode());
+            String refreshToken = issueRefreshToken(newUser);
 
             return GoogleAuthResponse.builder()
                     .needsRole(false)
                     .accessToken(token)
+                    .refreshToken(refreshToken)
                     .tokenType("Bearer")
                     .expiresIn(86400L)
                     .user(buildUserSummary(newUser))

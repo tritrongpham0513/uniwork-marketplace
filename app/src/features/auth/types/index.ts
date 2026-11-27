@@ -64,6 +64,7 @@ export interface LoginRequest {
 export interface GoogleLoginRequest {
   idToken: string;
   role?: RegisterRoleType;
+  employerType?: EmployerType;
 }
 
 // Khớp với com.uniwork.dto.request.VerifyEmailRequest
@@ -99,6 +100,7 @@ export interface GoogleAuthResponse {
   email?: string;
   fullName?: string;
   accessToken?: string;
+  refreshToken?: string;
   tokenType?: string;
   expiresIn?: number;
   user?: UserSummaryResponse;

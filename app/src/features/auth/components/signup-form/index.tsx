@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { Link, useNavigate } from "react-router";
 import { Controller, useForm, useWatch } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -28,7 +28,7 @@ import {
   FieldSeparator,
 } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
-import { PATHS } from "@/config/paths";
+import { PATHS, ROLE_HOME } from "@/config/paths";
 import {
   signupSchema,
   type SignupSchema,
@@ -36,6 +36,7 @@ import {
 import { useRegister, useResendVerification } from "@/features/auth/hooks";
 import { normalizeApiError } from "@/lib/api-error";
 import { toast } from "@/lib/toast";
+import { GoogleAuthSection } from "@/features/auth/components/google-auth-section";
 
 interface SignupFormProps extends React.ComponentProps<"div"> {
   onSubmitSuccess?: (data: SignupSchema) => void;
@@ -54,7 +55,9 @@ function SignupForm({ className, onSubmitSuccess }: SignupFormProps) {
 
   // Countdown 60s cho việc gửi lại email kích hoạt
   const [countdown, setCountdown] = useState(0);
-  const [resendNotification, setResendNotification] = useState<string | null>(null);
+  const [resendNotification, setResendNotification] = useState<string | null>(
+    null
+  );
 
   // TanStack Query Mutations
   const registerMutation = useRegister();
@@ -74,7 +77,8 @@ function SignupForm({ className, onSubmitSuccess }: SignupFormProps) {
   });
 
   const selectedRole = useWatch({ control: form.control, name: "role" });
-  const watchPassword = useWatch({ control: form.control, name: "password" }) || "";
+  const watchPassword =
+    useWatch({ control: form.control, name: "password" }) || "";
   const selectedEmployerType = useWatch({
     control: form.control,
     name: "employerType",
@@ -89,7 +93,8 @@ function SignupForm({ className, onSubmitSuccess }: SignupFormProps) {
     if (/[0-9]/.test(pass)) score++;
     if (/[^a-zA-Z0-9]/.test(pass)) score++;
 
-    if (score <= 2) return { label: "Yếu", color: "bg-destructive", percent: 30 };
+    if (score <= 2)
+      return { label: "Yếu", color: "bg-destructive", percent: 30 };
     if (score <= 4)
       return { label: "Trung bình", color: "bg-muted-foreground", percent: 70 };
     return { label: "Mạnh", color: "bg-primary", percent: 100 };
@@ -162,15 +167,27 @@ function SignupForm({ className, onSubmitSuccess }: SignupFormProps) {
     );
   };
 
+  const handleGoogleAuthSuccess = useCallback(
+    (user: { role: string }) => {
+      navigate(ROLE_HOME[user.role] ?? PATHS.HOME, { replace: true });
+    },
+    [navigate]
+  );
+
   // ==========================================================
   // TRẠNG THÁI 2: MÀN HÌNH CHỜ KÍCH HOẠT EMAIL SAU KHI ĐĂNG KÝ
   // ==========================================================
   if (isSubmittedSuccess) {
     return (
-      <div className={cn("flex flex-col items-center text-center space-y-6 py-2", className)}>
+      <div
+        className={cn(
+          "flex flex-col items-center space-y-6 py-2 text-center",
+          className
+        )}
+      >
         <div className="relative flex size-20 items-center justify-center rounded-3xl bg-emerald-500/10 text-emerald-600 ring-8 ring-emerald-500/5">
           <Mail className="size-10 stroke-[1.75]" />
-          <span className="absolute -bottom-1 -right-1 flex size-6 items-center justify-center rounded-full bg-emerald-600 text-white shadow-sm">
+          <span className="absolute -right-1 -bottom-1 flex size-6 items-center justify-center rounded-full bg-emerald-600 text-white shadow-sm">
             <CheckCircle2 className="size-4" />
           </span>
         </div>
@@ -179,29 +196,33 @@ function SignupForm({ className, onSubmitSuccess }: SignupFormProps) {
           <h2 className="text-2xl font-bold tracking-tight text-foreground">
             Kiểm tra email của bạn
           </h2>
-          <p className="text-sm text-muted-foreground max-w-sm leading-relaxed">
+          <p className="max-w-sm text-sm leading-relaxed text-muted-foreground">
             Chúng tôi đã gửi liên kết kích hoạt tài khoản đến địa chỉ:
           </p>
-          <div className="inline-block rounded-xl bg-muted px-3.5 py-1.5 font-semibold text-primary text-sm break-all">
+          <div className="inline-block rounded-xl bg-muted px-3.5 py-1.5 text-sm font-semibold break-all text-primary">
             {registeredEmail}
           </div>
         </div>
 
-        <div className="rounded-2xl border border-border/70 bg-card p-4 text-left text-xs space-y-2 text-muted-foreground w-full">
-          <p className="font-medium text-foreground flex items-center gap-1.5">
+        <div className="w-full space-y-2 rounded-2xl border border-border/70 bg-card p-4 text-left text-xs text-muted-foreground">
+          <p className="flex items-center gap-1.5 font-medium text-foreground">
             <Send className="size-3.5 text-primary" />
             Các bước tiếp theo:
           </p>
-          <ol className="list-decimal list-inside space-y-1 pl-1">
+          <ol className="list-inside list-decimal space-y-1 pl-1">
             <li>Mở hộp thư đến (Inbox) của email trên.</li>
-            <li>Nhấn vào nút hoặc liên kết <strong>Xác thực tài khoản</strong>.</li>
-            <li>Kiểm tra cả thư mục <em>Spam / Thư rác</em> nếu không thấy.</li>
+            <li>
+              Nhấn vào nút hoặc liên kết <strong>Xác thực tài khoản</strong>.
+            </li>
+            <li>
+              Kiểm tra cả thư mục <em>Spam / Thư rác</em> nếu không thấy.
+            </li>
           </ol>
         </div>
 
         {/* Thông báo gửi lại email thành công hoặc lỗi từ mutation */}
         {resendNotification && (
-          <div className="w-full rounded-xl bg-emerald-500/10 border border-emerald-500/20 p-2.5 text-xs text-emerald-700 dark:text-emerald-300">
+          <div className="w-full rounded-xl border border-emerald-500/20 bg-emerald-500/10 p-2.5 text-xs text-emerald-700 dark:text-emerald-300">
             {resendNotification}
           </div>
         )}
@@ -210,20 +231,20 @@ function SignupForm({ className, onSubmitSuccess }: SignupFormProps) {
           <Button
             type="button"
             variant="outline"
-            className="w-full h-10 rounded-2xl cursor-pointer"
+            className="h-10 w-full cursor-pointer rounded-2xl"
             disabled={countdown > 0 || resendMutation.isPending}
             onClick={handleResendEmail}
           >
             {resendMutation.isPending ? (
               <>
-                <RefreshCw className="size-4 animate-spin mr-2" />
+                <RefreshCw className="mr-2 size-4 animate-spin" />
                 Đang gửi lại...
               </>
             ) : countdown > 0 ? (
               `Gửi lại email sau (${countdown}s)`
             ) : (
               <>
-                <RefreshCw className="size-4 mr-2" />
+                <RefreshCw className="mr-2 size-4" />
                 Gửi lại email kích hoạt
               </>
             )}
@@ -231,16 +252,16 @@ function SignupForm({ className, onSubmitSuccess }: SignupFormProps) {
 
           <Button
             type="button"
-            className="w-full h-10 rounded-2xl cursor-pointer"
+            className="h-10 w-full cursor-pointer rounded-2xl"
             onClick={() => navigate(PATHS.AUTH.LOGIN)}
           >
             Đi đến màn hình Đăng nhập
-            <ArrowRight className="size-4 ml-1.5" />
+            <ArrowRight className="ml-1.5 size-4" />
           </Button>
 
           <button
             type="button"
-            className="text-xs text-muted-foreground hover:text-foreground underline underline-offset-4 pt-1 cursor-pointer"
+            className="cursor-pointer pt-1 text-xs text-muted-foreground underline underline-offset-4 hover:text-foreground"
             onClick={() => {
               setIsSubmittedSuccess(false);
               setResendNotification(null);
@@ -263,7 +284,7 @@ function SignupForm({ className, onSubmitSuccess }: SignupFormProps) {
         <h1 className="text-2xl font-bold tracking-tight text-foreground">
           Tạo tài khoản VieJob
         </h1>
-        <p className="text-xs sm:text-sm text-balance text-muted-foreground">
+        <p className="text-xs text-balance text-muted-foreground sm:text-sm">
           Bắt đầu tìm kiếm cơ hội hoặc kết nối ứng viên tài năng
         </p>
       </div>
@@ -276,7 +297,7 @@ function SignupForm({ className, onSubmitSuccess }: SignupFormProps) {
         <FieldGroup className="gap-4">
           {/* 1. CHỌN VAI TRÒ (ROLE SELECTION) */}
           <div className="space-y-2">
-            <FieldLabel className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+            <FieldLabel className="text-xs font-semibold tracking-wider text-muted-foreground uppercase">
               Bạn tham gia với tư cách
             </FieldLabel>
             <div className="grid grid-cols-2 gap-2">
@@ -286,7 +307,7 @@ function SignupForm({ className, onSubmitSuccess }: SignupFormProps) {
                   form.setValue("role", "STUDENT", { shouldValidate: true });
                 }}
                 className={cn(
-                  "relative flex flex-col items-center justify-center gap-1.5 rounded-2xl border p-3 text-center transition-all cursor-pointer",
+                  "relative flex cursor-pointer flex-col items-center justify-center gap-1.5 rounded-2xl border p-3 text-center transition-all",
                   selectedRole === "STUDENT"
                     ? "border-primary bg-primary/10 text-primary shadow-xs ring-2 ring-primary/20"
                     : "border-border/80 bg-background/50 text-muted-foreground hover:border-border hover:bg-muted/50"
@@ -294,7 +315,7 @@ function SignupForm({ className, onSubmitSuccess }: SignupFormProps) {
               >
                 <GraduationCap className="size-5 shrink-0" />
                 <span className="text-xs font-semibold">Sinh viên</span>
-                <span className="text-[10px] text-muted-foreground leading-tight hidden sm:inline">
+                <span className="hidden text-[10px] leading-tight text-muted-foreground sm:inline">
                   Tìm việc part-time
                 </span>
               </button>
@@ -304,11 +325,13 @@ function SignupForm({ className, onSubmitSuccess }: SignupFormProps) {
                 onClick={() => {
                   form.setValue("role", "EMPLOYER", { shouldValidate: true });
                   if (!form.getValues("employerType")) {
-                    form.setValue("employerType", "COMPANY", { shouldValidate: true });
+                    form.setValue("employerType", "COMPANY", {
+                      shouldValidate: true,
+                    });
                   }
                 }}
                 className={cn(
-                  "relative flex flex-col items-center justify-center gap-1.5 rounded-2xl border p-3 text-center transition-all cursor-pointer",
+                  "relative flex cursor-pointer flex-col items-center justify-center gap-1.5 rounded-2xl border p-3 text-center transition-all",
                   selectedRole === "EMPLOYER"
                     ? "border-primary bg-primary/10 text-primary shadow-xs ring-2 ring-primary/20"
                     : "border-border/80 bg-background/50 text-muted-foreground hover:border-border hover:bg-muted/50"
@@ -316,7 +339,7 @@ function SignupForm({ className, onSubmitSuccess }: SignupFormProps) {
               >
                 <Building2 className="size-5 shrink-0" />
                 <span className="text-xs font-semibold">Nhà tuyển dụng</span>
-                <span className="text-[10px] text-muted-foreground leading-tight hidden sm:inline">
+                <span className="hidden text-[10px] leading-tight text-muted-foreground sm:inline">
                   Đăng tin tuyển dụng
                 </span>
               </button>
@@ -325,8 +348,8 @@ function SignupForm({ className, onSubmitSuccess }: SignupFormProps) {
 
           {/* 1.1 LOẠI NHÀ TUYỂN DỤNG (Chỉ hiện khi role = EMPLOYER) */}
           {selectedRole === "EMPLOYER" && (
-            <div className="space-y-1.5 rounded-2xl border border-primary/20 bg-primary/5 p-3 animate-in fade-in-50 duration-200">
-              <span className="text-[11px] font-medium text-foreground block">
+            <div className="animate-in space-y-1.5 rounded-2xl border border-primary/20 bg-primary/5 p-3 duration-200 fade-in-50">
+              <span className="block text-[11px] font-medium text-foreground">
                 Hình thức tuyển dụng:
               </span>
               <div className="grid grid-cols-2 gap-2">
@@ -334,9 +357,9 @@ function SignupForm({ className, onSubmitSuccess }: SignupFormProps) {
                   type="button"
                   onClick={() => form.setValue("employerType", "COMPANY")}
                   className={cn(
-                    "flex items-center justify-center gap-1.5 rounded-xl border py-1.5 px-2 text-xs font-medium cursor-pointer transition-colors",
+                    "flex cursor-pointer items-center justify-center gap-1.5 rounded-xl border px-2 py-1.5 text-xs font-medium transition-colors",
                     selectedEmployerType === "COMPANY"
-                      ? "border-primary bg-background text-primary shadow-2xs font-semibold"
+                      ? "border-primary bg-background font-semibold text-primary shadow-2xs"
                       : "border-transparent bg-muted/60 text-muted-foreground hover:bg-muted"
                   )}
                 >
@@ -347,9 +370,9 @@ function SignupForm({ className, onSubmitSuccess }: SignupFormProps) {
                   type="button"
                   onClick={() => form.setValue("employerType", "INDIVIDUAL")}
                   className={cn(
-                    "flex items-center justify-center gap-1.5 rounded-xl border py-1.5 px-2 text-xs font-medium cursor-pointer transition-colors",
+                    "flex cursor-pointer items-center justify-center gap-1.5 rounded-xl border px-2 py-1.5 text-xs font-medium transition-colors",
                     selectedEmployerType === "INDIVIDUAL"
-                      ? "border-primary bg-background text-primary shadow-2xs font-semibold"
+                      ? "border-primary bg-background font-semibold text-primary shadow-2xs"
                       : "border-transparent bg-muted/60 text-muted-foreground hover:bg-muted"
                   )}
                 >
@@ -366,7 +389,10 @@ function SignupForm({ className, onSubmitSuccess }: SignupFormProps) {
             control={form.control}
             render={({ field, fieldState }) => (
               <Field data-invalid={fieldState.invalid} className="gap-1.5">
-                <FieldLabel htmlFor={field.name} className="text-xs font-medium">
+                <FieldLabel
+                  htmlFor={field.name}
+                  className="text-xs font-medium"
+                >
                   Họ và tên
                 </FieldLabel>
                 <div className="relative">
@@ -376,11 +402,13 @@ function SignupForm({ className, onSubmitSuccess }: SignupFormProps) {
                     type="text"
                     placeholder="Nguyễn Văn A"
                     aria-invalid={fieldState.invalid}
-                    className="h-10 pl-9 rounded-2xl"
+                    className="h-10 rounded-2xl pl-9"
                   />
-                  <User className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 size-4 text-muted-foreground" />
+                  <User className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground" />
                 </div>
-                {fieldState.invalid && <FieldError errors={[fieldState.error]} />}
+                {fieldState.invalid && (
+                  <FieldError errors={[fieldState.error]} />
+                )}
               </Field>
             )}
           />
@@ -391,7 +419,10 @@ function SignupForm({ className, onSubmitSuccess }: SignupFormProps) {
             control={form.control}
             render={({ field, fieldState }) => (
               <Field data-invalid={fieldState.invalid} className="gap-1.5">
-                <FieldLabel htmlFor={field.name} className="text-xs font-medium">
+                <FieldLabel
+                  htmlFor={field.name}
+                  className="text-xs font-medium"
+                >
                   Địa chỉ Email
                 </FieldLabel>
                 <div className="relative">
@@ -401,11 +432,13 @@ function SignupForm({ className, onSubmitSuccess }: SignupFormProps) {
                     type="email"
                     placeholder="student@example.com"
                     aria-invalid={fieldState.invalid}
-                    className="h-10 pl-9 rounded-2xl"
+                    className="h-10 rounded-2xl pl-9"
                   />
-                  <Mail className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 size-4 text-muted-foreground" />
+                  <Mail className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground" />
                 </div>
-                {fieldState.invalid && <FieldError errors={[fieldState.error]} />}
+                {fieldState.invalid && (
+                  <FieldError errors={[fieldState.error]} />
+                )}
               </Field>
             )}
           />
@@ -416,7 +449,10 @@ function SignupForm({ className, onSubmitSuccess }: SignupFormProps) {
             control={form.control}
             render={({ field, fieldState }) => (
               <Field data-invalid={fieldState.invalid} className="gap-1.5">
-                <FieldLabel htmlFor={field.name} className="text-xs font-medium">
+                <FieldLabel
+                  htmlFor={field.name}
+                  className="text-xs font-medium"
+                >
                   Mật khẩu
                 </FieldLabel>
                 <div className="relative">
@@ -426,16 +462,20 @@ function SignupForm({ className, onSubmitSuccess }: SignupFormProps) {
                     type={showPassword ? "text" : "password"}
                     placeholder="Tối thiểu 8 ký tự, có hoa, thường & số"
                     aria-invalid={fieldState.invalid}
-                    className="h-10 pl-9 pr-10 rounded-2xl"
+                    className="h-10 rounded-2xl pr-10 pl-9"
                   />
-                  <Lock className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 size-4 text-muted-foreground" />
+                  <Lock className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground" />
                   <button
                     type="button"
                     onClick={() => setShowPassword(!showPassword)}
                     tabIndex={-1}
-                    className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground cursor-pointer"
+                    className="absolute top-1/2 right-3 -translate-y-1/2 cursor-pointer text-muted-foreground hover:text-foreground"
                   >
-                    {showPassword ? <EyeOff className="size-4" /> : <Eye className="size-4" />}
+                    {showPassword ? (
+                      <EyeOff className="size-4" />
+                    ) : (
+                      <Eye className="size-4" />
+                    )}
                   </button>
                 </div>
 
@@ -444,18 +484,25 @@ function SignupForm({ className, onSubmitSuccess }: SignupFormProps) {
                   <div className="space-y-1 pt-1">
                     <div className="flex items-center justify-between text-[11px] text-muted-foreground">
                       <span>Độ an toàn:</span>
-                      <span className="font-medium text-foreground">{passwordStrength.label}</span>
+                      <span className="font-medium text-foreground">
+                        {passwordStrength.label}
+                      </span>
                     </div>
                     <div className="h-1 w-full overflow-hidden rounded-full bg-muted">
                       <div
-                        className={cn("h-full transition-all duration-300", passwordStrength.color)}
+                        className={cn(
+                          "h-full transition-all duration-300",
+                          passwordStrength.color
+                        )}
                         style={{ width: `${passwordStrength.percent}%` }}
                       />
                     </div>
                   </div>
                 )}
 
-                {fieldState.invalid && <FieldError errors={[fieldState.error]} />}
+                {fieldState.invalid && (
+                  <FieldError errors={[fieldState.error]} />
+                )}
               </Field>
             )}
           />
@@ -466,7 +513,10 @@ function SignupForm({ className, onSubmitSuccess }: SignupFormProps) {
             control={form.control}
             render={({ field, fieldState }) => (
               <Field data-invalid={fieldState.invalid} className="gap-1.5">
-                <FieldLabel htmlFor={field.name} className="text-xs font-medium">
+                <FieldLabel
+                  htmlFor={field.name}
+                  className="text-xs font-medium"
+                >
                   Xác nhận lại mật khẩu
                 </FieldLabel>
                 <div className="relative">
@@ -476,19 +526,25 @@ function SignupForm({ className, onSubmitSuccess }: SignupFormProps) {
                     type={showConfirmPassword ? "text" : "password"}
                     placeholder="Nhập lại mật khẩu vừa đặt"
                     aria-invalid={fieldState.invalid}
-                    className="h-10 pl-9 pr-10 rounded-2xl"
+                    className="h-10 rounded-2xl pr-10 pl-9"
                   />
-                  <Lock className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 size-4 text-muted-foreground" />
+                  <Lock className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground" />
                   <button
                     type="button"
                     onClick={() => setShowConfirmPassword(!showConfirmPassword)}
                     tabIndex={-1}
-                    className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground cursor-pointer"
+                    className="absolute top-1/2 right-3 -translate-y-1/2 cursor-pointer text-muted-foreground hover:text-foreground"
                   >
-                    {showConfirmPassword ? <EyeOff className="size-4" /> : <Eye className="size-4" />}
+                    {showConfirmPassword ? (
+                      <EyeOff className="size-4" />
+                    ) : (
+                      <Eye className="size-4" />
+                    )}
                   </button>
                 </div>
-                {fieldState.invalid && <FieldError errors={[fieldState.error]} />}
+                {fieldState.invalid && (
+                  <FieldError errors={[fieldState.error]} />
+                )}
               </Field>
             )}
           />
@@ -498,11 +554,11 @@ function SignupForm({ className, onSubmitSuccess }: SignupFormProps) {
             <Button
               type="submit"
               disabled={registerMutation.isPending}
-              className="w-full h-10 font-semibold rounded-2xl cursor-pointer"
+              className="h-10 w-full cursor-pointer rounded-2xl font-semibold"
             >
               {registerMutation.isPending ? (
                 <>
-                  <RefreshCw className="size-4 animate-spin mr-2" />
+                  <RefreshCw className="mr-2 size-4 animate-spin" />
                   Đang khởi tạo tài khoản...
                 </>
               ) : (
@@ -515,39 +571,15 @@ function SignupForm({ className, onSubmitSuccess }: SignupFormProps) {
 
           {/* ĐĂNG KÝ VỚI GOOGLE */}
           <Field>
-            <Button
-              variant="outline"
-              type="button"
-              className="w-full h-10 rounded-2xl cursor-pointer font-medium"
-              onClick={() => {
-                toast.info("Đăng ký bằng Google chưa được bật", {
-                  description:
-                    "Tính năng đăng ký qua Google OAuth ID Token đã sẵn sàng ở Backend.",
-                });
-              }}
-            >
-              <svg className="size-4 mr-2" viewBox="0 0 24 24">
-                <path
-                  fill="#4285F4"
-                  d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"
-                />
-                <path
-                  fill="#34A853"
-                  d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"
-                />
-                <path
-                  fill="#FBBC05"
-                  d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.06H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.94l2.85-2.22.81-.63z"
-                />
-                <path
-                  fill="#EA4335"
-                  d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.84c.87-2.6 3.3-4.52 6.16-4.52z"
-                />
-              </svg>
-              Đăng ký nhanh với Google
-            </Button>
+            <GoogleAuthSection
+              mode="signup"
+              defaultRole={selectedRole}
+              defaultEmployerType={selectedEmployerType}
+              disabled={registerMutation.isPending}
+              onAuthSuccess={handleGoogleAuthSuccess}
+            />
 
-            <FieldDescription className="text-center pt-1 text-xs">
+            <FieldDescription className="pt-1 text-center text-xs">
               Đã có tài khoản VieJob?{" "}
               <Link
                 to={PATHS.AUTH.LOGIN}

@@ -27,5 +27,11 @@ public class GoogleLoginRequest {
      */
     @Pattern(regexp = "^(STUDENT|EMPLOYER)?$", message = "Vai trò phải là STUDENT hoặc EMPLOYER")
     private String role;
+
+    /**
+     * Loại hình nhà tuyển dụng khi chọn role EMPLOYER (COMPANY hoặc INDIVIDUAL).
+     */
+    @Pattern(regexp = "^(COMPANY|INDIVIDUAL)?$", message = "Loại hình nhà tuyển dụng phải là COMPANY hoặc INDIVIDUAL")
+    private String employerType;
 }
 

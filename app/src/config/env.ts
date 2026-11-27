@@ -25,7 +25,9 @@ export const env = {
    * Rỗng = suy ra từ `window.location.origin`.
    */
   WS_URL: import.meta.env.VITE_WS_URL ?? "",
-  CLIENT_ID_GOOGLE: import.meta.env.VITE_CLIENT_ID_GOOGLE,
+  CLIENT_ID_GOOGLE:
+    import.meta.env.VITE_CLIENT_ID_GOOGLE ||
+    "453610447705-f8tsl8tu5psji76slhhupkj02o5m81uc.apps.googleusercontent.com",
   REDIRECT_URI_GOOGLE: import.meta.env.VITE_REDIRECT_URI_GOOGLE,
 } as const;
 
