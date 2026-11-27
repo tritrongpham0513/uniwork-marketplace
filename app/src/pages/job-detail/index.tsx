@@ -1,5 +1,6 @@
 import { Link, useNavigate, useParams } from "react-router";
 import {
+  AlertTriangle,
   ArrowLeft,
   Bell,
   BellRing,
@@ -14,6 +15,7 @@ import {
   Eye,
   Info,
   MapPin,
+  Pencil,
   Share2,
   TrendingDown,
   TrendingUp,
@@ -55,7 +57,13 @@ import {
 } from "@/features/jobs/lib/format";
 import { useAuth } from "@/features/auth/hooks";
 import { useStudentApplicationByJob } from "@/features/applications/hooks";
-import { APPLICATION_STATUS_LABELS } from "@/features/shared/types";
+import {
+  APPLICATION_STATUS_LABELS,
+  isJobRecruiting,
+  JOB_STATUS_LABELS,
+  type Job,
+  type RoleType,
+} from "@/features/shared/types";
 import {
   useJobNotifyPreferences,
   useToggleJobNotify,
@@ -81,7 +89,11 @@ export function JobDetailPage() {
 
   const { data: job, isLoading, isError, refetch } = useJob(id);
   const { data: benchmarks = [] } = useSalaryBenchmarks();
-  const { data: related = [] } = useRelatedJobs(job?.category.id ?? "", id);
+  const isOpen = job ? isJobRecruiting(job.status) : false;
+  const { data: related = [] } = useRelatedJobs(
+    isOpen ? (job?.category.id ?? "") : "",
+    id
+  );
   const { data: employerProfile } = usePublicEmployerProfile(
     job?.employerId ?? ""
   );
@@ -233,6 +245,14 @@ export function JobDetailPage() {
     }
   };
 
+  const isNonOpen = !isJobRecruiting(job.status);
+  const backTarget =
+    isNonOpen && user?.role === "EMPLOYER"
+      ? { to: PATHS.EMPLOYER.JOBS, label: "Quay lại danh sách tin" }
+      : isNonOpen && user?.role === "ADMIN"
+        ? { to: PATHS.ADMIN.JOBS, label: "Quay lại duyệt tin" }
+        : { to: PATHS.JOBS.ROOT, label: "Tất cả việc làm" };
+
   return (
     <div className="mx-auto w-full max-w-7xl px-4 py-6 sm:px-6 lg:px-8">
       {/* Nút quay lại */}
@@ -241,11 +261,17 @@ export function JobDetailPage() {
         size="sm"
         className="mb-4 cursor-pointer"
         nativeButton={false}
-        render={<Link to={PATHS.JOBS.ROOT} />}
+        render={<Link to={backTarget.to} />}
       >
         <ArrowLeft className="size-4" />
-        Tất cả việc làm
+        {backTarget.label}
       </Button>
+
+      {isNonOpen && (
+        <div className="mb-6">
+          <JobStatusPreviewBanner job={job} role={user?.role} />
+        </div>
+      )}
 
       <div className="grid gap-6 lg:grid-cols-[1fr_360px]">
         {/* CỘT CHÍNH */}
@@ -498,7 +524,7 @@ export function JobDetailPage() {
           </Card>
 
           {/* TIN LIÊN QUAN */}
-          {related.length > 0 && (
+          {!isNonOpen && related.length > 0 && (
             <section>
               <h2 className="mb-4 font-heading text-lg font-semibold text-foreground">
                 Việc làm cùng nhóm ngành
@@ -515,100 +541,112 @@ export function JobDetailPage() {
         {/* CỘT PHẢI */}
         <aside className="space-y-4 lg:sticky lg:top-20 lg:self-start">
           {/* HÀNH ĐỘNG */}
-          <Card>
-            <CardContent className="space-y-3 p-5">
-              {job.previewImageUrl && (
-                <button
-                  type="button"
-                  className="group relative block w-full overflow-hidden rounded-lg border border-border"
-                  onClick={() => setLightboxOpen(true)}
-                  aria-label="Xem ảnh preview"
-                >
-                  <img
-                    src={job.previewImageUrl}
-                    alt={job.title}
-                    loading="lazy"
-                    className="aspect-[4/3] w-full object-cover transition-transform group-hover:scale-[1.02]"
-                  />
-                  <span className="absolute right-2 bottom-2 flex items-center gap-1 rounded-md bg-background/90 px-2 py-1 text-xs text-foreground shadow-sm">
-                    <ZoomIn className="size-3.5" />
-                    Phóng to
-                  </span>
-                </button>
-              )}
-              {canReapply ? (
-                <>
-                  <Button
-                    size="lg"
-                    className="h-11 w-full cursor-pointer font-semibold"
-                    onClick={handleApply}
+          {(!isNonOpen ||
+            Boolean(job.previewImageUrl) ||
+            Boolean(job.deadline)) && (
+            <Card>
+              <CardContent className="space-y-3 p-5">
+                {job.previewImageUrl && (
+                  <button
+                    type="button"
+                    className="group relative block w-full overflow-hidden rounded-lg border border-border"
+                    onClick={() => setLightboxOpen(true)}
+                    aria-label="Xem ảnh preview"
                   >
-                    Ứng tuyển lại
-                  </Button>
-                  <p className="flex items-start gap-1.5 text-xs text-muted-foreground">
-                    <Info className="mt-0.5 size-3.5 shrink-0 text-primary" />
-                    Bạn đã rút đơn ứng tuyển — có thể gửi lại hồ sơ cho tin này.
-                  </p>
-                </>
-              ) : hasApplied ? (
-                <>
-                  <Button
-                    size="lg"
-                    className="h-11 w-full cursor-pointer font-semibold"
-                    nativeButton={false}
-                    render={
-                      <Link
-                        to={PATHS.STUDENT.APPLICATION_DETAIL(myApplication!.id)}
-                      />
-                    }
-                  >
-                    Đã ứng tuyển — xem hồ sơ
-                  </Button>
-                  <p className="flex items-start gap-1.5 text-xs text-muted-foreground">
-                    <CheckCircle2 className="mt-0.5 size-3.5 shrink-0 text-primary" />
-                    Hồ sơ của bạn đang ở trạng thái{" "}
-                    {APPLICATION_STATUS_LABELS[myApplication!.status]}.
-                  </p>
-                </>
-              ) : (
-                <>
-                  <Button
-                    size="lg"
-                    className="h-11 w-full cursor-pointer font-semibold"
-                    onClick={handleApply}
-                  >
-                    Ứng tuyển ngay
-                  </Button>
-                  <p className="flex items-start gap-1.5 text-xs text-muted-foreground">
-                    <CheckCircle2 className="mt-0.5 size-3.5 shrink-0 text-primary" />
-                    Không cần CV, chỉ cần hồ sơ UniJob — ứng tuyển trong 1 chạm.
-                  </p>
-                </>
-              )}
-              <div className="grid grid-cols-2 gap-2">
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className="cursor-pointer"
-                  onClick={handleShare}
-                >
-                  <Share2 className="size-4" />
-                  Chia sẻ
-                </Button>
-                <SaveJobButton jobId={job.id} variant="button" />
-              </div>
+                    <img
+                      src={job.previewImageUrl}
+                      alt={job.title}
+                      loading="lazy"
+                      className="aspect-[4/3] w-full object-cover transition-transform group-hover:scale-[1.02]"
+                    />
+                    <span className="absolute right-2 bottom-2 flex items-center gap-1 rounded-md bg-background/90 px-2 py-1 text-xs text-foreground shadow-sm">
+                      <ZoomIn className="size-3.5" />
+                      Phóng to
+                    </span>
+                  </button>
+                )}
+                {!isNonOpen && (
+                  <>
+                    {canReapply ? (
+                      <>
+                        <Button
+                          size="lg"
+                          className="h-11 w-full cursor-pointer font-semibold"
+                          onClick={handleApply}
+                        >
+                          Ứng tuyển lại
+                        </Button>
+                        <p className="flex items-start gap-1.5 text-xs text-muted-foreground">
+                          <Info className="mt-0.5 size-3.5 shrink-0 text-primary" />
+                          Bạn đã rút đơn ứng tuyển — có thể gửi lại hồ sơ cho
+                          tin này.
+                        </p>
+                      </>
+                    ) : hasApplied ? (
+                      <>
+                        <Button
+                          size="lg"
+                          className="h-11 w-full cursor-pointer font-semibold"
+                          nativeButton={false}
+                          render={
+                            <Link
+                              to={PATHS.STUDENT.APPLICATION_DETAIL(
+                                myApplication!.id
+                              )}
+                            />
+                          }
+                        >
+                          Đã ứng tuyển — xem hồ sơ
+                        </Button>
+                        <p className="flex items-start gap-1.5 text-xs text-muted-foreground">
+                          <CheckCircle2 className="mt-0.5 size-3.5 shrink-0 text-primary" />
+                          Hồ sơ của bạn đang ở trạng thái{" "}
+                          {APPLICATION_STATUS_LABELS[myApplication!.status]}.
+                        </p>
+                      </>
+                    ) : (
+                      <>
+                        <Button
+                          size="lg"
+                          className="h-11 w-full cursor-pointer font-semibold"
+                          onClick={handleApply}
+                        >
+                          Ứng tuyển ngay
+                        </Button>
+                        <p className="flex items-start gap-1.5 text-xs text-muted-foreground">
+                          <CheckCircle2 className="mt-0.5 size-3.5 shrink-0 text-primary" />
+                          Không cần CV, chỉ cần hồ sơ UniJob — ứng tuyển trong 1
+                          chạm.
+                        </p>
+                      </>
+                    )}
+                    <div className="grid grid-cols-2 gap-2">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="cursor-pointer"
+                        onClick={handleShare}
+                      >
+                        <Share2 className="size-4" />
+                        Chia sẻ
+                      </Button>
+                      <SaveJobButton jobId={job.id} variant="button" />
+                    </div>
+                  </>
+                )}
 
-              {job.deadline && (
-                <Alert>
-                  <Clock className="size-4" />
-                  <AlertTitle>Hạn ứng tuyển</AlertTitle>
-                  <AlertDescription>
-                    {new Date(job.deadline).toLocaleDateString("vi-VN")}
-                  </AlertDescription>
-                </Alert>
-              )}
-            </CardContent>
-          </Card>
+                {job.deadline && (
+                  <Alert>
+                    <Clock className="size-4" />
+                    <AlertTitle>Hạn ứng tuyển</AlertTitle>
+                    <AlertDescription>
+                      {new Date(job.deadline).toLocaleDateString("vi-VN")}
+                    </AlertDescription>
+                  </Alert>
+                )}
+              </CardContent>
+            </Card>
+          )}
 
           {/* TÓM TẮT */}
           <Card>
@@ -745,54 +783,58 @@ export function JobDetailPage() {
           </Card>
 
           {/* THÔNG BÁO TIN MỚI — Viecoday */}
-          <Card>
-            <CardContent className="space-y-3 p-4">
-              <div className="flex items-start gap-3">
-                {notifyOn ? (
-                  <BellRing className="size-5 shrink-0 text-primary" />
-                ) : (
-                  <Bell className="size-5 shrink-0 text-muted-foreground" />
-                )}
-                <div className="min-w-0">
-                  <p className="text-sm font-semibold text-foreground">
-                    Bạn có muốn được thông báo khi có tin mới?
-                  </p>
-                  <p className="mt-0.5 text-xs text-muted-foreground">
-                    Nhóm {job.category.name} · {job.location.province}
-                  </p>
+          {!isNonOpen && (
+            <Card>
+              <CardContent className="space-y-3 p-4">
+                <div className="flex items-start gap-3">
+                  {notifyOn ? (
+                    <BellRing className="size-5 shrink-0 text-primary" />
+                  ) : (
+                    <Bell className="size-5 shrink-0 text-muted-foreground" />
+                  )}
+                  <div className="min-w-0">
+                    <p className="text-sm font-semibold text-foreground">
+                      Bạn có muốn được thông báo khi có tin mới?
+                    </p>
+                    <p className="mt-0.5 text-xs text-muted-foreground">
+                      Nhóm {job.category.name} · {job.location.province}
+                    </p>
+                  </div>
                 </div>
-              </div>
-              <Button
-                variant={notifyOn ? "outline" : "default"}
-                size="sm"
-                className="w-full cursor-pointer"
-                disabled={toggleJobNotify.isPending}
-                onClick={() => void handleToggleNotify()}
-              >
-                {toggleJobNotify.isPending
-                  ? "Đang cập nhật..."
-                  : notifyOn
-                    ? "Đã bật thông báo"
-                    : "Bật thông báo"}
-              </Button>
-            </CardContent>
-          </Card>
+                <Button
+                  variant={notifyOn ? "outline" : "default"}
+                  size="sm"
+                  className="w-full cursor-pointer"
+                  disabled={toggleJobNotify.isPending}
+                  onClick={() => void handleToggleNotify()}
+                >
+                  {toggleJobNotify.isPending
+                    ? "Đang cập nhật..."
+                    : notifyOn
+                      ? "Đã bật thông báo"
+                      : "Bật thông báo"}
+                </Button>
+              </CardContent>
+            </Card>
+          )}
 
           {/* SAVED */}
-          <Card className="hidden lg:block">
-            <CardContent className="flex items-center gap-3 p-4">
-              <BookmarkCheck className="size-5 shrink-0 text-muted-foreground" />
-              <p className="text-xs text-muted-foreground">
-                Đã lưu tin này? Kiểm tra mục{" "}
-                <Link
-                  to={PATHS.SAVED}
-                  className="font-medium text-primary underline underline-offset-4"
-                >
-                  Việc làm đã lưu
-                </Link>
-              </p>
-            </CardContent>
-          </Card>
+          {!isNonOpen && (
+            <Card className="hidden lg:block">
+              <CardContent className="flex items-center gap-3 p-4">
+                <BookmarkCheck className="size-5 shrink-0 text-muted-foreground" />
+                <p className="text-xs text-muted-foreground">
+                  Đã lưu tin này? Kiểm tra mục{" "}
+                  <Link
+                    to={PATHS.SAVED}
+                    className="font-medium text-primary underline underline-offset-4"
+                  >
+                    Việc làm đã lưu
+                  </Link>
+                </p>
+              </CardContent>
+            </Card>
+          )}
         </aside>
       </div>
 
@@ -805,6 +847,61 @@ export function JobDetailPage() {
         />
       )}
     </div>
+  );
+}
+
+function JobStatusPreviewBanner({ job, role }: { job: Job; role?: RoleType }) {
+  const isRejected = job.status === "REJECTED";
+  const isPending = job.status === "PENDING_REVIEW";
+  const isDraft = job.status === "DRAFT";
+
+  const title = isRejected
+    ? "Tin tuyển dụng bị từ chối"
+    : isPending
+      ? "Tin tuyển dụng đang chờ duyệt"
+      : isDraft
+        ? "Tin tuyển dụng đang ở bản nháp"
+        : `Tin tuyển dụng đang ở trạng thái: ${JOB_STATUS_LABELS[job.status]}`;
+
+  const description = isRejected
+    ? job.rejectReason
+      ? `Lý do từ chối: ${job.rejectReason}. Tin này không hiển thị công khai — bạn có thể chỉnh sửa và gửi duyệt lại.`
+      : "Tin này không đáp ứng yêu cầu duyệt và không hiển thị công khai. Bạn có thể chỉnh sửa để gửi duyệt lại."
+    : isPending
+      ? "Chế độ xem trước dành cho chủ tin. Tin chưa hiển thị công khai và chưa nhận hồ sơ ứng tuyển cho đến khi quản trị viên phê duyệt."
+      : "Chế độ xem trước — tin này hiện không hiển thị trên danh sách tuyển dụng công khai và không nhận thêm hồ sơ ứng tuyển.";
+
+  const Icon = isRejected ? AlertTriangle : isPending ? Clock : Info;
+
+  return (
+    <Alert
+      variant={isRejected ? "destructive" : "default"}
+      className={
+        isPending
+          ? "border-amber-500/40 bg-amber-500/5 text-foreground"
+          : undefined
+      }
+    >
+      <Icon className="size-4" />
+      <AlertTitle>{title}</AlertTitle>
+      <AlertDescription className="space-y-3">
+        <p>{description}</p>
+        {role === "EMPLOYER" && (
+          <div className="flex flex-wrap gap-2">
+            <Button
+              size="sm"
+              variant={isRejected ? "default" : "outline"}
+              className="cursor-pointer"
+              nativeButton={false}
+              render={<Link to={PATHS.EMPLOYER.JOB_EDIT(job.id)} />}
+            >
+              <Pencil className="size-3.5" />
+              {isRejected ? "Chỉnh sửa & gửi duyệt lại" : "Chỉnh sửa tin"}
+            </Button>
+          </div>
+        )}
+      </AlertDescription>
+    </Alert>
   );
 }
 

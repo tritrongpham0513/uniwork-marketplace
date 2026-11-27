@@ -69,6 +69,7 @@ import {
 import {
   DAY_OF_WEEK_LABELS,
   EMPLOYMENT_TYPE_LABELS,
+  isJobRecruiting,
   SALARY_TYPE_LABELS,
   WORK_MODE_LABELS,
   type DayOfWeek,
@@ -298,7 +299,12 @@ export default function EmployerJobFormPage() {
     // Đổi ảnh trên tin đang hiển thị sẽ đưa tin về chờ duyệt và tạm ẩn khỏi
     // danh sách — cảnh báo trước để nhà tuyển dụng không bất ngờ.
     const imageChanged = form.previewImageUrl !== originalImageUrl;
-    if (isEdit && imageChanged && existingJob?.status === "OPEN") {
+    if (
+      isEdit &&
+      imageChanged &&
+      existingJob &&
+      isJobRecruiting(existingJob.status)
+    ) {
       setPendingImageConfirm(true);
       return;
     }

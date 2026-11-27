@@ -52,7 +52,7 @@ import { useEmployerJobs } from "@/features/employer/hooks";
 import { useAdminDashboard } from "@/features/admin/hooks";
 import { useSavedJobIds } from "@/features/saved-jobs/hooks";
 import { useStudentReviews } from "@/features/reviews/hooks";
-import type { RoleType } from "@/features/shared/types";
+import { isJobRecruiting, type RoleType } from "@/features/shared/types";
 import { UserAvatar } from "@/components/shared/user-avatar";
 import { cn } from "cn";
 
@@ -96,17 +96,13 @@ function EmployerNavBadge({ itemId }: { itemId: string }) {
   const { data: applications = [] } = useEmployerApplications();
 
   if (itemId === "employer-jobs") {
-    const open = jobs.filter(
-      (job) => job.status === "OPEN" || job.status === "IN_PROGRESS"
-    ).length;
+    const open = jobs.filter((job) => isJobRecruiting(job.status)).length;
     return open > 0 ? <SidebarMenuBadge>{open}</SidebarMenuBadge> : null;
   }
 
   if (itemId === "employer-applications") {
     const pending = applications.filter((a) => a.status === "PENDING").length;
-    return pending > 0 ? (
-      <SidebarMenuBadge>{pending}</SidebarMenuBadge>
-    ) : null;
+    return pending > 0 ? <SidebarMenuBadge>{pending}</SidebarMenuBadge> : null;
   }
 
   return null;
@@ -133,13 +129,7 @@ function NavBadge({ role, itemId }: { role: RoleType; itemId: string }) {
 }
 
 /** Một mục điều hướng trong sidebar */
-function NavEntry({
-  item,
-  role,
-}: {
-  item: WorkspaceNavItem;
-  role: RoleType;
-}) {
+function NavEntry({ item, role }: { item: WorkspaceNavItem; role: RoleType }) {
   const { pathname } = useLocation();
   const isActive = item.end
     ? pathname === item.to
@@ -300,7 +290,7 @@ export function WorkspaceSidebar() {
       <SidebarHeader>
         <Link
           to={PATHS.HOME}
-          className="flex items-center gap-2.5 rounded-xl px-1 py-1 transition-opacity hover:opacity-80 group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:px-0"
+          className="flex items-center gap-2.5 rounded-xl px-1 py-1 transition-opacity group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:px-0 hover:opacity-80"
         >
           <div className="flex size-9 shrink-0 items-center justify-center rounded-xl bg-primary text-primary-foreground shadow-xs">
             <Briefcase className="size-5" />

@@ -1,6 +1,13 @@
 import { useMemo } from "react";
 import { Link } from "react-router";
-import { Briefcase, CheckCircle2, Clock, Plus, Star, TrendingUp } from "lucide-react";
+import {
+  Briefcase,
+  CheckCircle2,
+  Clock,
+  Plus,
+  Star,
+  TrendingUp,
+} from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import {
@@ -20,6 +27,7 @@ import { useEmployerProfile } from "@/features/profile/hooks";
 import { useEmployerJobs } from "@/features/employer/hooks";
 import {
   APPLICATION_STATUS_LABELS,
+  isJobRecruiting,
   JOB_STATUS_LABELS,
 } from "@/features/shared/types";
 import { PATHS } from "@/config/paths";
@@ -43,9 +51,7 @@ export default function EmployerDashboardPage() {
   const { data: profile } = useEmployerProfile();
 
   const stats = useMemo(() => {
-    const openJobs = jobs.filter(
-      (job) => job.status === "OPEN" || job.status === "IN_PROGRESS"
-    ).length;
+    const openJobs = jobs.filter((job) => isJobRecruiting(job.status)).length;
     const pendingApplicants = applications.filter(
       (application) => application.status === "PENDING"
     ).length;
@@ -75,7 +81,9 @@ export default function EmployerDashboardPage() {
       };
     });
 
-    const bucketIndex = new Map(buckets.map((bucket, index) => [bucket.key, index]));
+    const bucketIndex = new Map(
+      buckets.map((bucket, index) => [bucket.key, index])
+    );
 
     for (const job of jobs) {
       const posted = new Date(job.postedAt);
@@ -100,7 +108,11 @@ export default function EmployerDashboardPage() {
       title={profile?.displayName ?? "Bảng điều khiển"}
       description="Tổng quan tin tuyển dụng và ứng viên của tổ chức bạn."
       actions={
-        <Button size="sm" nativeButton={false} render={<Link to={PATHS.EMPLOYER.JOB_NEW} />}>
+        <Button
+          size="sm"
+          nativeButton={false}
+          render={<Link to={PATHS.EMPLOYER.JOB_NEW} />}
+        >
           <Plus className="size-4" />
           Đăng tin mới
         </Button>
@@ -169,9 +181,7 @@ export default function EmployerDashboardPage() {
                             <div
                               className={cn(
                                 "w-full rounded-t-lg transition-all",
-                                bucket.count > 0
-                                  ? "bg-primary"
-                                  : "bg-muted"
+                                bucket.count > 0 ? "bg-primary" : "bg-muted"
                               )}
                               style={{
                                 height: `${Math.max(bucket.count > 0 ? 8 : 3, heightPercent)}%`,
@@ -257,7 +267,9 @@ export default function EmployerDashboardPage() {
 
                           <StatusBadge
                             status={application.status}
-                            label={APPLICATION_STATUS_LABELS[application.status]}
+                            label={
+                              APPLICATION_STATUS_LABELS[application.status]
+                            }
                           />
                         </Link>
                       </li>
@@ -329,7 +341,10 @@ export default function EmployerDashboardPage() {
                               {formatPostedAgo(job.postedAt)}
                             </p>
                           </div>
-                          <Badge variant="outline" className="shrink-0 text-[10px]">
+                          <Badge
+                            variant="outline"
+                            className="shrink-0 text-[10px]"
+                          >
                             {JOB_STATUS_LABELS[job.status]}
                           </Badge>
                         </Link>
@@ -349,7 +364,9 @@ export default function EmployerDashboardPage() {
               </CardHeader>
               <CardContent className="space-y-3">
                 <div className="flex items-center justify-between text-sm">
-                  <span className="text-muted-foreground">Trạng thái xác minh</span>
+                  <span className="text-muted-foreground">
+                    Trạng thái xác minh
+                  </span>
                   {profile?.isVerified ? (
                     <Badge className="gap-1 text-[10px]">
                       <CheckCircle2 className="size-3" />

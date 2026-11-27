@@ -239,6 +239,8 @@ export interface Job {
   schedules: JobSchedule[];
   skills: Skill[];
   status: JobStatus;
+  /** Lý do từ chối (chỉ có khi tin bị từ chối và chỉ trả về cho chủ tin / quản trị viên). */
+  rejectReason?: string | null;
   postedAt: string;
   deadline: string | null;
   applicantCount: number;
@@ -613,12 +615,16 @@ export const JOB_STATUS_LABELS: Record<JobStatus, string> = {
   PENDING_REVIEW: "Chờ duyệt",
   REJECTED: "Bị từ chối",
   OPEN: "Đang tuyển",
-  FILLED: "Đã nhận người",
-  IN_PROGRESS: "Đang làm",
+  FILLED: "Đã nhận đủ người",
+  IN_PROGRESS: "Đang tuyển thêm",
   COMPLETED: "Hoàn thành",
   CLOSED: "Đã đóng",
   CANCELLED: "Đã huỷ",
 };
+
+/** Tin tuyển dụng còn đang mở nhận hồ sơ công khai (mới mở hoặc đang tuyển thêm suất). */
+export const isJobRecruiting = (status: JobStatus): boolean =>
+  status === "OPEN" || status === "IN_PROGRESS";
 
 export const APPLICATION_STATUS_LABELS: Record<ApplicationStatus, string> = {
   PENDING: "Đang chờ",
