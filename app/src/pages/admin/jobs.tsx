@@ -46,11 +46,6 @@ import { cn } from "cn";
 
 const STATUS_TABS: Array<{ value: JobStatus | "ALL"; label: string }> = [
   { value: "PENDING_REVIEW", label: "Chờ duyệt" },
-  { value: "OPEN", label: "Đang tuyển" },
-  { value: "IN_PROGRESS", label: "Đang tuyển thêm" },
-  { value: "FILLED", label: "Đã nhận đủ người" },
-  { value: "CLOSED", label: "Đã đóng" },
-  { value: "COMPLETED", label: "Hoàn thành" },
   { value: "REJECTED", label: "Bị từ chối" },
   { value: "ALL", label: "Tất cả" },
 ];
