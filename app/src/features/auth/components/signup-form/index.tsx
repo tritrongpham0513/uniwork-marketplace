@@ -315,9 +315,6 @@ function SignupForm({ className, onSubmitSuccess }: SignupFormProps) {
               >
                 <GraduationCap className="size-5 shrink-0" />
                 <span className="text-xs font-semibold">Sinh viên</span>
-                <span className="hidden text-[10px] leading-tight text-muted-foreground sm:inline">
-                  Tìm việc part-time
-                </span>
               </button>
 
               <button
@@ -339,9 +336,6 @@ function SignupForm({ className, onSubmitSuccess }: SignupFormProps) {
               >
                 <Building2 className="size-5 shrink-0" />
                 <span className="text-xs font-semibold">Nhà tuyển dụng</span>
-                <span className="hidden text-[10px] leading-tight text-muted-foreground sm:inline">
-                  Đăng tin tuyển dụng
-                </span>
               </button>
             </div>
           </div>
