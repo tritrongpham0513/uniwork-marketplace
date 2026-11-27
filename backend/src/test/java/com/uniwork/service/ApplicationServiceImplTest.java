@@ -1,5 +1,6 @@
 package com.uniwork.service;
 
+import com.uniwork.dto.request.CreateApplicationRequest;
 import com.uniwork.dto.request.UpdateApplicationStatusRequest;
 import com.uniwork.entity.Application;
 import com.uniwork.entity.EmployerProfile;
@@ -279,5 +280,173 @@ class ApplicationServiceImplTest {
 
         verify(historyRepository).save(argThat(history ->
                 "Kinh nghiệm chưa phù hợp".equals(history.getNote())));
+    }
+
+    @Test
+    @DisplayName("Nhận 1/2 ứng viên -> tin chuyển từ OPEN sang IN_PROGRESS (Đang tuyển thêm)")
+    void updateStatus_Accepted_SetsJobInProgress_WhenPartiallyFilled() {
+        when(applicationRepository.findBySlug(APPLICATION_SLUG)).thenReturn(Optional.of(application));
+        when(applicationRepository.save(any(Application.class))).thenAnswer(inv -> inv.getArgument(0));
+        when(applicationRepository.countByJobPostIdAndStatus(jobPost.getId(), "ACCEPTED")).thenReturn(1L);
+
+        UpdateApplicationStatusRequest req = UpdateApplicationStatusRequest.builder()
+                .status("ACCEPTED")
+                .build();
+
+        applicationService.updateStatus(APPLICATION_SLUG, req, EMPLOYER_USER_ID);
+
+        assertEquals("IN_PROGRESS", jobPost.getStatus());
+        assertEquals((short) 1, jobPost.getPositionsFilled());
+        verify(jobPostRepository).save(jobPost);
+    }
+
+    @Test
+    @DisplayName("Nhận đủ 2/2 ứng viên từ IN_PROGRESS -> tin chuyển sang FILLED (Đã nhận đủ người)")
+    void updateStatus_Accepted_SetsJobFilled_WhenAllPositionsFilled() {
+        jobPost.setStatus("IN_PROGRESS");
+        jobPost.setPositionsFilled((short) 1);
+        when(applicationRepository.findBySlug(APPLICATION_SLUG)).thenReturn(Optional.of(application));
+        when(applicationRepository.save(any(Application.class))).thenAnswer(inv -> inv.getArgument(0));
+        when(applicationRepository.countByJobPostIdAndStatus(jobPost.getId(), "ACCEPTED")).thenReturn(2L);
+
+        UpdateApplicationStatusRequest req = UpdateApplicationStatusRequest.builder()
+                .status("ACCEPTED")
+                .build();
+
+        applicationService.updateStatus(APPLICATION_SLUG, req, EMPLOYER_USER_ID);
+
+        assertEquals("FILLED", jobPost.getStatus());
+        assertEquals((short) 2, jobPost.getPositionsFilled());
+        verify(jobPostRepository).save(jobPost);
+    }
+
+    @Test
+    @DisplayName("Sinh viên vẫn ứng tuyển được vào tin đang ở trạng thái IN_PROGRESS (Đang tuyển thêm)")
+    void create_AllowsApplyingToInProgressJob() {
+        jobPost.setStatus("IN_PROGRESS");
+        StudentProfile student = application.getStudent();
+        when(jobPostRepository.findBySlugAndDeletedAtIsNull("job-1")).thenReturn(Optional.of(jobPost));
+        when(studentProfileRepository.findById(STUDENT_USER_ID)).thenReturn(Optional.of(student));
+        when(applicationRepository.existsByJobPostIdAndStudentUserId(jobPost.getId(), STUDENT_USER_ID))
+                .thenReturn(false);
+        when(applicationRepository.save(any(Application.class))).thenAnswer(inv -> {
+            Application saved = inv.getArgument(0);
+            saved.setId(99L);
+            return saved;
+        });
+        when(userRepository.findById(STUDENT_USER_ID)).thenReturn(Optional.of(student.getUser()));
+
+        CreateApplicationRequest req = CreateApplicationRequest.builder()
+                .jobId("job-1")
+                .coverLetter("Em muốn ứng tuyển suất còn lại")
+                .build();
+
+        var res = applicationService.create(req, STUDENT_USER_ID);
+
+        assertEquals("PENDING", res.getStatus());
+        verify(applicationRepository).save(any(Application.class));
+    }
+
+    // ================================================================
+    // D. ĐỒNG BỘ SUẤT & TỰ ĐỘNG HOÀN THÀNH TIN
+    // ================================================================
+
+    @Test
+    @DisplayName("Đơn chuyển COMPLETED khi tin IN_PROGRESS (còn suất) -> positionsFilled giữ nguyên (tính cả COMPLETED), tin vẫn IN_PROGRESS")
+    void updateStatus_Completed_KeepsPositionsFilledAndInProgress_WhenSlotsRemain() {
+        application.setStatus("ACCEPTED");
+        jobPost.setStatus("IN_PROGRESS");
+        jobPost.setPositionsCount((short) 2);
+        jobPost.setPositionsFilled((short) 1);
+
+        when(applicationRepository.findBySlug(APPLICATION_SLUG)).thenReturn(Optional.of(application));
+        when(applicationRepository.save(any(Application.class))).thenAnswer(inv -> inv.getArgument(0));
+        when(applicationRepository.countByJobPostIdAndStatus(jobPost.getId(), "ACCEPTED")).thenReturn(0L);
+        when(applicationRepository.countByJobPostIdAndStatus(jobPost.getId(), "COMPLETED")).thenReturn(1L);
+
+        UpdateApplicationStatusRequest req = UpdateApplicationStatusRequest.builder()
+                .status("COMPLETED")
+                .build();
+
+        applicationService.updateStatus(APPLICATION_SLUG, req, EMPLOYER_USER_ID);
+
+        assertEquals((short) 1, jobPost.getPositionsFilled());
+        assertEquals("IN_PROGRESS", jobPost.getStatus());
+        assertNull(jobPost.getClosedAt());
+        verify(jobPostRepository).save(jobPost);
+    }
+
+    @Test
+    @DisplayName("Đơn chuyển COMPLETED khi tin FILLED vẫn còn đơn ACCEPTED khác -> positionsFilled không tụt, tin vẫn FILLED")
+    void updateStatus_Completed_KeepsFilledStatus_WhenAnotherAcceptedRemains() {
+        application.setStatus("ACCEPTED");
+        jobPost.setStatus("FILLED");
+        jobPost.setPositionsCount((short) 2);
+        jobPost.setPositionsFilled((short) 2);
+
+        when(applicationRepository.findBySlug(APPLICATION_SLUG)).thenReturn(Optional.of(application));
+        when(applicationRepository.save(any(Application.class))).thenAnswer(inv -> inv.getArgument(0));
+        when(applicationRepository.countByJobPostIdAndStatus(jobPost.getId(), "ACCEPTED")).thenReturn(1L);
+        when(applicationRepository.countByJobPostIdAndStatus(jobPost.getId(), "COMPLETED")).thenReturn(1L);
+
+        UpdateApplicationStatusRequest req = UpdateApplicationStatusRequest.builder()
+                .status("COMPLETED")
+                .build();
+
+        applicationService.updateStatus(APPLICATION_SLUG, req, EMPLOYER_USER_ID);
+
+        assertEquals((short) 2, jobPost.getPositionsFilled());
+        assertEquals("FILLED", jobPost.getStatus());
+        assertNull(jobPost.getClosedAt());
+    }
+
+    @Test
+    @DisplayName("Tất cả đơn của tin FILLED đã COMPLETED (ACCEPTED == 0) -> tự động chuyển tin sang COMPLETED và cập nhật closedAt")
+    void updateStatus_Completed_AutoCompletesFilledJob_WhenNoAcceptedRemains() {
+        application.setStatus("ACCEPTED");
+        jobPost.setStatus("FILLED");
+        jobPost.setPositionsCount((short) 2);
+        jobPost.setPositionsFilled((short) 2);
+
+        when(applicationRepository.findBySlug(APPLICATION_SLUG)).thenReturn(Optional.of(application));
+        when(applicationRepository.save(any(Application.class))).thenAnswer(inv -> inv.getArgument(0));
+        when(applicationRepository.countByJobPostIdAndStatus(jobPost.getId(), "ACCEPTED")).thenReturn(0L);
+        when(applicationRepository.countByJobPostIdAndStatus(jobPost.getId(), "COMPLETED")).thenReturn(2L);
+
+        UpdateApplicationStatusRequest req = UpdateApplicationStatusRequest.builder()
+                .status("COMPLETED")
+                .build();
+
+        applicationService.updateStatus(APPLICATION_SLUG, req, EMPLOYER_USER_ID);
+
+        assertEquals("COMPLETED", jobPost.getStatus());
+        assertEquals((short) 2, jobPost.getPositionsFilled());
+        assertNotNull(jobPost.getClosedAt());
+    }
+
+    @Test
+    @DisplayName("Đơn cuối cùng của tin CLOSED chuyển sang COMPLETED (ACCEPTED == 0) -> tự động chuyển tin sang COMPLETED và giữ nguyên closedAt")
+    void updateStatus_Completed_AutoCompletesClosedJob_AndPreservesClosedAt() {
+        application.setStatus("ACCEPTED");
+        java.time.LocalDateTime originalClosedAt = java.time.LocalDateTime.now().minusDays(2);
+        jobPost.setStatus("CLOSED");
+        jobPost.setPositionsCount((short) 3);
+        jobPost.setPositionsFilled((short) 1);
+        jobPost.setClosedAt(originalClosedAt);
+
+        when(applicationRepository.findBySlug(APPLICATION_SLUG)).thenReturn(Optional.of(application));
+        when(applicationRepository.save(any(Application.class))).thenAnswer(inv -> inv.getArgument(0));
+        when(applicationRepository.countByJobPostIdAndStatus(jobPost.getId(), "ACCEPTED")).thenReturn(0L);
+        when(applicationRepository.countByJobPostIdAndStatus(jobPost.getId(), "COMPLETED")).thenReturn(1L);
+
+        UpdateApplicationStatusRequest req = UpdateApplicationStatusRequest.builder()
+                .status("COMPLETED")
+                .build();
+
+        applicationService.updateStatus(APPLICATION_SLUG, req, EMPLOYER_USER_ID);
+
+        assertEquals("COMPLETED", jobPost.getStatus());
+        assertEquals((short) 1, jobPost.getPositionsFilled());
+        assertEquals(originalClosedAt, jobPost.getClosedAt());
     }
 }

@@ -1,5 +1,6 @@
 package com.uniwork.service.impl;
 
+import com.uniwork.constant.JobStatuses;
 import com.uniwork.dto.response.DistrictResponse;
 import com.uniwork.dto.response.JobCategoryResponse;
 import com.uniwork.dto.response.JobPositionResponse;
@@ -131,7 +132,7 @@ public class MasterDataServiceImpl implements MasterDataService {
     public Map<String, Integer> countOpenJobsByCategory() {
         Map<String, Integer> counts = new LinkedHashMap<>();
         for (JobPost job : jobPostRepository.findAllByDeletedAtIsNull()) {
-            if (!"OPEN".equals(job.getStatus())) continue;
+            if (!JobStatuses.isRecruiting(job.getStatus())) continue;
             String code = job.getCategory() != null ? job.getCategory().getCode() : null;
             if (code == null) continue;
             counts.merge(code, 1, Integer::sum);
@@ -143,7 +144,7 @@ public class MasterDataServiceImpl implements MasterDataService {
     public Map<String, Integer> countOpenJobsByPosition() {
         Map<String, Integer> counts = new LinkedHashMap<>();
         for (JobPost job : jobPostRepository.findAllByDeletedAtIsNull()) {
-            if (!"OPEN".equals(job.getStatus())) continue;
+            if (!JobStatuses.isRecruiting(job.getStatus())) continue;
             if (job.getPosition() == null) continue;
             counts.merge(job.getPosition().getCode(), 1, Integer::sum);
         }

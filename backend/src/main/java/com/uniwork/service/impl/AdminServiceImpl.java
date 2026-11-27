@@ -1,5 +1,6 @@
 package com.uniwork.service.impl;
 
+import com.uniwork.constant.JobStatuses;
 import com.uniwork.dto.request.AdminUpdateUserRequest;
 import com.uniwork.dto.request.CategoryUpsertRequest;
 import com.uniwork.dto.request.PositionUpsertRequest;
@@ -73,7 +74,7 @@ public class AdminServiceImpl implements AdminService {
                 .totalStudents(totalStudents)
                 .totalEmployers(totalEmployers)
                 .totalJobs((long) jobs.size())
-                .openJobs(jobs.stream().filter(j -> "OPEN".equals(j.getStatus())).count())
+                .openJobs(jobs.stream().filter(j -> JobStatuses.isRecruiting(j.getStatus())).count())
                 .pendingJobs(jobs.stream().filter(j -> "PENDING_REVIEW".equals(j.getStatus())).count())
                 .totalApplications(applicationRepository.count())
                 .pendingApplications(applicationRepository.countByStatus("PENDING"))

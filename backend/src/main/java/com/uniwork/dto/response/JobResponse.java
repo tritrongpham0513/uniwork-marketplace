@@ -73,6 +73,9 @@ public class JobResponse {
 
     private String status;
 
+    /** Lý do từ chối (chỉ có khi tin bị từ chối và chỉ trả về cho chủ tin / quản trị viên). */
+    private String rejectReason;
+
     private String postedAt;
 
     private String deadline;

@@ -4,6 +4,7 @@ import com.uniwork.constant.ApiEndpoints;
 import com.uniwork.dto.request.JobUpsertRequest;
 import com.uniwork.dto.request.UpdateApplicationStatusRequest;
 import com.uniwork.dto.request.UpdateEmployerProfileRequest;
+import com.uniwork.dto.request.UpdateJobStatusRequest;
 import com.uniwork.dto.response.ApiResponse;
 import com.uniwork.dto.response.ApplicationResponse;
 import com.uniwork.dto.response.EmployerProfileResponse;
@@ -46,6 +47,7 @@ import java.util.Map;
  *   <li>{@code POST   /api/v1/employer/jobs}</li>
  *   <li>{@code PUT    /api/v1/employer/jobs/{id}}</li>
  *   <li>{@code DELETE /api/v1/employer/jobs/{id}}</li>
+ *   <li>{@code PATCH  /api/v1/employer/jobs/{id}/status}</li>
  *   <li>{@code GET    /api/v1/employer/applications}</li>
  *   <li>{@code GET    /api/v1/employer/applications/{id}}</li>
  *   <li>{@code PATCH  /api/v1/employer/applications/{id}}</li>
@@ -115,6 +117,18 @@ public class EmployerController {
 
         jobService.remove(id, user.getId());
         return ResponseEntity.ok(ApiResponse.success("Đã huỷ tin tuyển dụng.", null));
+    }
+
+    @PatchMapping("/jobs/{id}/status")
+    @Operation(summary = "Đóng / mở lại / hoàn thành tin tuyển dụng")
+    public ResponseEntity<ApiResponse<JobResponse>> updateJobStatus(
+            @PathVariable("id") String id,
+            @RequestBody UpdateJobStatusRequest request,
+            @CurrentUser User user) {
+
+        return ResponseEntity.ok(ApiResponse.success(
+                "Đã cập nhật trạng thái tin tuyển dụng.",
+                jobService.updateStatus(id, request != null ? request.getStatus() : null, user.getId())));
     }
 
     // ------------------------------------------------------------------

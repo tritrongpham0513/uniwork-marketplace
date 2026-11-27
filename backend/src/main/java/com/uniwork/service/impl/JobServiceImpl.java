@@ -1,5 +1,6 @@
 package com.uniwork.service.impl;
 
+import com.uniwork.constant.JobStatuses;
 import com.uniwork.dto.request.JobUpsertRequest;
 import com.uniwork.dto.response.AdminJobResponse;
 import com.uniwork.dto.response.AiReasonResponse;
@@ -22,6 +23,7 @@ import com.uniwork.entity.Province;
 import com.uniwork.entity.Skill;
 import com.uniwork.entity.User;
 import com.uniwork.entity.Ward;
+import com.uniwork.repository.ApplicationRepository;
 import com.uniwork.repository.DistrictRepository;
 import com.uniwork.repository.EmployerProfileRepository;
 import com.uniwork.repository.FileUploadRepository;
@@ -92,6 +94,7 @@ public class JobServiceImpl implements JobService {
     private final FileUploadRepository fileUploadRepository;
     private final NotificationService notificationService;
     private final JobNotifyService jobNotifyService;
+    private final ApplicationRepository applicationRepository;
 
     /**
      * Lớp cửa chạy kiểm duyệt AI ở nền.
@@ -173,14 +176,41 @@ public class JobServiceImpl implements JobService {
     @Override
     @Transactional
     public JobResponse detail(String jobId) {
+        return detail(jobId, null);
+    }
+
+    @Override
+    @Transactional
+    public JobResponse detail(String jobId, User viewer) {
         JobPost job = jobPostRepository.findBySlugAndDeletedAtIsNull(jobId)
                 .orElseThrow(() -> ApiErrors.notFound("Không tìm thấy tin tuyển dụng này."));
 
-        // Tăng bộ đếm lượt xem khi mở chi tiết tin (fire-and-forget, không chặn response).
-        job.setViewCount((job.getViewCount() != null ? job.getViewCount() : 0) + 1);
-        jobPostRepository.save(job);
+        boolean isOpen = JobStatuses.isRecruiting(job.getStatus());
+        if (!isOpen && !canViewNonOpenJob(job, viewer)) {
+            throw ApiErrors.notFound("Không tìm thấy tin tuyển dụng này.");
+        }
+
+        if (isOpen) {
+            // Tăng bộ đếm lượt xem khi mở chi tiết tin công khai (không cộng khi chủ tin/admin xem trước tin chưa mở).
+            job.setViewCount((job.getViewCount() != null ? job.getViewCount() : 0) + 1);
+            jobPostRepository.save(job);
+        }
 
         return toResponse(job);
+    }
+
+    /** Tin chưa {@code OPEN} chỉ cho phép chính nhà tuyển dụng sở hữu tin hoặc quản trị viên xem. */
+    private static boolean canViewNonOpenJob(JobPost job, User viewer) {
+        if (viewer == null) {
+            return false;
+        }
+        String roleCode = viewer.getRole() != null ? viewer.getRole().getCode() : null;
+        if ("ADMIN".equals(roleCode)) {
+            return true;
+        }
+        return job.getEmployer() != null
+                && viewer.getId() != null
+                && viewer.getId().equals(job.getEmployer().getUserId());
     }
 
     @Override
@@ -189,7 +219,7 @@ public class JobServiceImpl implements JobService {
         int safeLimit = limit == null || limit <= 0 ? 6 : Math.min(20, limit);
 
         List<JobPost> candidates = jobPostRepository.findAllByDeletedAtIsNull().stream()
-                .filter(job -> "OPEN".equals(job.getStatus()))
+                .filter(job -> JobStatuses.isRecruiting(job.getStatus()))
                 .filter(job -> excludeId == null || !excludeId.equals(job.getSlug()))
                 .sorted(Comparator
                         .comparing((JobPost job) ->
@@ -340,10 +370,12 @@ public class JobServiceImpl implements JobService {
 
         applyLocation(job, request);
 
-        // Sửa tin đã được duyệt hoặc bị từ chối → tin quay lại hàng đợi duyệt của quản trị viên
-        // (khớp với hành vi của mock layer). `publishedAt` giữ nguyên để không
-        // mất mốc thời gian đăng tin ban đầu.
-        boolean backToReview = "OPEN".equals(job.getStatus()) || "REJECTED".equals(job.getStatus());
+        // Sửa tin đã được duyệt, bị từ chối hoặc đang đóng → tin quay lại hàng đợi duyệt của quản trị viên
+        // (khớp ADR 0003: đảm bảo tin đã đóng không thể sửa nội dung rồi mở lại trực tiếp mà bỏ qua duyệt).
+        // `publishedAt` giữ nguyên để không mất mốc thời gian đăng tin ban đầu.
+        boolean backToReview = JobStatuses.isRecruiting(job.getStatus())
+                || "REJECTED".equals(job.getStatus())
+                || JobStatuses.isClosed(job.getStatus());
         if (backToReview) {
             job.setStatus("PENDING_REVIEW");
         }
@@ -389,6 +421,110 @@ public class JobServiceImpl implements JobService {
     }
 
     @Override
+    @Transactional
+    public JobResponse updateStatus(String jobId, String targetStatus, Long employerUserId) {
+        JobPost job = jobPostRepository.findBySlugAndDeletedAtIsNull(jobId)
+                .orElseThrow(() -> ApiErrors.notFound("Không tìm thấy tin tuyển dụng này."));
+
+        // Tin của nhà tuyển dụng khác coi như không tồn tại — cùng quy ước với
+        // sửa / huỷ tin để không lộ sự tồn tại của tin chưa công khai.
+        if (!job.getEmployer().getUserId().equals(employerUserId)) {
+            throw ApiErrors.notFound("Không tìm thấy tin tuyển dụng này.");
+        }
+
+        if (targetStatus == null || targetStatus.isBlank()) {
+            throw ApiErrors.badRequest("Vui lòng chọn trạng thái mới.",
+                    ApiErrors.errors("status", "Thiếu trạng thái mới"));
+        }
+
+        switch (targetStatus.toUpperCase()) {
+            case JobStatuses.CLOSED -> close(job);
+            case JobStatuses.OPEN -> reopen(job);
+            case JobStatuses.COMPLETED -> markCompleted(job);
+            default -> throw ApiErrors.badRequest("Trạng thái không hợp lệ.",
+                    ApiErrors.errors("status", "Chỉ hỗ trợ CLOSED, OPEN hoặc COMPLETED"));
+        }
+
+        job = jobPostRepository.save(job);
+        return toResponse(job);
+    }
+
+    /**
+     * Đóng tin thủ công — ngừng nhận đơn nhưng vẫn giữ tin (khác Huỷ tin
+     * {@code CANCELLED} có gán {@code deletedAt}).
+     */
+    private void close(JobPost job) {
+        if (!JobStatuses.canClose(job.getStatus())) {
+            throw ApiErrors.badRequest(
+                    "Chỉ có thể đóng tin đang tuyển (Đang tuyển hoặc Đang tuyển thêm).",
+                    ApiErrors.errors("status", "Không thể đóng tin ở trạng thái hiện tại"));
+        }
+
+        job.setStatus(JobStatuses.CLOSED);
+        job.setClosedAt(LocalDateTime.now());
+    }
+
+    /**
+     * Mở lại tin đã đóng.
+     *
+     * <p>Không đưa tin về {@code PENDING_REVIEW}: nội dung tin không thay đổi và
+     * tin đã từng được quản trị viên duyệt trước khi được đóng (xem ADR 0003 —
+     * chỉ tin mới đăng hoặc tin bị sửa nội dung mới phải duyệt lại). Trạng thái
+     * mới phụ thuộc số suất đã nhận ({@code ACCEPTED} + {@code COMPLETED}).
+     */
+    private void reopen(JobPost job) {
+        if (!JobStatuses.isClosed(job.getStatus())) {
+            throw ApiErrors.badRequest("Chỉ có thể mở lại tin đã đóng.",
+                    ApiErrors.errors("status", "Tin không ở trạng thái Đã đóng"));
+        }
+
+        short positionsCount = job.getPositionsCount() != null ? job.getPositionsCount() : (short) 1;
+        long filledCount = countFilled(job);
+
+        if (filledCount >= positionsCount) {
+            throw ApiErrors.badRequest(
+                    "Tin đã nhận đủ số suất, không thể mở lại. Hãy tăng số lượng tuyển trước.",
+                    ApiErrors.errors("status", "Tin đã nhận đủ số suất"));
+        }
+
+        job.setPositionsFilled((short) Math.min(filledCount, positionsCount));
+        job.setStatus(filledCount == 0 ? JobStatuses.OPEN : JobStatuses.IN_PROGRESS);
+        job.setClosedAt(null);
+    }
+
+    /**
+     * Đánh dấu tin hoàn thành thủ công.
+     *
+     * <p>Chỉ cho phép khi không còn đơn ứng tuyển nào ở trạng thái {@code ACCEPTED}
+     * — tránh đóng tin khi vẫn còn người đang làm việc.
+     */
+    private void markCompleted(JobPost job) {
+        if (!JobStatuses.canMarkCompleted(job.getStatus())) {
+            throw ApiErrors.badRequest(
+                    "Chỉ có thể hoàn thành tin đang tuyển, đã nhận đủ người hoặc đã đóng.",
+                    ApiErrors.errors("status", "Không thể hoàn thành tin ở trạng thái hiện tại"));
+        }
+
+        long acceptedCount = applicationRepository.countByJobPostIdAndStatus(job.getId(), "ACCEPTED");
+        if (acceptedCount > 0) {
+            throw ApiErrors.badRequest(
+                    "Còn " + acceptedCount + " ứng viên đang làm việc. Hãy hoàn thành các đơn ứng tuyển đó trước.",
+                    ApiErrors.errors("status", "Còn đơn ứng tuyển đang ở trạng thái Đã nhận"));
+        }
+
+        job.setStatus(JobStatuses.COMPLETED);
+        if (job.getClosedAt() == null) {
+            job.setClosedAt(LocalDateTime.now());
+        }
+    }
+
+    /** Số suất đã có người: đơn {@code ACCEPTED} + đơn {@code COMPLETED}. */
+    private long countFilled(JobPost job) {
+        return applicationRepository.countByJobPostIdAndStatus(job.getId(), "ACCEPTED")
+                + applicationRepository.countByJobPostIdAndStatus(job.getId(), "COMPLETED");
+    }
+
+    @Override
     @Transactional(readOnly = true)
     public List<JobResponse> listByEmployer(Long employerUserId, String status) {
         List<JobPost> jobs = (status == null || status.isBlank() || "ALL".equalsIgnoreCase(status))
@@ -418,6 +554,7 @@ public class JobServiceImpl implements JobService {
             job.setStatus("OPEN");
             job.setReviewedAt(LocalDateTime.now());
             job.setRejectReason(null);
+            job.setClosedAt(null);
             if (job.getPublishedAt() == null) {
                 job.setPublishedAt(LocalDateTime.now());
             }
@@ -935,6 +1072,7 @@ public class JobServiceImpl implements JobService {
                 .schedules(schedules)
                 .skills(skills)
                 .status(job.getStatus())
+                .rejectReason("REJECTED".equals(job.getStatus()) ? job.getRejectReason() : null)
                 .postedAt(DateTimeUtils.toIso(job.getPublishedAt() != null ? job.getPublishedAt() : job.getCreatedAt()))
                 .deadline(DateTimeUtils.toIso(job.getApplicationDeadline()))
                 .applicantCount(job.getApplicantCount() != null ? job.getApplicantCount() : 0)

@@ -1,5 +1,6 @@
 package com.uniwork.service.impl;
 
+import com.uniwork.constant.JobStatuses;
 import com.uniwork.dto.request.CreateApplicationRequest;
 import com.uniwork.dto.request.UpdateApplicationStatusRequest;
 import com.uniwork.dto.response.ApplicationResponse;
@@ -81,7 +82,7 @@ public class ApplicationServiceImpl implements ApplicationService {
         JobPost job = jobPostRepository.findBySlugAndDeletedAtIsNull(request.getJobId())
                 .orElseThrow(() -> ApiErrors.notFound("Không tìm thấy tin tuyển dụng này."));
 
-        if (!"OPEN".equals(job.getStatus())) {
+        if (!JobStatuses.isRecruiting(job.getStatus())) {
             throw ApiErrors.badRequest("Tin tuyển dụng này đã ngừng nhận ứng tuyển.");
         }
 
@@ -465,22 +466,41 @@ public class ApplicationServiceImpl implements ApplicationService {
                 .build());
     }
 
-    /** Đồng bộ `positionsFilled` và trạng thái FILLED / IN_PROGRESS của tin tuyển dụng. */
+    /**
+     * Đồng bộ {@code positionsFilled} và trạng thái tin tuyển dụng theo số đơn
+     * {@code ACCEPTED} + {@code COMPLETED}.
+     *
+     * <p>Tính cả {@code COMPLETED} để {@code positionsFilled} không bị tụt khi
+     * ứng viên hoàn thành việc, đồng thời tự động chuyển tin sang
+     * {@code COMPLETED} khi không còn tuyển thêm ({@code FILLED} hoặc
+     * {@code CLOSED}), mọi ứng viên đã nhận đều hoàn thành ({@code ACCEPTED == 0}
+     * và {@code COMPLETED > 0}).
+     */
     private void syncJobPositions(JobPost job) {
         long acceptedCount = applicationRepository.countByJobPostIdAndStatus(job.getId(), "ACCEPTED");
+        long completedCount = applicationRepository.countByJobPostIdAndStatus(job.getId(), "COMPLETED");
+        long filledCount = acceptedCount + completedCount;
         short positionsCount = job.getPositionsCount() != null ? job.getPositionsCount() : (short) 1;
 
-        job.setPositionsFilled((short) Math.min(acceptedCount, positionsCount));
+        job.setPositionsFilled((short) Math.min(filledCount, positionsCount));
 
-        if (acceptedCount >= positionsCount) {
-            // Đã tuyển đủ suất → đóng tin
-            if ("OPEN".equals(job.getStatus()) || "IN_PROGRESS".equals(job.getStatus())) {
-                job.setStatus("FILLED");
+        if (filledCount >= positionsCount) {
+            // Đã tuyển đủ suất → ngừng nhận hồ sơ công khai
+            if (JobStatuses.isRecruiting(job.getStatus())) {
+                job.setStatus(JobStatuses.FILLED);
             }
-        } else if (acceptedCount > 0) {
-            // Đã có ứng viên được nhận nhưng còn suất → tin đang tuyển dở
-            if ("OPEN".equals(job.getStatus())) {
-                job.setStatus("IN_PROGRESS");
+        } else if (filledCount > 0) {
+            // Đã có ứng viên được nhận nhưng còn suất → đang tuyển thêm
+            if (JobStatuses.OPEN.equals(job.getStatus())) {
+                job.setStatus(JobStatuses.IN_PROGRESS);
+            }
+        }
+
+        if ((JobStatuses.FILLED.equals(job.getStatus()) || JobStatuses.CLOSED.equals(job.getStatus()))
+                && acceptedCount == 0 && completedCount > 0) {
+            job.setStatus(JobStatuses.COMPLETED);
+            if (job.getClosedAt() == null) {
+                job.setClosedAt(LocalDateTime.now());
             }
         }
 

@@ -1,5 +1,6 @@
 package com.uniwork.service.impl;
 
+import com.uniwork.constant.JobStatuses;
 import com.uniwork.dto.request.UpdateEmployerProfileRequest;
 import com.uniwork.dto.request.UpdateStudentProfileRequest;
 import com.uniwork.dto.response.EmployerProfileResponse;
@@ -237,7 +238,9 @@ public class ProfileServiceImpl implements ProfileService {
         EmployerProfile profile = employerProfileRepository.findBySlug(employerId)
                 .orElseThrow(() -> ApiErrors.notFound("Không tìm thấy nhà tuyển dụng này."));
 
-        var jobs = jobService.listByEmployer(profile.getUserId(), "OPEN");
+        var jobs = jobService.listByEmployer(profile.getUserId(), null).stream()
+                .filter(job -> JobStatuses.isRecruiting(job.getStatus()))
+                .toList();
 
         List<ReviewResponse> reviews = reviewRepository
                 .findByRevieweeIdAndTargetTypeAndIsHiddenFalseOrderByCreatedAtDesc(profile.getUserId(), "EMPLOYER")

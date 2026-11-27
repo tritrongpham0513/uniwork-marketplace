@@ -1,5 +1,6 @@
 package com.uniwork.repository.specification;
 
+import com.uniwork.constant.JobStatuses;
 import com.uniwork.entity.JobPost;
 import jakarta.persistence.criteria.Predicate;
 import org.springframework.data.jpa.domain.Specification;
@@ -53,10 +54,10 @@ public class JobPostSpecification {
             // 1. Chỉ lấy tin chưa xoá mềm
             predicates.add(cb.isNull(root.get("deletedAt")));
 
-            // 2. Trạng thái tin
+            // 2. Trạng thái tin — mặc định lấy tin còn đang mở tuyển (OPEN + IN_PROGRESS)
             if (status == null || status.isBlank() || "ALL".equalsIgnoreCase(status)) {
                 if (employerUserId == null) {
-                    predicates.add(cb.equal(root.get("status"), "OPEN"));
+                    predicates.add(root.get("status").in(JobStatuses.RECRUITING));
                 }
             } else {
                 predicates.add(cb.equal(root.get("status"), status));

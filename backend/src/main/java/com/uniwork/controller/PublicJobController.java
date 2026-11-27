@@ -4,6 +4,8 @@ import com.uniwork.constant.ApiEndpoints;
 import com.uniwork.dto.response.ApiResponse;
 import com.uniwork.dto.response.JobListResponse;
 import com.uniwork.dto.response.JobResponse;
+import com.uniwork.entity.User;
+import com.uniwork.security.CurrentUserArgumentResolver;
 import com.uniwork.service.JobService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -74,7 +76,10 @@ public class PublicJobController {
     @GetMapping("/{id}")
     @Operation(summary = "Chi tiết tin tuyển dụng")
     public ResponseEntity<ApiResponse<JobResponse>> detail(@PathVariable("id") String id) {
-        JobResponse result = jobService.detail(id);
+        User viewer = CurrentUserArgumentResolver.currentUser().orElse(null);
+        JobResponse result = viewer == null
+                ? jobService.detail(id)
+                : jobService.detail(id, viewer);
         return ResponseEntity.ok(ApiResponse.success("Lấy chi tiết tin tuyển dụng thành công", result));
     }
 }
