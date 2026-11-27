@@ -110,9 +110,11 @@ export function Header() {
         {/* LOGO BRAND */}
         <div className="flex items-center gap-8">
           <Link to={PATHS.HOME} className="group flex items-center gap-2.5">
-            <div className="flex size-9 items-center justify-center rounded-xl bg-primary text-primary-foreground shadow-xs transition-transform group-hover:scale-105">
-              <Briefcase className="size-5" />
-            </div>
+            <img
+              src="/favicon.png"
+              alt="VieJob"
+              className="size-9 shrink-0 rounded-xl object-contain shadow-xs transition-transform group-hover:scale-105"
+            />
             <div className="flex flex-col">
               <span className="text-lg font-bold tracking-tight text-foreground">
                 Vie<span className="text-primary">Job</span>

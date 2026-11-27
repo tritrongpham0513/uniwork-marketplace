@@ -1,5 +1,5 @@
 import { Link } from "react-router";
-import { Briefcase, ShieldCheck, Mail, Phone, MapPin } from "lucide-react";
+import { ShieldCheck, Mail, Phone, MapPin } from "lucide-react";
 import { PATHS } from "@/config/paths";
 
 export function Footer() {
@@ -10,9 +10,11 @@ export function Footer() {
           {/* Logo & Giới thiệu */}
           <div className="space-y-4 lg:col-span-2">
             <Link to={PATHS.HOME} className="flex items-center gap-2.5">
-              <div className="flex size-9 items-center justify-center rounded-xl bg-primary text-primary-foreground shadow-xs">
-                <Briefcase className="size-5" />
-              </div>
+              <img
+                src="/favicon.png"
+                alt="VieJob"
+                className="size-9 shrink-0 rounded-xl object-contain shadow-xs"
+              />
               <div className="flex flex-col">
                 <span className="text-lg font-bold tracking-tight text-foreground">
                   Vie<span className="text-primary">Job</span>
@@ -32,9 +34,7 @@ export function Footer() {
             <div className="space-y-1.5 text-xs text-muted-foreground">
               <div className="flex items-center gap-2">
                 <MapPin className="size-3.5 shrink-0 text-primary" />
-                <span>
-                  Khu Công nghệ Cao, TP. Thủ Đức, TP. Hồ Chí Minh
-                </span>
+                <span>Khu Công nghệ Cao, TP. Thủ Đức, TP. Hồ Chí Minh</span>
               </div>
               <div className="flex items-center gap-2">
                 <Phone className="size-3.5 shrink-0 text-primary" />

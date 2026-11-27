@@ -1,5 +1,6 @@
 import { CloudShader } from "@/components/ui/cloud-shader";
-import { Outlet } from "react-router";
+import { Link, Outlet } from "react-router";
+import { PATHS } from "@/config/paths";
 import authBanner from "@/assets/images/auth-banner.png";
 
 function AuthLayout() {
@@ -19,7 +20,28 @@ function AuthLayout() {
 
           {/* Form bên phải */}
           <div className="flex flex-col items-center justify-center p-4 sm:p-6 md:p-8">
-            <div className="w-full max-w-sm space-y-4">
+            <div className="w-full max-w-sm space-y-6">
+              <div className="flex justify-center">
+                <Link
+                  to={PATHS.HOME}
+                  className="group inline-flex items-center gap-2.5 transition-opacity hover:opacity-80"
+                  title="Quay về trang chủ"
+                >
+                  <img
+                    src="/favicon.png"
+                    alt="VieJob"
+                    className="size-9 shrink-0 rounded-xl object-contain shadow-xs transition-transform group-hover:scale-105"
+                  />
+                  <div className="flex flex-col">
+                    <span className="text-lg font-bold tracking-tight text-foreground">
+                      Vie<span className="text-primary">Job</span>
+                    </span>
+                    <span className="-mt-1 text-[10px] font-medium text-muted-foreground">
+                      Việc làm sinh viên
+                    </span>
+                  </div>
+                </Link>
+              </div>
               <Outlet />
             </div>
           </div>

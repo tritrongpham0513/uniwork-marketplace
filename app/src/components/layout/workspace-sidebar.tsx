@@ -1,7 +1,6 @@
 import { Link, useLocation } from "react-router";
 import {
   Bell,
-  Briefcase,
   Building2,
   ChevronUp,
   GraduationCap,
@@ -292,9 +291,11 @@ export function WorkspaceSidebar() {
           to={PATHS.HOME}
           className="flex items-center gap-2.5 rounded-xl px-1 py-1 transition-opacity group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:px-0 hover:opacity-80"
         >
-          <div className="flex size-9 shrink-0 items-center justify-center rounded-xl bg-primary text-primary-foreground shadow-xs">
-            <Briefcase className="size-5" />
-          </div>
+          <img
+            src="/favicon.png"
+            alt="VieJob"
+            className="size-9 shrink-0 rounded-xl object-contain shadow-xs"
+          />
           <div className="flex min-w-0 flex-col group-data-[collapsible=icon]:hidden">
             <span className="text-lg font-bold tracking-tight text-sidebar-foreground">
               Vie<span className="text-primary">Job</span>
