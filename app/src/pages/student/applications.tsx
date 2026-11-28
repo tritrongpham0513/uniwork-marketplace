@@ -1,6 +1,13 @@
 import { useMemo, useState } from "react";
 import { Link } from "react-router";
-import { ChevronRight, Plus, RefreshCw, Search, Undo2 } from "lucide-react";
+import {
+  ChevronRight,
+  MapPin,
+  Plus,
+  RefreshCw,
+  Search,
+  Undo2,
+} from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -25,6 +32,7 @@ import {
   type ApplicationStatus,
 } from "@/features/shared/types";
 import { PATHS } from "@/config/paths";
+import { formatPostedAgo } from "@/features/jobs/lib/format";
 import { showApiError, toast } from "@/lib/toast";
 
 /** Chip lọc theo trạng thái */
@@ -46,8 +54,12 @@ export default function StudentApplicationsPage() {
   const [keyword, setKeyword] = useState("");
   const [withdrawTarget, setWithdrawTarget] = useState<string | null>(null);
 
-  const { data: applications = [], isPending, isError, refetch } =
-    useStudentApplications();
+  const {
+    data: applications = [],
+    isPending,
+    isError,
+    refetch,
+  } = useStudentApplications();
   const withdraw = useWithdrawApplication();
 
   const counts = useMemo(() => {
@@ -102,7 +114,11 @@ export default function StudentApplicationsPage() {
       title="Đơn ứng tuyển của tôi"
       description="Theo dõi trạng thái và kết quả của mọi hồ sơ bạn đã gửi."
       actions={
-        <Button size="sm" nativeButton={false} render={<Link to={PATHS.JOBS.ROOT} />}>
+        <Button
+          size="sm"
+          nativeButton={false}
+          render={<Link to={PATHS.JOBS.ROOT} />}
+        >
           <Plus className="size-4" />
           Ứng tuyển thêm
         </Button>
@@ -140,7 +156,7 @@ export default function StudentApplicationsPage() {
               scroll-fade-x`) để không bị "thô". Thêm tab rỗng đã bị lọc bỏ nên
               thường vừa khít, không phải cuộn.
             */}
-            <TabsList className="no-scrollbar scroll-fade-x flex w-full flex-nowrap justify-start gap-1 overflow-x-auto rounded-2xl p-1 group-data-horizontal/tabs:h-auto">
+            <TabsList className="no-scrollbar flex w-full scroll-fade-x flex-nowrap justify-start gap-1 overflow-x-auto rounded-2xl p-1 group-data-horizontal/tabs:h-auto">
               {visibleFilters.map((item) => {
                 const count =
                   item.value === "ALL"
@@ -155,7 +171,7 @@ export default function StudentApplicationsPage() {
                   >
                     {item.label}
                     {count > 0 && (
-                      <span className="ml-1 text-[10px] tabular-nums text-muted-foreground">
+                      <span className="ml-1 text-[10px] text-muted-foreground tabular-nums">
                         {count}
                       </span>
                     )}
@@ -171,7 +187,10 @@ export default function StudentApplicationsPage() {
         {isPending && (
           <div className="space-y-3">
             {Array.from({ length: 4 }).map((_, index) => (
-              <div key={index} className="h-24 animate-pulse rounded-xl bg-muted/60" />
+              <div
+                key={index}
+                className="h-24 animate-pulse rounded-xl bg-muted/60"
+              />
             ))}
           </div>
         )}
@@ -197,7 +216,11 @@ export default function StudentApplicationsPage() {
                 : "Thử đổi bộ lọc hoặc tìm kiếm với từ khoá khác."
             }
             action={
-              <Button size="sm" nativeButton={false} render={<Link to={PATHS.JOBS.ROOT} />}>
+              <Button
+                size="sm"
+                nativeButton={false}
+                render={<Link to={PATHS.JOBS.ROOT} />}
+              >
                 Tìm việc làm
               </Button>
             }
@@ -227,24 +250,55 @@ export default function StudentApplicationsPage() {
 
                           <div className="min-w-0">
                             <Link
-                              to={PATHS.STUDENT.APPLICATION_DETAIL(application.id)}
+                              to={PATHS.STUDENT.APPLICATION_DETAIL(
+                                application.id
+                              )}
                               className="truncate text-sm font-semibold text-foreground transition-colors hover:text-primary"
                             >
                               {application.jobTitle}
                             </Link>
                             <p className="truncate text-xs text-muted-foreground">
                               {application.employerName} · Ứng tuyển{" "}
-                              {new Date(application.createdAt).toLocaleDateString(
-                                "vi-VN"
-                              )}
+                              {formatPostedAgo(application.createdAt)}
                             </p>
+                            {(application.jobWard ||
+                              application.jobProvince) && (
+                              <p className="mt-0.5 flex items-center gap-1 truncate text-xs text-muted-foreground">
+                                <MapPin className="size-3 shrink-0" />
+                                {[application.jobWard, application.jobProvince]
+                                  .filter(Boolean)
+                                  .join(", ")}
+                              </p>
+                            )}
+                            {application.coverLetter && (
+                              <p className="mt-0.5 line-clamp-1 text-xs text-muted-foreground">
+                                {application.coverLetter}
+                              </p>
+                            )}
                           </div>
                         </div>
 
                         <div className="flex shrink-0 flex-wrap items-center gap-2">
+                          {application.expectedSalary != null &&
+                            application.expectedSalary > 0 && (
+                              <span className="text-xs text-muted-foreground">
+                                Mong muốn:{" "}
+                                <span className="font-semibold text-foreground">
+                                  {application.expectedSalary.toLocaleString(
+                                    "vi-VN"
+                                  )}
+                                  {application.expectedSalary > 100000
+                                    ? "đ/tháng"
+                                    : "đ/giờ"}
+                                </span>
+                              </span>
+                            )}
+
                           <StatusBadge
                             status={application.status}
-                            label={APPLICATION_STATUS_LABELS[application.status]}
+                            label={
+                              APPLICATION_STATUS_LABELS[application.status]
+                            }
                           />
 
                           {canWithdraw && (
@@ -263,7 +317,9 @@ export default function StudentApplicationsPage() {
                               size="sm"
                               nativeButton={false}
                               render={
-                                <Link to={PATHS.JOBS.APPLY(application.jobId)} />
+                                <Link
+                                  to={PATHS.JOBS.APPLY(application.jobId)}
+                                />
                               }
                             >
                               <RefreshCw className="size-4" />

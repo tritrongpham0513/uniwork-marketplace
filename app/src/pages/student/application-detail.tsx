@@ -2,6 +2,7 @@ import { useState } from "react";
 import { Link, useParams } from "react-router";
 import {
   ArrowLeft,
+  Briefcase,
   Building2,
   CalendarClock,
   Mail,
@@ -9,6 +10,7 @@ import {
   Phone,
   Star,
   Undo2,
+  Wallet,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -32,14 +34,20 @@ import {
   useStudentApplication,
   useWithdrawApplication,
 } from "@/features/applications/hooks";
+import { formatApplicationJobSalary } from "@/features/applications/lib/format";
 import { APPLICATION_STATUS_LABELS } from "@/features/shared/types";
 import { PATHS } from "@/config/paths";
+import { formatDateVi } from "@/lib/date";
 import { showApiError, toast } from "@/lib/toast";
 
 export default function StudentApplicationDetailPage() {
   const { id = "" } = useParams();
-  const { data: application, isPending, isError, refetch } =
-    useStudentApplication(id);
+  const {
+    data: application,
+    isPending,
+    isError,
+    refetch,
+  } = useStudentApplication(id);
   const withdraw = useWithdrawApplication();
 
   const [reviewOpen, setReviewOpen] = useState(false);
@@ -57,9 +65,7 @@ export default function StudentApplicationDetailPage() {
 
   if (isPending) {
     return (
-      <DashboardLayout
-        title="Chi tiết đơn ứng tuyển"
-      >
+      <DashboardLayout title="Chi tiết đơn ứng tuyển">
         <div className="grid gap-6 lg:grid-cols-3">
           <div className="space-y-4 lg:col-span-2">
             <div className="h-32 animate-pulse rounded-xl bg-muted/60" />
@@ -73,9 +79,7 @@ export default function StudentApplicationDetailPage() {
 
   if (isError || !application) {
     return (
-      <DashboardLayout
-        title="Chi tiết đơn ứng tuyển"
-      >
+      <DashboardLayout title="Chi tiết đơn ứng tuyển">
         <ErrorState
           title="Không tìm thấy đơn ứng tuyển"
           description="Đơn ứng tuyển có thể đã bị xoá hoặc bạn không có quyền xem."
@@ -107,6 +111,39 @@ export default function StudentApplicationDetailPage() {
       <div className="grid gap-6 lg:grid-cols-3">
         {/* CỘT TRÁI */}
         <div className="space-y-6 lg:col-span-2">
+          {/* VỊ TRÍ ĐÃ ỨNG TUYỂN */}
+          <Card className="border-border/60">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2 font-heading text-base">
+                <Briefcase className="size-4 text-primary" />
+                Vị trí đã ứng tuyển
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-2.5 text-sm">
+              <p className="font-semibold text-foreground">
+                {application.jobTitle}
+              </p>
+              {(application.jobWard || application.jobProvince) && (
+                <p className="flex items-center gap-2 text-muted-foreground">
+                  <MapPin className="size-4 shrink-0" />
+                  {[application.jobWard, application.jobProvince]
+                    .filter(Boolean)
+                    .join(", ")}
+                </p>
+              )}
+              {application.jobSalaryType !== "NEGOTIABLE" &&
+                application.jobSalaryMin != null &&
+                application.jobSalaryMin > 0 && (
+                  <p className="flex items-center gap-2 text-muted-foreground">
+                    <Wallet className="size-4 shrink-0" />
+                    <span className="font-medium text-foreground">
+                      {formatApplicationJobSalary(application)}
+                    </span>
+                  </p>
+                )}
+            </CardContent>
+          </Card>
+
           {/* THÔNG TIN NHÀ TUYỂN DỤNG */}
           <Card className="border-border/60">
             <CardHeader>
@@ -164,7 +201,9 @@ export default function StudentApplicationDetailPage() {
           {/* CV ĐÃ NỘP */}
           <Card className="border-border/60">
             <CardHeader>
-              <CardTitle className="font-heading text-base">CV đã nộp</CardTitle>
+              <CardTitle className="font-heading text-base">
+                CV đã nộp
+              </CardTitle>
             </CardHeader>
             <CardContent>
               {application.cvUrl ? (
@@ -195,6 +234,44 @@ export default function StudentApplicationDetailPage() {
               )}
             </CardContent>
           </Card>
+
+          {/* KINH NGHIỆM LIÊN QUAN & NGÀY BẮT ĐẦU */}
+          {(application.experience || application.availableFrom) && (
+            <Card className="border-border/60">
+              <CardHeader>
+                <CardTitle className="font-heading text-base">
+                  Kinh nghiệm &amp; lịch làm việc
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                {application.experience && (
+                  <div>
+                    <p className="mb-1.5 text-sm font-medium text-foreground">
+                      Kinh nghiệm liên quan
+                    </p>
+                    <p className="text-sm leading-relaxed whitespace-pre-line text-muted-foreground">
+                      {application.experience}
+                    </p>
+                  </div>
+                )}
+
+                {application.experience && application.availableFrom && (
+                  <Separator />
+                )}
+
+                {application.availableFrom && (
+                  <div className="flex items-center justify-between text-sm">
+                    <span className="text-muted-foreground">
+                      Ngày có thể bắt đầu
+                    </span>
+                    <span className="font-medium text-foreground">
+                      {formatDateVi(application.availableFrom)}
+                    </span>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          )}
 
           {/* GHI CHÚ CỦA NTD */}
           {application.employerNote && (
@@ -294,6 +371,17 @@ export default function StudentApplicationDetailPage() {
                   <MapPin className="size-4 shrink-0" />
                   {application.studentUniversity} · {application.studentMajor}
                 </p>
+                {(application.studentAddress ||
+                  application.studentProvince) && (
+                  <p className="flex items-start gap-2 text-muted-foreground">
+                    <MapPin className="size-4 shrink-0" />
+                    <span>
+                      {[application.studentAddress, application.studentProvince]
+                        .filter(Boolean)
+                        .join(", ")}
+                    </span>
+                  </p>
+                )}
                 <p className="flex items-center gap-2 text-muted-foreground">
                   <CalendarClock className="size-4 shrink-0" />
                   Năm học {application.studentYear ?? "—"}

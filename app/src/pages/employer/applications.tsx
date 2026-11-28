@@ -60,6 +60,7 @@ import {
 } from "@/features/shared/types";
 import { PATHS } from "@/config/paths";
 import { formatPostedAgo } from "@/features/jobs/lib/format";
+import { formatDateVi } from "@/lib/date";
 import { showApiError, toast } from "@/lib/toast";
 
 const STATUS_FILTERS: Array<{
@@ -278,6 +279,28 @@ export default function EmployerApplicationsPage() {
                             Ứng tuyển: {application.jobTitle} ·{" "}
                             {formatPostedAgo(application.createdAt)}
                           </p>
+                          {application.experience && (
+                            <p className="mt-0.5 truncate text-xs text-muted-foreground">
+                              Kinh nghiệm: {application.experience}
+                            </p>
+                          )}
+                          {application.availableFrom && (
+                            <p className="mt-0.5 truncate text-xs text-muted-foreground">
+                              Bắt đầu: {formatDateVi(application.availableFrom)}
+                            </p>
+                          )}
+                          {(application.studentAddress ||
+                            application.studentProvince) && (
+                            <p className="mt-0.5 truncate text-xs text-muted-foreground">
+                              Nơi sinh sống:{" "}
+                              {[
+                                application.studentAddress,
+                                application.studentProvince,
+                              ]
+                                .filter(Boolean)
+                                .join(", ")}
+                            </p>
+                          )}
                         </div>
                       </div>
 

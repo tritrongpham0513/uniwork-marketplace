@@ -8,11 +8,13 @@ import com.uniwork.dto.response.ApplicationStatusEventResponse;
 import com.uniwork.entity.Application;
 import com.uniwork.entity.ApplicationStatusHistory;
 import com.uniwork.entity.JobPost;
+import com.uniwork.entity.Province;
 import com.uniwork.entity.StudentProfile;
 import com.uniwork.entity.User;
 import com.uniwork.repository.ApplicationRepository;
 import com.uniwork.repository.ApplicationStatusHistoryRepository;
 import com.uniwork.repository.JobPostRepository;
+import com.uniwork.repository.ProvinceRepository;
 import com.uniwork.repository.StudentProfileRepository;
 import com.uniwork.repository.UserRepository;
 import com.uniwork.service.ApplicationService;
@@ -63,6 +65,7 @@ public class ApplicationServiceImpl implements ApplicationService {
     private final JobPostRepository jobPostRepository;
     private final StudentProfileRepository studentProfileRepository;
     private final UserRepository userRepository;
+    private final ProvinceRepository provinceRepository;
     private final NotificationService notificationService;
     private final WorkHistoryService workHistoryService;
     private final FileStorageService fileStorageService;
@@ -529,10 +532,23 @@ public class ApplicationServiceImpl implements ApplicationService {
                 .map(User::getEmail)
                 .orElse("");
 
+        String studentProvince = student.getProvinceId() != null
+                ? provinceRepository.findById(student.getProvinceId())
+                        .map(Province::getName)
+                        .orElse(null)
+                : null;
+
         return ApplicationResponse.builder()
                 .id(application.getSlug())
                 .jobId(job.getSlug())
                 .jobTitle(job.getTitle())
+                .jobProvince(job.getProvince() != null ? job.getProvince().getName() : null)
+                .jobWard(job.getWard() != null
+                        ? job.getWard().getName()
+                        : (job.getDistrict() != null ? job.getDistrict().getName() : null))
+                .jobSalaryMin(job.getSalaryMin() != null ? job.getSalaryMin().intValue() : null)
+                .jobSalaryMax(job.getSalaryMax() != null ? job.getSalaryMax().intValue() : null)
+                .jobSalaryType(job.getSalaryType())
                 .employerId(job.getEmployer().getSlug())
                 .employerName(job.getEmployer().getDisplayName())
                 .employerLogoVariant(job.getEmployer().getLogoVariant())
@@ -546,6 +562,8 @@ public class ApplicationServiceImpl implements ApplicationService {
                 .studentYear(student.getYearOfStudy() != null ? student.getYearOfStudy().intValue() : null)
                 .studentPhone(student.getPhone())
                 .studentEmail(studentEmail)
+                .studentAddress(student.getAddress())
+                .studentProvince(studentProvince)
                 .studentSkills(student.getSkills() != null ? student.getSkills() : List.of())
                 .studentBio(student.getBio())
                 .cvUrl(application.getCvUrl())

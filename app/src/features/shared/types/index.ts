@@ -443,6 +443,16 @@ export interface Application {
   id: string;
   jobId: string;
   jobTitle: string;
+  /** Địa điểm làm việc của tin tuyển dụng (tỉnh + xã/phường). */
+  jobProvince: string | null;
+  /** Tên xã/phường (hoặc quận/huyện cũ) của nơi làm việc. */
+  jobWard: string | null;
+  /** Mức lương tối thiểu của tin (đơn vị theo `jobSalaryType`). */
+  jobSalaryMin: number | null;
+  /** Mức lương tối đa của tin (đơn vị theo `jobSalaryType`). */
+  jobSalaryMax: number | null;
+  /** Đơn vị trả lương của tin tuyển dụng. */
+  jobSalaryType: SalaryType;
   employerId: string;
   employerName: string;
   employerLogoVariant: EmployerSummary["logoVariant"];
@@ -457,6 +467,10 @@ export interface Application {
   studentYear: number | null;
   studentPhone: string;
   studentEmail: string;
+  /** Địa chỉ nơi sinh sống của sinh viên (từ hồ sơ) */
+  studentAddress: string | null;
+  /** Tên tỉnh/thành phố nơi sinh viên sinh sống (từ hồ sơ) */
+  studentProvince: string | null;
   studentSkills: string[];
   studentBio: string;
   cvUrl: string | null;

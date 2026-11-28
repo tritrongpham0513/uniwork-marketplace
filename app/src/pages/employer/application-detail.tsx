@@ -51,7 +51,10 @@ import {
 } from "@/features/reviews/hooks";
 import { useEmployerProfile } from "@/features/profile/hooks";
 import { useApplicationWorkHistory } from "@/features/work-history/hooks";
-import { APPLICATION_STATUS_LABELS, type Review } from "@/features/shared/types";
+import {
+  APPLICATION_STATUS_LABELS,
+  type Review,
+} from "@/features/shared/types";
 import { PATHS } from "@/config/paths";
 import { formatDateVi } from "@/lib/date";
 import { showApiError, toast } from "@/lib/toast";
@@ -70,17 +73,13 @@ export default function EmployerApplicationDetailPage() {
   const { data: skills = [] } = useSkills();
   const { data: employerProfile } = useEmployerProfile();
   // Đánh giá ứng viên đã nhận từ nhà tuyển dụng khác (uy tín của sinh viên)
-  const {
-    data: candidateReviews = [],
-    isPending: candidateReviewsPending,
-  } = useApplicationReviews(id);
+  const { data: candidateReviews = [], isPending: candidateReviewsPending } =
+    useApplicationReviews(id);
   // NTD phản hồi lại đánh giá mà chính NTD đã viết cho ứng viên.
   const replyAsReviewer = useReplyReviewAsReviewer();
   // Kinh nghiệm làm việc của ứng viên (hệ thống tự ghi khi đơn hoàn thành).
-  const {
-    data: workHistories = [],
-    isPending: workHistoriesPending,
-  } = useApplicationWorkHistory(id);
+  const { data: workHistories = [], isPending: workHistoriesPending } =
+    useApplicationWorkHistory(id);
 
   /** Đánh giá do chính NTD này viết -> NTD là `reviewer`, được phản hồi lại. */
   const isOwnReview = (review: { fromUserId: number }) =>
@@ -99,7 +98,9 @@ export default function EmployerApplicationDetailPage() {
   const [replyTarget, setReplyTarget] = useState<Review | null>(null);
   const [replyText, setReplyText] = useState("");
   // Đồng bộ ô ghi chú khi đơn ứng tuyển tải về — pattern "adjust state khi dữ liệu đổi"
-  const [syncedApplicationId, setSyncedApplicationId] = useState<string | null>(null);
+  const [syncedApplicationId, setSyncedApplicationId] = useState<string | null>(
+    null
+  );
 
   /** Gửi phản hồi của NTD vào ô `reviewerReply` (phía người viết đánh giá). */
   const handleReviewerReply = async () => {
@@ -231,6 +232,18 @@ export default function EmployerApplicationDetailPage() {
                       <Phone className="size-3.5" />
                       {application.studentPhone}
                     </span>
+                    {(application.studentAddress ||
+                      application.studentProvince) && (
+                      <span className="flex items-center gap-1">
+                        <MapPin className="size-3.5" />
+                        {[
+                          application.studentAddress,
+                          application.studentProvince,
+                        ]
+                          .filter(Boolean)
+                          .join(", ")}
+                      </span>
+                    )}
                   </div>
                 </div>
               </div>
@@ -276,6 +289,50 @@ export default function EmployerApplicationDetailPage() {
                     "Ứng viên không viết thư giới thiệu."}
                 </p>
               </div>
+
+              {/* KINH NGHIỆM LIÊN QUAN */}
+              <Separator />
+              <div>
+                <p className="mb-1.5 text-sm font-medium text-foreground">
+                  Kinh nghiệm liên quan
+                </p>
+                <p className="text-sm leading-relaxed whitespace-pre-line text-muted-foreground">
+                  {application.experience ||
+                    "Ứng viên không nêu kinh nghiệm liên quan."}
+                </p>
+              </div>
+
+              {/* NƠI SINH SỐNG */}
+              {(application.studentAddress || application.studentProvince) && (
+                <>
+                  <Separator />
+                  <div className="flex items-start justify-between gap-4 text-sm">
+                    <span className="shrink-0 text-muted-foreground">
+                      Nơi sinh sống
+                    </span>
+                    <span className="text-right font-medium text-foreground">
+                      {[application.studentAddress, application.studentProvince]
+                        .filter(Boolean)
+                        .join(", ") || "—"}
+                    </span>
+                  </div>
+                </>
+              )}
+
+              {/* NGÀY CÓ THỂ BẮT ĐẦU */}
+              {application.availableFrom && (
+                <>
+                  <Separator />
+                  <div className="flex items-center justify-between text-sm">
+                    <span className="text-muted-foreground">
+                      Ngày có thể bắt đầu
+                    </span>
+                    <span className="font-medium text-foreground">
+                      {formatDateVi(application.availableFrom)}
+                    </span>
+                  </div>
+                </>
+              )}
 
               {/* CV */}
               <Separator />
@@ -758,7 +815,10 @@ export default function EmployerApplicationDetailPage() {
             >
               Huỷ
             </Button>
-            <Button onClick={handleReviewerReply} disabled={replyAsReviewer.isPending}>
+            <Button
+              onClick={handleReviewerReply}
+              disabled={replyAsReviewer.isPending}
+            >
               {replyAsReviewer.isPending ? "Đang gửi..." : "Gửi phản hồi"}
             </Button>
           </DialogFooter>

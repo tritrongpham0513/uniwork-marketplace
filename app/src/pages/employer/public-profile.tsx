@@ -273,7 +273,7 @@ export function PublicEmployerPage() {
                 </CardTitle>
               </CardHeader>
               <CardContent>
-                <p className="text-sm leading-relaxed whitespace-pre-line text-pretty text-muted-foreground">
+                <p className="text-sm leading-relaxed text-pretty whitespace-pre-line text-muted-foreground">
                   {profile.description}
                 </p>
               </CardContent>
@@ -407,7 +407,7 @@ function OpenJobRow({ job }: { job: Job }) {
         để khung hẹp không dồn chữ thành nhiều dòng.
       */}
       <p className="mt-1.5 text-xs text-muted-foreground">
-        <span className="whitespace-nowrap font-semibold text-foreground">
+        <span className="font-semibold whitespace-nowrap text-foreground">
           {formatSalary(job)} ·
         </span>{" "}
         <span className="whitespace-nowrap">
@@ -416,14 +416,11 @@ function OpenJobRow({ job }: { job: Job }) {
       </p>
       <p className="mt-0.5 text-xs text-muted-foreground">
         <span className="whitespace-nowrap">
-          {job.location.ward || job.location.district}, {job.location.province} ·
+          {job.location.ward || job.location.district}, {job.location.province}{" "}
+          ·
         </span>{" "}
         <span className="whitespace-nowrap">{job.applicantCount} ứng viên</span>
       </p>
-
-      {job.isUrgent && (
-        <p className="mt-1 text-xs font-medium text-destructive">Tuyển gấp</p>
-      )}
     </li>
   );
 }

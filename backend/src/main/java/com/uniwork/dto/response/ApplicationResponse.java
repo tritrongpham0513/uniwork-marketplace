@@ -22,6 +22,21 @@ public class ApplicationResponse {
 
     private String jobTitle;
 
+    /** Địa điểm làm việc của tin tuyển dụng (tỉnh + xã/phường). */
+    private String jobProvince;
+
+    /** Tên xã/phường (hoặc quận/huyện cũ) của nơi làm việc. */
+    private String jobWard;
+
+    /** Mức lương tối thiểu của tin (đơn vị theo `jobSalaryType`). */
+    private Integer jobSalaryMin;
+
+    /** Mức lương tối đa của tin (đơn vị theo `jobSalaryType`). */
+    private Integer jobSalaryMax;
+
+    /** Đơn vị trả lương của tin: HOURLY | DAILY | WEEKLY | MONTHLY | PER_TASK | NEGOTIABLE. */
+    private String jobSalaryType;
+
     private String employerId;
 
     private String employerName;
@@ -48,6 +63,12 @@ public class ApplicationResponse {
     private String studentPhone;
 
     private String studentEmail;
+
+    /** Địa chỉ nơi sinh sống của sinh viên (từ hồ sơ). */
+    private String studentAddress;
+
+    /** Tên tỉnh/thành phố nơi sinh viên sinh sống (từ hồ sơ). */
+    private String studentProvince;
 
     /** Danh sách public id kỹ năng của sinh viên */
     private List<String> studentSkills;

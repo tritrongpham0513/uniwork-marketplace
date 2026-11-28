@@ -8,11 +8,16 @@ import {
   Info,
   Phone,
   Send,
-  Sparkles,
   Upload,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Field, FieldDescription, FieldLabel } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
@@ -23,7 +28,10 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { useJob } from "@/features/jobs/hooks/useJobs";
 import { useAuth } from "@/features/auth/hooks";
 import { useStudentProfile } from "@/features/profile/hooks";
-import { useCreateApplication, useStudentApplicationByJob } from "@/features/applications/hooks";
+import {
+  useCreateApplication,
+  useStudentApplicationByJob,
+} from "@/features/applications/hooks";
 import { useUploadFile, cleanupReplacedFile } from "@/features/files/hooks";
 import { EMPLOYMENT_TYPE_LABELS } from "@/features/jobs/types";
 import { formatSalary } from "@/features/jobs/lib/format";
@@ -45,18 +53,16 @@ export function ApplyJobPage() {
   const { data: myApplication } = useStudentApplicationByJob(job?.id);
   const isReapply = myApplication?.status === "WITHDRAWN";
 
-  const [fullName, setFullName] = useState("");
-  const [phone, setPhone] = useState("");
-  const [email, setEmail] = useState("");
   const [coverLetter, setCoverLetter] = useState("");
   const [experience, setExperience] = useState("");
   const [expectedSalary, setExpectedSalary] = useState("");
   const [availableFrom, setAvailableFrom] = useState("");
   const [agreed, setAgreed] = useState(false);
-  // CV đã chọn: file được upload ngay, giữ URL + tên file để gửi kèm đơn.
-  const [cvFile, setCvFile] = useState<{ url: string; fileName: string } | null>(
-    null
-  );
+  // CV vừa upload trong phiên này. CV lấy từ hồ sơ được suy ra, không lưu state.
+  const [uploadedCv, setUploadedCv] = useState<{
+    url: string;
+    fileName: string;
+  } | null>(null);
 
   const uploadFile = useUploadFile();
 
@@ -68,7 +74,7 @@ export function ApplyJobPage() {
 
   /** Ghi nhận CV mới upload + dọn CV vừa upload trước đó (nếu có). */
   const trackUploadedCv = (url: string) => {
-    const previous = cvFile?.url;
+    const previous = uploadedCv?.url;
     unsavedCvRef.current.add(url);
     if (previous && previous !== url && unsavedCvRef.current.delete(previous)) {
       void cleanupReplacedFile(previous);
@@ -84,35 +90,29 @@ export function ApplyJobPage() {
     };
   }, []);
 
-  /** Dữ liệu hồ sơ dùng làm giá trị mặc định (prefill) */
-  const effectiveName = fullName || profile?.fullName || user?.fullName || "";
-  const effectivePhone = phone || profile?.phone || "";
-  const effectiveEmail = email || user?.email || "";
+  /**
+   * Thông tin liên hệ lấy từ hồ sơ sinh viên (không cho nhập lại trong form).
+   * Backend tự đọc từ `student_profiles` + `users` khi tạo đơn.
+   */
+  const effectiveName = profile?.fullName || user?.fullName || "";
+  const effectivePhone = profile?.phone || "";
+  const effectiveEmail = user?.email || "";
 
-  /** Ứng tuyển nhanh — điền toàn bộ thông tin từ hồ sơ UniJob (Viecoday) */
-  const fillFromProfile = () => {
-    if (!profile) {
-      toast.warning("Chưa có hồ sơ của bạn", {
-        description: "Hãy tạo hồ sơ tìm việc trước khi ứng tuyển nhanh.",
-      });
-      return;
-    }
-    setFullName(profile.fullName ?? "");
-    setPhone(profile.phone ?? "");
-    setEmail(user?.email ?? "");
-    setExperience(profile.bio ?? "");
-    if (profile.cvUrl) {
-      setCvFile({
-        url: profile.cvUrl,
-        // Backend trả kèm tên file gốc; trước đây lấy slug "file-xxxx" trên URL
-        // nên NTD nhận được tên file vô nghĩa.
-        fileName: profile.cvFileName ?? "CV của bạn",
-      });
-    }
-    toast.success("Đã điền thông tin từ hồ sơ của bạn", {
-      description: "Bạn vẫn có thể chỉnh sửa trước khi gửi đơn.",
-    });
-  };
+  /**
+   * CV dùng cho đơn: CV vừa upload được ưu tiên, không thì lấy CV trong hồ sơ.
+   *
+   * <p>Suy ra từ state + profile thay vì setState trong effect (React lint cấm).
+   */
+  const cvFile = uploadedCv
+    ? uploadedCv
+    : profile?.cvUrl
+      ? {
+          url: profile.cvUrl,
+          // Backend trả kèm tên file gốc; trước đây lấy slug "file-xxxx" trên URL
+          // nên NTD nhận được tên file vô nghĩa.
+          fileName: profile.cvFileName ?? "CV của bạn",
+        }
+      : null;
 
   if (isLoading) {
     return (
@@ -167,20 +167,27 @@ export function ApplyJobPage() {
     }
 
     if (!effectiveName.trim()) {
-      toast.error("Vui lòng nhập họ tên của bạn");
+      toast.error("Hồ sơ của bạn chưa có họ tên", {
+        description:
+          "Vui lòng cập nhật họ tên trong hồ sơ trước khi ứng tuyển.",
+      });
       return;
     }
 
     if (!effectivePhone.trim()) {
-      toast.error("Vui lòng nhập số điện thoại liên hệ");
+      toast.error("Hồ sơ của bạn chưa có số điện thoại", {
+        description:
+          "Vui lòng cập nhật số điện thoại trong hồ sơ để nhà tuyển dụng liên hệ được.",
+      });
       return;
     }
 
     if (!effectiveEmail.trim()) {
-      toast.error("Vui lòng nhập email liên hệ");
+      toast.error("Hồ sơ của bạn chưa có email", {
+        description: "Vui lòng cập nhật email trong hồ sơ trước khi ứng tuyển.",
+      });
       return;
     }
-
     if (!agreed) {
       toast.error("Vui lòng đồng ý với điều khoản ứng tuyển");
       return;
@@ -200,7 +207,7 @@ export function ApplyJobPage() {
         availableFrom: availableFrom || null,
         expectedSalary: expectedSalary ? Number(expectedSalary) : null,
         // Ưu tiên CV vừa upload; nếu không thì dùng CV trong hồ sơ
-        cvUrl: cvFile?.url ?? profile?.cvUrl ?? null,
+        cvUrl: cvFile?.url ?? null,
         cvFileName: cvFile?.fileName ?? null,
       },
       {
@@ -208,7 +215,9 @@ export function ApplyJobPage() {
           // CV đã được đơn ứng tuyển tham chiếu → không dọn nữa.
           unsavedCvRef.current.clear();
           toast.success(
-            isReapply ? "Gửi lại đơn ứng tuyển thành công!" : "Gửi đơn ứng tuyển thành công!",
+            isReapply
+              ? "Gửi lại đơn ứng tuyển thành công!"
+              : "Gửi đơn ứng tuyển thành công!",
             {
               description:
                 "Nhà tuyển dụng sẽ xem xét hồ sơ và thông báo kết quả cho bạn.",
@@ -259,7 +268,9 @@ export function ApplyJobPage() {
               variant="outline"
               nativeButton={false}
               render={
-                <Link to={PATHS.STUDENT.APPLICATION_DETAIL(myApplication!.id)} />
+                <Link
+                  to={PATHS.STUDENT.APPLICATION_DETAIL(myApplication!.id)}
+                />
               }
             >
               Xem hồ sơ của tôi
@@ -311,17 +322,6 @@ export function ApplyJobPage() {
                 </div>
               </div>
 
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                className="w-full cursor-pointer"
-                onClick={fillFromProfile}
-              >
-                <Sparkles className="size-4" />
-                Ứng tuyển nhanh với hồ sơ của bạn
-              </Button>
-
               {!profile?.cvUrl && (
                 <Alert>
                   <Info className="size-4" />
@@ -335,49 +335,54 @@ export function ApplyJobPage() {
             </CardContent>
           </Card>
 
-          {/* THÔNG TIN LIÊN HỆ */}
+          {/* THÔNG TIN LIÊN HỆ — lấy từ hồ sơ, không sửa tại đây */}
           <Card>
             <CardHeader className="pb-3">
               <CardTitle className="text-sm">Thông tin liên hệ</CardTitle>
+              <CardDescription className="text-xs">
+                Thông tin này được lấy từ hồ sơ của bạn. Muốn thay đổi, hãy cập
+                nhật tại trang Hồ sơ.
+              </CardDescription>
             </CardHeader>
             <CardContent className="grid gap-4 sm:grid-cols-2">
               <Field className="gap-1.5">
                 <FieldLabel htmlFor="full-name" className="text-xs font-medium">
-                  Họ và tên <span className="text-destructive">*</span>
+                  Họ và tên
                 </FieldLabel>
                 <Input
                   id="full-name"
-                  value={fullName}
-                  onChange={(event) => setFullName(event.target.value)}
-                  placeholder={
-                    profile?.fullName ?? user?.fullName ?? "Nguyễn Văn A"
-                  }
+                  value={effectiveName}
+                  readOnly
+                  disabled
+                  placeholder="Nguyễn Văn A"
                 />
               </Field>
 
               <Field className="gap-1.5">
                 <FieldLabel htmlFor="phone" className="text-xs font-medium">
-                  Số điện thoại <span className="text-destructive">*</span>
+                  Số điện thoại
                 </FieldLabel>
                 <Input
                   id="phone"
                   type="tel"
-                  value={phone}
-                  onChange={(event) => setPhone(event.target.value)}
-                  placeholder={profile?.phone ?? "0900 000 000"}
+                  value={effectivePhone}
+                  readOnly
+                  disabled
+                  placeholder="0900 000 000"
                 />
               </Field>
 
               <Field className="gap-1.5 sm:col-span-2">
                 <FieldLabel htmlFor="email" className="text-xs font-medium">
-                  Email <span className="text-destructive">*</span>
+                  Email
                 </FieldLabel>
                 <Input
                   id="email"
                   type="email"
-                  value={email}
-                  onChange={(event) => setEmail(event.target.value)}
-                  placeholder={user?.email ?? "ban@example.com"}
+                  value={effectiveEmail}
+                  readOnly
+                  disabled
+                  placeholder="ban@example.com"
                 />
               </Field>
             </CardContent>
@@ -419,7 +424,7 @@ export function ApplyJobPage() {
                         .mutateAsync({ file, kind: "CV" })
                         .then((uploaded) => {
                           trackUploadedCv(uploaded.url);
-                          setCvFile({
+                          setUploadedCv({
                             url: uploaded.url,
                             fileName: uploaded.fileName,
                           });

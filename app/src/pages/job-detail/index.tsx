@@ -280,7 +280,6 @@ export function JobDetailPage() {
           <Card>
             <CardContent className="p-5 sm:p-6">
               <div className="flex flex-wrap items-center gap-2">
-                {job.isUrgent && <Badge>Tuyển gấp</Badge>}
                 <Badge variant="secondary">{job.category.name}</Badge>
                 {job.position && (
                   <Badge variant="outline">{job.position.name}</Badge>

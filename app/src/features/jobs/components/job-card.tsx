@@ -61,7 +61,6 @@ export function JobCard({
       <CardHeader className="gap-2">
         {/* Hàng trên: các tag/badge — full chiều ngang */}
         <div className="flex flex-wrap items-center gap-2">
-          {job.isUrgent && <Badge>Tuyển gấp</Badge>}
           {isNewJob(job.postedAt) && (
             <Badge className="gap-1 bg-primary text-primary-foreground">
               <Sparkles className="size-3" />
